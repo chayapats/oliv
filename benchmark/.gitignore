@@ -1,0 +1,9 @@
+.venv/
+.cache/
+.env
+results.json
+*.pyc
+__pycache__/
+# your recordings + filled-in manifest (keep local)
+data/clips/
+data/manifest.jsonl

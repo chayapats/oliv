@@ -1,0 +1,22 @@
+# OLIV Phase 0 benchmark manifest — one JSON object per line.
+# Copy to manifest.jsonl, record each clip (16kHz mono WAV recommended) into ./clips/,
+# and set "reference" to the exact ground-truth transcript.
+# Fields: id, path, bucket, reference, keywords (optional; used for KW-recall on
+#         proper_nouns/technical buckets). Lines starting with # are ignored.
+#
+# --- bucket: thai_only ---
+{"id":"th01","path":"clips/th01.wav","bucket":"thai_only","reference":"ช่วยสรุปประเด็นหลักของการประชุมเมื่อเช้าให้หน่อย"}
+{"id":"th02","path":"clips/th02.wav","bucket":"thai_only","reference":"พรุ่งนี้ฝนน่าจะตกทั้งวันเลยอย่าลืมเอาร่มไปด้วย"}
+# --- bucket: english_only ---
+{"id":"en01","path":"clips/en01.wav","bucket":"english_only","reference":"can you summarize the main points from this morning's meeting"}
+{"id":"en02","path":"clips/en02.wav","bucket":"english_only","reference":"remind me to send the invoice before end of day tomorrow"}
+# --- bucket: mixed (the decision bucket — mid-sentence Thai<->English) ---
+{"id":"mx01","path":"clips/mx01.wav","bucket":"mixed","reference":"ช่วย deploy ตัวนี้ขึ้น staging แล้ว merge pull request ให้ด้วยนะ","keywords":["deploy","staging","merge","pull request"]}
+{"id":"mx02","path":"clips/mx02.wav","bucket":"mixed","reference":"meeting บ่ายสองย้ายเป็นบ่ายสามได้ไหม แล้วก็ share screen ตอน present ด้วย","keywords":["meeting","share screen","present"]}
+{"id":"mx03","path":"clips/mx03.wav","bucket":"mixed","reference":"ตัว model นี้ accuracy ยังไม่ดีพอเดี๋ยว fine tune เพิ่มอีกรอบ","keywords":["model","accuracy","fine tune"]}
+# --- bucket: proper_nouns (names, brands, places) ---
+{"id":"pn01","path":"clips/pn01.wav","bucket":"proper_nouns","reference":"นัดเจอกันที่สยามพารากอนหน้าร้าน Starbucks ชั้นหนึ่ง","keywords":["สยามพารากอน","Starbucks"]}
+{"id":"pn02","path":"clips/pn02.wav","bucket":"proper_nouns","reference":"ส่งเอกสารให้คุณสมชายที่ทีม Anthropic ภายในวันศุกร์","keywords":["สมชาย","Anthropic"]}
+# --- bucket: technical (domain / engineering terms) ---
+{"id":"tc01","path":"clips/tc01.wav","bucket":"technical","reference":"restart Kubernetes pod แล้วเช็ค log ใน Grafana dashboard อีกที","keywords":["Kubernetes","pod","Grafana"]}
+{"id":"tc02","path":"clips/tc02.wav","bucket":"technical","reference":"ค่า latency p99 เกิน threshold ต้อง optimize query ที่ database","keywords":["latency","p99","threshold","query"]}

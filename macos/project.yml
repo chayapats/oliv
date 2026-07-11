@@ -1,0 +1,120 @@
+# OLIV.app Xcode project spec (xcodegen).
+#
+# The .xcodeproj is GENERATED — do not edit it by hand. After changing this
+# file or adding/removing Swift sources, regenerate with:
+#     cd macos && xcodegen generate
+# Build from CLI (the W3-T1 DoD check):
+#     xcodebuild -project OLIV.xcodeproj -scheme OLIV -configuration Debug build
+#
+# Signing: this xcodebuild step stays ad-hoc ("-") on purpose (see the target's
+# CODE_SIGN_IDENTITY note); scripts/build_app.sh re-signs the assembled bundle
+# with a stable identity + hardened runtime (W5-T1). Developer ID + notarization
+# is the 🧑-gated W5-T2 step (paid Apple Developer account) — then just point
+# OLIV_SIGN_IDENTITY at the Developer ID cert; no code change.
+name: OLIV
+options:
+  bundleIdPrefix: com.oliv
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+
+# Sparkle auto-update (W5-T1). The ONLY third-party dependency in the app.
+# Resolved by xcodebuild via SPM at build time (needs network the first time,
+# then cached in DerivedData). Pinned exact so the embedded Sparkle.framework
+# matches the bin/ tools (generate_keys / sign_update / generate_appcast) that
+# scripts/release.sh drives — both come from the same 2.9.4 release.
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.9.4
+
+targets:
+  OLIV:
+    type: application
+    platform: macOS
+    sources: [OLIV]
+    dependencies:
+      # Sparkle framework linked + embedded into Contents/Frameworks. Its nested
+      # code (XPCServices, Autoupdate, Updater.app) is re-signed with hardened
+      # runtime by scripts/build_app.sh so the bundle is notarization-ready.
+      - package: Sparkle
+    info:
+      path: OLIV/Info.plist
+      properties:
+        # Menu-bar-only app: no Dock icon, no app switcher entry.
+        LSUIElement: true
+        CFBundleDisplayName: OLIV
+        # Version comes from the build settings below (Xcode expands $(...) into
+        # the Info.plist at build time) so scripts/release.sh only has to bump
+        # MARKETING_VERSION + CURRENT_PROJECT_VERSION in ONE place. Sparkle uses
+        # CFBundleVersion as the update comparator, CFBundleShortVersionString as
+        # the display version. Without this mapping xcodegen writes literal "1.0"/
+        # "1" and every release would ship the same version to Sparkle.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSMicrophoneUsageDescription: >-
+          OLIV records your voice only while you hold the push-to-talk key,
+          and transcribes it entirely on this Mac.
+        # --- Sparkle auto-update (W5-T1) ---------------------------------- #
+        # The appcast lives on the main public repo's releases --
+        # the dev repo stays private; Sparkle only needs public assets.
+        # "latest/download" always resolves to the newest release's asset, so
+        # the feed URL never changes across versions.
+        SUFeedURL: https://github.com/chayapats/oliv/releases/latest/download/appcast.xml
+        # EdDSA (ed25519) public key. The matching PRIVATE key lives in this
+        # machine's login Keychain (service https://sparkle-project.org, account
+        # "ed25519") — generated with Sparkle's own bin/generate_keys. release.sh
+        # signs each update with sign_update; Sparkle verifies with this key.
+        SUPublicEDKey: Zi6oGPzaL/DjuhHqF3osDBCdNAjEjoYSjPGOH1MRAi4=
+        # Let Sparkle schedule its own background update checks (default cadence).
+        SUEnableAutomaticChecks: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.oliv.app
+        MARKETING_VERSION: 0.1.6
+        CURRENT_PROJECT_VERSION: 11
+        # App icon from OLIV/Assets.xcassets (the "light" export set from
+        # oliv_logo_assets/ — cream rounded square, transparent corners).
+        # actool compiles it into Assets.car and merges CFBundleIconName
+        # into the final Info.plist, so the manual Info.plist above doesn't
+        # need an icon key. The dark/reversed export set stays unused in
+        # oliv_logo_assets/ for a future dark-appearance icon.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Swift 5 language mode on the Swift 6 toolchain: this target is
+        # AppKit-interop heavy (event taps, pasteboard, subprocess plumbing);
+        # strict Swift-6 concurrency checking there is W3-polish, not W3-T1.
+        SWIFT_VERSION: "5.0"
+        # Ad-hoc at Xcode-build time ON PURPOSE: xcodebuild's signing machinery
+        # rejects the machine's "Apple Development" cert for manual macOS
+        # signing ("No 'Mac Development' certificate…"), while the codesign CLI
+        # accepts it fine. So compile/test stays ad-hoc here, and
+        # scripts/build_app.sh re-signs the FINAL assembled bundle with the
+        # stable Apple Development identity — which is what matters: macOS TCC
+        # keys Input Monitoring / Accessibility grants to the code signature,
+        # and an ad-hoc CDHash changes every rebuild (found in 🧑 smoke as a
+        # flaky hotkey + permissions that showed granted but were ignored).
+        # Run build/OLIV.app (stable identity), not the DerivedData build.
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        ENABLE_HARDENED_RUNTIME: false
+
+  OLIVTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [OLIVTests]
+    dependencies:
+      - target: OLIV
+    settings:
+      base:
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_IDENTITY: "-"
+        GENERATE_INFOPLIST_FILE: true
+
+schemes:
+  OLIV:
+    build:
+      targets:
+        OLIV: all
+        OLIVTests: [test]
+    test:
+      targets: [OLIVTests]

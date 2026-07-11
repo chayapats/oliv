@@ -1,0 +1,74 @@
+# --- Python environments (recreate: uv venv + requirements/lock files) ---
+.venv*/
+*/.venv*/
+__pycache__/
+*.pyc
+
+# --- Build products (recreate: scripts/build_app.sh) ---
+build/
+macos/DerivedData/
+
+# --- Generated Xcode project (source of truth = macos/project.yml; xcodegen generate) ---
+macos/OLIV.xcodeproj/
+
+# --- PRIVATE eval data: the user's own voice recordings + their transcripts.
+#     Never publish. The benchmark harness code is public; the data is not.
+#     A contributor records their own set per benchmark/data/manifest.example.jsonl. ---
+benchmark/data/clips/
+benchmark/data/manifest.jsonl
+benchmark/data/manifest_v2.jsonl
+benchmark/results_*.json
+benchmark/_clean_cache*.json
+benchmark/_pipeline_diag*.json
+phase0_report.html
+
+# --- Release artifacts / secrets ---
+dist/
+*.dmg
+*.p12
+*.pem
+*.key
+
+# --- OS noise ---
+.DS_Store
+
+# --- Derived benchmark artifacts (regenerable; may quote eval transcripts) ---
+benchmark/_report_data.json
+benchmark/_run_dict*.log
+benchmark/data/manifest_all.jsonl
+benchmark/eval_results/
+benchmark/oliv_eval_report.html
+benchmark/eval_results/_semantic.json
+
+# --- Internal speaker-2 collection tooling (local-only, not for publication):
+#     recorder webapp (Vercel source), pull script, reading script, recordings ---
+benchmark/data/clips_s2/
+benchmark/data/speaker2_script.md
+benchmark/record_webapp.py
+benchmark/pull_s2.py
+tools/s2-recorder/
+
+# --- Internal planning docs (local-only, not part of the public release) ---
+EXECUTION_PLAN.md
+RESEARCH_AND_PLAN.md
+PLAN_0.1.5.md
+benchmark/D2_HOLDOUT_PLAN.md
+benchmark/EVAL_V2_PLAN.md
+
+# --- Dev-era benchmark experiments (kept locally for reference, not published):
+#     model-search spikes, superseded runners/report generators ---
+benchmark/bench.py
+benchmark/analyze_dict.py
+benchmark/cleanup_gemma4_test.py
+benchmark/cleanup_prompt_test.py
+benchmark/cleanup_run.py
+benchmark/cleanup_run_dict.py
+benchmark/cleanup_run_gemma4.py
+benchmark/cleanup_smoke.py
+benchmark/cleanup_v3_test.py
+benchmark/eval_report.py
+benchmark/eval_report_full.py
+benchmark/eval_stats.py
+benchmark/eval_v2_gen.py
+benchmark/regen_report.py
+benchmark/spike_*.py
