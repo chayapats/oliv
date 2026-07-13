@@ -7,6 +7,26 @@ Sparkle appcast's release notes, so keep entries short and end-user readable.
 
 ## [Unreleased]
 
+## [0.1.7] — 2026-07-13
+- **Dictation no longer goes silently missing.** If you spoke a short sentence
+  while holding the key for a while, OLIV could decide the whole clip was
+  silence and type nothing at all — no text, no error, no clue. It now looks for
+  speech anywhere in the clip instead of averaging the whole thing, so a short
+  sentence inside a long hold is heard.
+- **Choose your microphone** (Settings › General). OLIV used to record from
+  whatever macOS called the default input — and macOS quietly makes paired
+  AirPods the default the moment you connect them. That cost you the first
+  second of every sentence (a Bluetooth mic takes up to 3 seconds to wake, and
+  it sends pure silence meanwhile) and dropped your music to call quality while
+  you dictated. OLIV now uses the **built-in mic by default** and stays there:
+  you can wear AirPods to listen, and your music keeps its full quality while
+  you talk. Pick a different mic any time — Settings warns you which ones cost
+  you audio quality.
+- **The mic is never mistaken for the message.** While a Bluetooth mic is still
+  waking up, the pill now says "Getting the mic ready" instead of pretending to
+  record, and if the mic never wakes at all OLIV tells you so — rather than
+  looking exactly like you said nothing.
+
 ## [0.1.6] — 2026-07-11
 - **Recording indicator in OLIV's colors:** the waveform while you speak and
   the "Transcribing…" dots are now OLIV's olive green instead of the system
