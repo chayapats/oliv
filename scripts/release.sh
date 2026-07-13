@@ -83,6 +83,24 @@ if ! security find-identity -p codesigning -v | grep -q "$IDENTITY"; then
   IDENTITY="-"
 fi
 
+# ONLY a "Developer ID Application" cert can be notarized. An "Apple Development"
+# cert — which is this script's DEFAULT, and which `security find-identity` happily
+# reports as present — signs a bundle that Apple then rejects with "not signed with
+# a valid Developer ID certificate" + "no secure timestamp" (a Developer ID signature
+# carries a secure timestamp; a development one does not). That failure is knowable
+# HERE, for free. It cost a full round-trip to Apple's notary service and an
+# unstaplable dmg before this check existed, so: if we hold notary credentials, we
+# are cutting a real release, and a non-Developer-ID identity is a hard stop.
+if [[ "$IDENTITY" != "Developer ID Application"* ]] \
+   && xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1; then
+  die "identity '$IDENTITY' cannot be notarized, but notary credentials exist.
+    Apple only notarizes a 'Developer ID Application' certificate.
+    Re-run as:
+      OLIV_SIGN_IDENTITY=\"$(security find-identity -v -p codesigning \
+        | sed -n 's/.*\"\(Developer ID Application: [^\"]*\)\".*/\1/p' | head -1)\" \\
+        bash scripts/release.sh $VERSION"
+fi
+
 # --------------------------------------------------------------------------- #
 # 1. Stamp the version into project.yml (single source of truth), regenerate.
 #    MARKETING_VERSION  -> the arg (CFBundleShortVersionString, display).
