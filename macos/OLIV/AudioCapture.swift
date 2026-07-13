@@ -13,13 +13,26 @@
 // Core Audio's stop() wedged >8 minutes at 0% CPU on this machine when
 // coreaudiod/HAL got into a bad state, with identical code passing moments
 // later. A dictation app must NEVER lose the captured utterance to that, so
-// stop() is BOUNDED: the blocking engine-stop / tap-removal runs on a utility
-// queue and we wait only a bounded interval (boundedTeardown, the Swift port of
-// audio.py's _bounded_call). On timeout we ABANDON the wedged engine instance,
-// log loudly, still return every sample captured so far, and leave this object
-// reusable (start() builds a fresh engine next time). boundedTeardown is a pure,
-// mic-free seam so the timeout logic unit-tests with a wedge-simulating closure,
-// exactly like audio.py's _WedgedStream fake — see AudioCaptureTests.
+// stop() is BOUNDED: it lifts the samples out FIRST, then the blocking
+// engine-stop / tap-removal runs on a utility queue and we wait only a bounded
+// interval (boundedTeardown, the Swift port of audio.py's _bounded_call). On
+// timeout we ABANDON the wedged engine instance, log loudly, report it via
+// `stats.stopForced`, still return every sample captured so far, and leave this
+// object reusable (start() builds a fresh engine next time). boundedTeardown is a
+// pure, mic-free seam so the timeout logic unit-tests with a wedge-simulating
+// closure, exactly like audio.py's _WedgedStream fake — see AudioCaptureTests.
+//
+// The LIVENESS GATE (the Bluetooth lesson):
+// A Bluetooth (HFP) mic delivers 0.5–3 s of EXACT digital zeros after the engine
+// opens, while its link comes up — measured on AirPods Pro, where a whole 3 s
+// push-to-talk utterance landed inside the hole and the capture came back as
+// 2.901 s of zeros. Those frames are not quiet audio, they are the absence of a
+// working device, so they are DROPPED rather than written into the utterance, and
+// `CaptureStats.deviceLive` records whether the mic ever woke at all. The
+// coordinator uses that to show "getting the mic ready" instead of a recording
+// pill, and to say "the mic wasn't ready" instead of failing silently — which is
+// what this bug did for months. bufferHasSignal is the pure seam (a real mic
+// always carries a noise floor; only a dead device reads exactly 0.0).
 //
 // Mic permission: preflight via AVCaptureDevice.authorizationStatus(for:.audio)
 // and requestAccess (mirrors app.audio.check_microphone_access). Surfaced as a
@@ -35,6 +48,7 @@
 // mic-free, exercised in AudioCaptureTests.
 
 import AVFoundation
+import CoreAudio
 import Foundation
 
 final class AudioCapture {
@@ -62,6 +76,14 @@ final class AudioCapture {
         /// here so the release worker can TELL the user instead of cutting
         /// silently (same describe-the-salvage stance as stopForced).
         var capped: Bool = false
+        /// The input device delivered at least one real (non-zero) frame during
+        /// this capture. False = the mic never woke up (a Bluetooth link that
+        /// never came up, or an all-zero virtual device), which is the difference
+        /// between "the user held the key without speaking" and "the user spoke
+        /// into a dead mic" — the release worker must not report those the same
+        /// way, because reporting them the same way is what made this bug
+        /// invisible for so long.
+        var deviceLive: Bool = false
     }
 
     enum CaptureError: Error, CustomStringConvertible {
@@ -97,6 +119,34 @@ final class AudioCapture {
     // >8min failure it defends against.
     static let stopTimeout: TimeInterval = 3.0
 
+    // THE BLUETOOTH DEAD LEAD-IN (what this class's liveness gate exists for).
+    //
+    // Measured on AirPods Pro: an AVAudioEngine opened at press time gives a
+    // Bluetooth HFP mic 0.5–3 s of DIGITAL ZEROS before its input link is up —
+    // sometimes no tap buffers at all. A 3 s push-to-talk utterance landed
+    // ENTIRELY inside that hole (dead lead-in 2.901 s of a 2.90 s clip, whole-clip
+    // RMS 0.00000). The sidecar's _is_silent() gate then classified the clip as
+    // no-speech and OLIV typed nothing, silently. Same probe on the built-in mic:
+    // 0.000 s dead lead-in, speech RMS 0.028–0.040 — the capture path was fine,
+    // only the Bluetooth device lifecycle was not.
+    //
+    // We do NOT paper over this by holding the mic open between dictations: that
+    // would light the macOS mic indicator whenever OLIV is merely *available*, and
+    // an always-lit indicator is not a trade a dictation app gets to make on the
+    // user's behalf. The mic opens on press and closes on release, full stop.
+    //
+    // What we DO is refuse to lie about the zeros. They are dropped rather than
+    // written into the utterance, `deviceLive` reports whether the mic ever woke,
+    // and the HUD says "getting the mic ready" until it does — so the user waits
+    // for the device instead of talking into a hole.
+
+    /// A warming device emits EXACTLY 0.0; we drop those frames rather than pad
+    /// the utterance with silence. Backstop: if nothing ever proves liveness
+    /// within this window (a virtual all-zero input device), accept frames anyway
+    /// so a weird device degrades to "records silence" instead of "records
+    /// nothing, forever".
+    static let liveWaitTimeout: TimeInterval = 5.0
+
     private let lifecycleLock = NSLock()
     private var engine: AVAudioEngine?
     private var deviceSampleRate: Double = AudioCapture.targetSampleRate
@@ -104,6 +154,13 @@ final class AudioCapture {
     private let bufferLock = NSLock()
     private var samples: [Float] = []
     private var capReported = false   // guarded by bufferLock; reset per start()
+    /// The hotkey is down and frames are landing in the utterance. Guarded by
+    /// bufferLock.
+    private var isCapturing = false
+    /// The device has produced at least one non-zero sample since the engine was
+    /// opened (or the liveWaitTimeout backstop fired). Guarded by bufferLock.
+    private var deviceLive = false
+    private var openedAt: TimeInterval = 0   // systemUptime; guarded by bufferLock
 
     // Live input-level metering (W4-T2 HUD). Guarded by its own lock: the tap's
     // render thread reads the sink + throttle while the main thread sets them.
@@ -134,9 +191,18 @@ final class AudioCapture {
 
     private(set) var stats: CaptureStats?
 
+    /// The hotkey is down and frames are landing in the utterance.
     var isRunning: Bool {
-        lifecycleLock.lock(); defer { lifecycleLock.unlock() }
-        return engine != nil
+        bufferLock.lock(); defer { bufferLock.unlock() }
+        return isCapturing
+    }
+
+    /// The bound device has actually delivered audio. False during a Bluetooth
+    /// link warm-up — the HUD shows "getting the mic ready" rather than a
+    /// recording pill that is quietly capturing zeros.
+    var isDeviceLive: Bool {
+        bufferLock.lock(); defer { bufferLock.unlock() }
+        return deviceLive
     }
 
     // MARK: Permission (mirrors app.audio.check_microphone_access)
@@ -159,25 +225,42 @@ final class AudioCapture {
 
     // MARK: Capture
 
-    /// Begin accumulating 16 kHz mono Float32 samples. Non-blocking. Throws on
-    /// misuse (already running) or if the mic/engine can't be opened.
-    func start() throws {
-        lifecycleLock.lock()
-        defer { lifecycleLock.unlock() }
-        if engine != nil { throw CaptureError.alreadyRunning }
-
-        bufferLock.lock()
-        samples = []
-        capReported = false
-        bufferLock.unlock()
+    /// Build + start the engine and its tap. Requires `lifecycleLock`.
+    ///
+    /// A FRESH engine per press. That costs a Bluetooth mic its 0.5–3 s link-up
+    /// (see the dead-lead-in note above) but it is also what keeps the mic
+    /// indicator honest — the mic is open only while the hotkey is held — and it
+    /// means every capture rebinds whatever the system default input is NOW, with
+    /// no device-change bookkeeping to get wrong.
+    private func openEngineLocked() throws {
+        if engine != nil { return }
 
         let engine = AVAudioEngine()
         let input = engine.inputNode
+
+        // We deliberately do NOT choose the input device here — we take whatever
+        // Core Audio calls the default input.
+        //
+        // Not for lack of trying: AVAudioEngine backs inputNode and outputNode with
+        // the SAME AUHAL (verified: `engine.outputNode.audioUnit == engine.inputNode
+        // .audioUnit`), so pointing it at an input-ONLY device via
+        // kAudioOutputUnitProperty_CurrentDevice leaves a graph the engine cannot
+        // start (-10868 from AUGraphParser::InitializeActiveNodesInInputChain) or,
+        // worse, one that starts and then delivers ZERO buffers forever. Selecting a
+        // device properly needs a different capture backend (a raw AUHAL with the
+        // output element disabled, or AVCaptureSession) — not a property poke on
+        // this one. Until then, the mic is chosen in System Settings ▸ Sound ▸ Input.
+        let deviceID = AudioCapture.defaultInputDeviceID()
+
         let hardwareFormat = input.inputFormat(forBus: 0)
         deviceSampleRate = hardwareFormat.sampleRate
 
         // Always convert from the ACTUAL hardware format — do not assume 16k.
+        // A device that is mid-switch can report 0 Hz / 0 ch; AVAudioFormat would
+        // happily build a nonsense format from it, so reject it explicitly.
         guard
+            hardwareFormat.sampleRate > 0,
+            hardwareFormat.channelCount > 0,
             let outputFormat = AVAudioFormat(
                 commonFormat: .pcmFormatFloat32,
                 sampleRate: AudioCapture.targetSampleRate,
@@ -189,8 +272,10 @@ final class AudioCapture {
             throw CaptureError.converterUnavailable
         }
 
-        // Fresh throttle per capture so every recording's meter starts live.
-        levelLock.lock(); levelThrottle.reset(); levelLock.unlock()
+        bufferLock.lock()
+        deviceLive = false
+        openedAt = ProcessInfo.processInfo.systemUptime
+        bufferLock.unlock()
 
         input.installTap(onBus: 0, bufferSize: 4096, format: hardwareFormat) { [weak self] buffer, _ in
             // Runs on AVAudioEngine's render thread — keep it lean.
@@ -205,6 +290,83 @@ final class AudioCapture {
             throw CaptureError.engineStartFailed(error)
         }
         self.engine = engine
+        NSLog("OLIV AudioCapture: capturing from \"\(AudioCapture.deviceName(deviceID))\" "
+            + "(\(Int(hardwareFormat.sampleRate)) Hz, \(hardwareFormat.channelCount) ch) "
+            + "— resampling to \(Int(AudioCapture.targetSampleRate)) Hz mono")
+    }
+
+    /// Human-readable name of a Core Audio device. Logged on every capture: the
+    /// mic comes from the system default, so when dictation returns nothing there
+    /// is otherwise no way — for the user or for us — to tell whether OLIV
+    /// listened to the headset or to the laptop.
+    static func deviceName(_ deviceID: AudioDeviceID) -> String {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioObjectPropertyName,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var name: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        let status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &name)
+        guard status == noErr, let value = name?.takeRetainedValue() else {
+            return "unknown device (id \(deviceID))"
+        }
+        return value as String
+    }
+
+    /// The system's current default input device, or 0 if Core Audio won't say.
+    static func defaultInputDeviceID() -> AudioDeviceID {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultInputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var deviceID = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &deviceID)
+        return status == noErr ? deviceID : 0
+    }
+
+    /// Open the mic and begin accumulating 16 kHz mono Float32 samples.
+    /// Non-blocking. Throws on misuse (already recording) or if the mic/engine
+    /// can't be opened.
+    ///
+    /// Frames arriving before the device is LIVE (a Bluetooth link still coming
+    /// up emits exact zeros) are dropped, not recorded — see appendConverted.
+    /// `isDeviceLive` tells the caller when it is honest to say "recording".
+    func start() throws {
+        bufferLock.lock()
+        if isCapturing {
+            bufferLock.unlock()
+            throw CaptureError.alreadyRunning
+        }
+        // ARM BEFORE THE TAP CAN FIRE. openEngineLocked() starts the engine, and
+        // from that instant the render thread may call appendConverted — which
+        // drops frames when `isCapturing` is false. Arming afterwards would leave
+        // a window where the mic is live but the capture is not, and the opening
+        // frames of the utterance would be discarded. In an audio path whose whole
+        // purpose is "stop losing the start of what people say", that window has
+        // no business existing, so it doesn't: the state is armed first and unwound
+        // if the engine fails to open.
+        capReported = false
+        samples = []
+        isCapturing = true
+        bufferLock.unlock()
+
+        // Fresh throttle per capture so every recording's meter starts live.
+        levelLock.lock(); levelThrottle.reset(); levelLock.unlock()
+
+        lifecycleLock.lock()
+        do {
+            try openEngineLocked()
+        } catch {
+            lifecycleLock.unlock()
+            bufferLock.lock()
+            isCapturing = false      // unwind: no engine ⇒ no capture in flight
+            samples = []
+            bufferLock.unlock()
+            throw error
+        }
+        lifecycleLock.unlock()
     }
 
     /// End capture and return the full 16 kHz mono Float32 buffer, refreshing
@@ -217,48 +379,82 @@ final class AudioCapture {
     /// DictationController coordinator can never crash on a stray release.
     @discardableResult
     func stop() -> [Float] {
-        lifecycleLock.lock()
-        guard let engine = self.engine else {
-            lifecycleLock.unlock()
+        bufferLock.lock()
+        guard isCapturing else {
+            bufferLock.unlock()
             NSLog("OLIV AudioCapture: stop() with no active capture — returning empty buffer")
             let stats = CaptureStats()
             self.stats = stats
             return []
         }
-        // Detach immediately so a wedged teardown can't block a fresh start().
-        self.engine = nil
+        isCapturing = false
+        let captured = samples
+        let capped = capReported
+        let wasLive = deviceLive
+        samples = []
+        bufferLock.unlock()
+
+        lifecycleLock.lock()
         let deviceSampleRate = self.deviceSampleRate
         lifecycleLock.unlock()
+
+        // Close the mic the moment the key comes up: the indicator must mean
+        // "OLIV is listening right now", never "OLIV might listen later".
+        //
+        // The samples are already safely in hand ABOVE this line, so a wedged
+        // Core Audio teardown (which this machine has produced for real — see the
+        // hardened-stop note in the header) can no longer cost the user their
+        // utterance. It can still cost them up to `stopTimeout`, and `stopForced`
+        // is how they get told that.
+        let completed = shutdown()
+
+        var stats = AudioCapture.computeStats(
+            samples: captured,
+            deviceSampleRate: deviceSampleRate,
+            stopForced: !completed,
+            capped: capped
+        )
+        stats.deviceLive = wasLive
+        self.stats = stats
+        return captured
+    }
+
+    /// Close the mic (bounded, abandons a wedged engine). Idempotent; safe to call
+    /// with no engine open. stop() calls it on every release, and DictationController
+    /// calls it defensively when the hotkey is torn down.
+    ///
+    /// Returns true if the teardown completed, false if it wedged and the engine
+    /// was abandoned — `stop()` carries that into `stats.stopForced` so a wedge is
+    /// reported, not just logged. No engine open is a completed teardown (true).
+    @discardableResult
+    func shutdown() -> Bool {
+        lifecycleLock.lock()
+        guard let engine = self.engine else {
+            lifecycleLock.unlock()
+            return true
+        }
+        // Detach immediately so a wedged teardown can't block the next start().
+        self.engine = nil
+        lifecycleLock.unlock()
+
+        bufferLock.lock()
+        deviceLive = false
+        bufferLock.unlock()
 
         let completed = AudioCapture.boundedTeardown(
             timeout: AudioCapture.stopTimeout, queue: AudioCapture.makeTeardownQueue()) {
             engine.inputNode.removeTap(onBus: 0)
             engine.stop()
         }
-        let stopForced = !completed
-        if stopForced {
+        if !completed {
             // Abandon the wedged engine (its teardown may finish later on the
             // utility queue). Port of audio.py "leak the wedged stream, salvage
             // the audio". `self.engine` is already nil → object is reusable.
             NSLog("OLIV AudioCapture: engine teardown did not return within "
-                + "\(AudioCapture.stopTimeout)s — abandoning wedged engine, salvaging captured audio "
+                + "\(AudioCapture.stopTimeout)s — abandoning wedged engine "
                 + "(port of app/audio.py hardened stop)")
         }
-
-        bufferLock.lock()
-        let captured = samples
-        let capped = capReported
-        samples = []
-        bufferLock.unlock()
-
-        let stats = AudioCapture.computeStats(
-            samples: captured,
-            deviceSampleRate: deviceSampleRate,
-            stopForced: stopForced,
-            capped: capped
-        )
-        self.stats = stats
-        return captured
+        return completed
     }
 
     // MARK: Internals
@@ -291,19 +487,68 @@ final class AudioCapture {
         let frames = Int(output.frameLength)
         guard frames > 0, let channel = output.floatChannelData else { return }
         let pointer = channel[0]
+        let incoming = UnsafeBufferPointer(start: pointer, count: frames)
+
         bufferLock.lock()
-        let budget = AudioCapture.appendBudget(
-            current: samples.count, incoming: frames, limit: AudioCapture.maxCaptureSamples)
-        if budget > 0 {
-            samples.append(contentsOf: UnsafeBufferPointer(start: pointer, count: budget))
+
+        // LIVENESS GATE. A Bluetooth mic whose link is still coming up emits
+        // EXACTLY 0.0 — never a noise floor. Those frames are not audio, they are
+        // the absence of a working device, so they must not be written into the
+        // utterance: padding the clip with them is what dragged the whole-clip RMS
+        // under the sidecar's silence threshold and made dictation a no-op.
+        var wentLive = false
+        var forcedLive = false
+        if !deviceLive {
+            if AudioCapture.bufferHasSignal(incoming) {
+                deviceLive = true
+                wentLive = true
+            } else if ProcessInfo.processInfo.systemUptime - openedAt > AudioCapture.liveWaitTimeout {
+                // Backstop: an input that is genuinely all-zeros (a virtual/loopback
+                // device) must degrade to "records silence", never to "records
+                // nothing, forever".
+                deviceLive = true
+                forcedLive = true
+            } else {
+                bufferLock.unlock()
+                return   // still warming — drop the zeros
+            }
         }
-        let reportCap = budget < frames && !capReported
-        if reportCap { capReported = true }
+
+        var reportCap = false
+        if isCapturing {
+            let budget = AudioCapture.appendBudget(
+                current: samples.count, incoming: frames, limit: AudioCapture.maxCaptureSamples)
+            if budget > 0 {
+                samples.append(contentsOf: UnsafeBufferPointer(start: pointer, count: budget))
+            }
+            reportCap = budget < frames && !capReported
+            if reportCap { capReported = true }
+        }
         bufferLock.unlock()
+
+        if wentLive {
+            NSLog("OLIV AudioCapture: input device is live (first non-zero frame)")
+        }
+        if forcedLive {
+            NSLog("OLIV AudioCapture: input device produced only digital silence for "
+                + "\(AudioCapture.liveWaitTimeout)s — capturing anyway; is the right mic selected?")
+        }
         if reportCap {
             NSLog("OLIV AudioCapture: capture hit the \(Int(AudioCapture.maxCaptureSeconds))s "
                 + "ceiling — dropping further audio for this capture (missed release / stuck hotkey?)")
         }
+    }
+
+    /// True iff any sample is non-zero. The liveness discriminator: a warming
+    /// Bluetooth link delivers EXACTLY 0.0, while a real mic in a silent room
+    /// still carries a noise floor (~0.002 measured on the built-in mic).
+    static func bufferHasSignal(_ samples: [Float]) -> Bool {
+        samples.withUnsafeBufferPointer { bufferHasSignal($0) }
+    }
+
+    static func bufferHasSignal(_ samples: UnsafeBufferPointer<Float>) -> Bool {
+        for value in samples where value != 0 { return true }
+        return false
     }
 
     /// How many of `incoming` frames still fit under `limit` given `current`
@@ -377,6 +622,15 @@ final class AudioCapture {
     /// it to `onLevel` on the main queue. Runs on the render thread — lean: the
     /// RMS is computed ONLY when the throttle says it's time, then one hop to main.
     private func emitLevel(from buffer: AVAudioPCMBuffer) {
+        // Nothing to meter until the device is awake: while a Bluetooth link comes
+        // up the buffers are exact zeros, the HUD is showing "getting the mic
+        // ready", and `update(level:)` drops anything that isn't the recording
+        // phase anyway. Bail before the RMS and the hop to main.
+        bufferLock.lock()
+        let live = isCapturing && deviceLive
+        bufferLock.unlock()
+        guard live else { return }
+
         levelLock.lock()
         guard _onLevel != nil else { levelLock.unlock(); return }
         let now = ProcessInfo.processInfo.systemUptime

@@ -99,6 +99,10 @@ final class DictationController {
 
     private var didWarmSidecar = false
 
+    /// Bumped on every press so a `awaitDeviceLive` poll from an earlier press
+    /// can't drive a later recording's HUD. See awaitDeviceLive(generation:).
+    private var warmingGeneration = 0
+
     init(
         appState: AppState,
         audio: AudioCapture = AudioCapture(),
@@ -264,6 +268,7 @@ final class DictationController {
             appState.status = .idle
         }
         hud?.hide()
+        audio.shutdown()   // no hotkey ⇒ nothing can dictate ⇒ don't hold the mic
     }
 
     // MARK: Transitions (main actor)
@@ -281,13 +286,51 @@ final class DictationController {
         }
 
         appState.status = .recording
+        warmingGeneration &+= 1   // retires any warming-poll left over from a prior press
         do {
             try audio.start()
-            if showHUD { hud?.show(phase: .recording) }
+            guard showHUD else { return }
+            // A Bluetooth mic can need 0.5–3 s before it delivers a single real
+            // frame. Showing the recording pill during that window is a lie — the
+            // user speaks, nothing is captured, and nothing is typed. Say we're
+            // getting the mic ready instead, and only claim to be recording once
+            // the device actually is.
+            if audio.isDeviceLive {
+                hud?.show(phase: .recording)
+            } else {
+                hud?.show(phase: .warming)
+                awaitDeviceLive(generation: warmingGeneration)
+            }
         } catch {
+            // NEVER a silent no-op. This fires for real — an input device caught
+            // mid-switch reports 0 Hz / 0 ch and the converter can't be built — and
+            // a hotkey that does nothing, says nothing, and logs somewhere the user
+            // will never look is precisely the failure mode this whole area exists
+            // to kill.
             NSLog("OLIV DictationController: audio start failed (\(error)) — returning to idle")
             appState.status = .idle
-            hud?.hide()
+            // Ungated by showHUD, like every other failure notice here: turning the
+            // recording indicator off asks not to see a waveform, not to be kept in
+            // the dark about a dictation that never happened.
+            hud?.notice("Couldn’t open the microphone — try again",
+                        systemImage: "mic.slash.fill")
+        }
+    }
+
+    /// Poll the capture for first-real-frame and flip the pill warming → recording.
+    ///
+    /// Self-cancelling twice over: it stops on any exit from `.recording`, and each
+    /// press bumps `warmingGeneration` so a chain left in flight by a previous
+    /// press (its 50 ms hop can outlive a quick press-release-press) retires
+    /// instead of driving the new recording's HUD.
+    private func awaitDeviceLive(generation: Int) {
+        guard generation == warmingGeneration, appState.status == .recording else { return }
+        if audio.isDeviceLive {
+            if showHUD { hud?.show(phase: .recording) }
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            self?.awaitDeviceLive(generation: generation)
         }
     }
 
@@ -333,6 +376,8 @@ final class DictationController {
             // The capture ceiling truncated this utterance: the transcript still
             // pastes, but the user must be TOLD the tail was cut (never silent).
             let capped = audio.stats?.capped ?? false
+            // Did the mic ever wake up during this hold? See CaptureStats.deviceLive.
+            let deviceLive = audio.stats?.deviceLive ?? false
             let outcome: ReleaseOutcome
             // Menu "Last:" line — set on the sidecar path only (the transcriber
             // seam has no timings to report).
@@ -342,7 +387,11 @@ final class DictationController {
             var pastedText: String?
 
             if samples.isEmpty {
-                outcome = .nothingToDo   // tapped without speaking; not an error
+                // "Held the key without speaking" and "spoke into a mic that never
+                // woke up" both land here with zero samples — but only one of them
+                // is the user's doing. Collapsing them into a silent no-op is
+                // exactly what made the Bluetooth dead-mic bug invisible.
+                outcome = deviceLive ? .nothingToDo : .micNotReady
             } else if let sidecar = sidecar {
                 // W3-T3: STT + cleanup via the sidecar; paste `final`. A cleanup
                 // failure degrades server-side to final==raw (still success).
@@ -420,6 +469,9 @@ final class DictationController {
                     } else {
                         hud?.hide()   // quick fade on completion
                     }
+                case .micNotReady:
+                    hud?.notice("The mic wasn’t ready — try again",
+                                systemImage: "mic.slash.fill")
                 case .transcribeFailed:
                     hud?.notice("Couldn’t transcribe — try again",
                                 systemImage: "exclamationmark.triangle.fill")
@@ -448,6 +500,7 @@ final class DictationController {
 enum ReleaseOutcome: Equatable {
     case pastedOK
     case nothingToDo               // no audio captured / empty transcript
+    case micNotReady               // the input device never delivered a real frame
     case transcribeFailed          // STT or comms failed → utterance dropped
     case pasteNeedsManual          // text left on the clipboard; user must ⌘V
 }

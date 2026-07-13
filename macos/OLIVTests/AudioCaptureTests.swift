@@ -173,4 +173,61 @@ final class AudioCaptureTests: XCTestCase {
         XCTAssertLessThanOrEqual(loud, 1.0)
         XCTAssertEqual(AudioCapture.normalizedLevel(rms: 1.0), 1.0, accuracy: 1e-6)
     }
+
+    // MARK: Warm-mic seams (Bluetooth dead-lead-in fix)
+    //
+    // Measured root cause: a cold AVAudioEngine per press gives a Bluetooth (HFP)
+    // mic 0.5–3 s of DIGITAL ZEROS before its input link is up — a whole 3 s
+    // push-to-talk utterance landed entirely inside that hole (dead lead-in
+    // 2.901 s of a 2.90 s clip; whole-clip RMS 0.00000), so the sidecar's
+    // _is_silent() gate (_SILENCE_RMS = 0.005) dropped it and OLIV typed nothing.
+    // The same probe on the built-in mic: 0.000 s dead lead-in, RMS 0.028–0.040.
+    // Fix = keep the engine warm across presses. These are its pure seams.
+
+    // Liveness: a device that is still warming up emits EXACTLY 0.0 samples; a
+    // real mic always carries a noise floor. That's the discriminator we use to
+    // decide "the device is awake, start accumulating".
+    func testBufferHasSignalDetectsDigitalSilence() {
+        XCTAssertFalse(AudioCapture.bufferHasSignal([0, 0, 0, 0]),
+                       "all-zero (digital silence) = device not live yet")
+        XCTAssertFalse(AudioCapture.bufferHasSignal([]),
+                       "no samples = nothing to prove liveness")
+    }
+
+    func testBufferHasSignalDetectsRealMicNoiseFloor() {
+        // A quiet room on the built-in mic still reads ~0.002 — that IS liveness.
+        XCTAssertTrue(AudioCapture.bufferHasSignal([0, 0, 0.0019, 0]))
+        XCTAssertTrue(AudioCapture.bufferHasSignal([-0.0005]),
+                      "sign must not matter — magnitude does")
+    }
+
+    // deviceLive rides in CaptureStats so the release worker can tell "held the
+    // key without speaking" from "spoke into a mic that never woke up". Reporting
+    // those two the same way — a silent no-op — is what hid the Bluetooth bug.
+    func testComputeStatsDefaultsDeviceLiveToFalse() {
+        let stats = AudioCapture.computeStats(
+            samples: [0.1], deviceSampleRate: 48000, stopForced: false)
+        XCTAssertFalse(stats.deviceLive,
+                       "absent proof of a live mic, assume it never woke")
+    }
+
+    // A wedged teardown must still be REPORTED. stop() lifts the samples out
+    // first, then tears down; shutdown() returns whether that completed and stop()
+    // carries it into stats.stopForced. Regression guard for the refactor that
+    // moved teardown out of stop(): it briefly hard-coded stopForced to false,
+    // silently killing the signal the hardened-stop header promises.
+    func testShutdownWithNoEngineReportsCompleted() {
+        let capture = AudioCapture()
+        XCTAssertTrue(capture.shutdown(),
+                      "nothing to tear down is a COMPLETED teardown, not a wedge")
+    }
+
+    // A stray release must not fabricate a wedge either.
+    func testStopWithoutStartDoesNotReportStopForced() {
+        let capture = AudioCapture()
+        _ = capture.stop()
+        XCTAssertEqual(capture.stats?.stopForced, false)
+        XCTAssertEqual(capture.stats?.deviceLive, false)
+    }
 }
+

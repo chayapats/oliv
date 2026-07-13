@@ -359,6 +359,51 @@ def _():
     assert _is_silent(np.zeros(0, dtype=np.float32)) is True
 
 
+# --- The whole-clip-mean bug: a clip that CONTAINS speech must never be gated
+# just because it also contains a lot of silence. A mean over the whole capture
+# lets the silence outvote the speech, and the utterance is dropped in total
+# silence -- the same "OLIV typed nothing and said nothing" failure the Bluetooth
+# dead-lead-in produced. The energies below are MEASURED, not invented: a quiet
+# room reads ~0.002 on the built-in mic, and real speech reads 0.028-0.040.
+
+
+def _clip(*segments, sr: int = 16000):
+    """Concatenate (rms, seconds) segments into one float32 capture."""
+    return np.concatenate([_tone(rms, seconds, sr) for rms, seconds in segments])
+
+
+@register("silence_short_utterance_in_a_long_hold_is_not_silent")
+def _():
+    # Held the key 30s (thinking, reading), then said one short thing. The speech
+    # is unambiguous -- 0.03 is 6x the floor -- but averaged across 30s of room
+    # tone the whole-clip mean lands at ~0.0043, under the 0.005 gate.
+    clip = _clip((0.03, 0.5), (0.002, 29.5))
+    mean_rms = float(np.sqrt(np.mean(np.square(clip), dtype=np.float64)))
+    assert mean_rms < _SILENCE_RMS, mean_rms      # the whole-clip mean IS fooled
+    assert _is_silent(clip) is False, "a clip with 0.5s of real speech is NOT silence"
+
+
+@register("silence_soft_voice_short_clip_is_not_silent")
+def _():
+    # The everyday version: sitting back from the mic / speaking softly. 1s of
+    # speech at 0.008 inside a normal 3s hold -- mean lands at ~0.0049, a hair
+    # under the gate, and the whole utterance vanishes.
+    clip = _clip((0.008, 1.0), (0.002, 2.0))
+    mean_rms = float(np.sqrt(np.mean(np.square(clip), dtype=np.float64)))
+    assert mean_rms < _SILENCE_RMS, mean_rms
+    assert _is_silent(clip) is False, "a soft but real voice must not be cut"
+
+
+@register("silence_lone_transient_is_still_silent")
+def _():
+    # The other side of the trade: going frame-wise must NOT make the gate a
+    # pushover. A single loud click/pop (a Bluetooth profile switch, a key press)
+    # inside an otherwise silent hold carries no speech and must still be gated --
+    # otherwise it reaches Whisper and comes back as a hallucination.
+    clip = _clip((0.002, 1.5), (0.5, 0.03), (0.002, 1.5))
+    assert _is_silent(clip) is True, "one 30ms transient is not an utterance"
+
+
 @register("silence_wav_path_never_gated")
 def _():
     # benchmark clips arrive as a path, not an array -- never gate them

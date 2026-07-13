@@ -620,16 +620,36 @@ def _decode_audio(req: dict):
 # Both checks are pure + cheap. Thresholds are deliberately conservative so
 # genuinely quiet speech is not cut; raise _SILENCE_RMS only if silence still
 # leaks through in practice.
-_SILENCE_RMS = 0.005        # mean RMS below this (16k float32 in [-1,1]) => no speech
-_MIN_SPEECH_S = 0.15        # audio shorter than this => no speech
-_CJK_RE = re.compile(r"[぀-ヿ㐀-䶿一-鿿豈-﫿가-힯]")
+_SILENCE_RMS = 0.005        # frame RMS at/above this (16k float32 in [-1,1]) => speech
+_MIN_SPEECH_S = 0.15        # need at least this much speech-level audio, else no speech
+_FRAME_S = 0.03             # 30 ms analysis frame -- a phoneme-scale window
+_CJK_RE = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uac00-\ud7af]")
 def _is_silent(audio, *, sample_rate: int = 16000,
                rms_threshold: float = _SILENCE_RMS,
                min_dur_s: float = _MIN_SPEECH_S) -> bool:
     """True if `audio` carries no speech. Only float32 mic arrays are gated: a
     str/Path (the benchmark's wav_path) is never gated (returns False), so the
-    eval harness is untouched. An empty array, one shorter than `min_dur_s`, or
-    one whose RMS is below `rms_threshold` counts as silence."""
+    eval harness is untouched.
+
+    FRAME-WISE, deliberately. This was one RMS over the WHOLE capture, and a mean
+    is the wrong statistic for "did anyone speak" -- it lets the quiet parts
+    outvote the loud ones, and it is wrong in BOTH directions:
+
+      * Real speech was DROPPED. 0.5 s of clear speech (RMS 0.03) inside a 30 s
+        press averages to 0.0043 -- under the floor -- so the clip was declared
+        silence and OLIV typed nothing and said nothing about it. Ditto an
+        ordinary 3 s press from someone speaking softly or sitting back from the
+        mic. This is what the Bluetooth dead-lead-in exposed: a clip padded with
+        silence gets averaged into "no speech".
+      * A lone transient was ADMITTED. One 30 ms click at 0.5 (a Bluetooth
+        profile switch, a keypress) in an otherwise silent hold averages to
+        0.0498 -- ten times the floor -- so pure noise reached Whisper and came
+        back as a hallucination.
+
+    So: chop into `_FRAME_S` frames, measure how much of the capture actually sits
+    at speech level, and require at least `min_dur_s` of it. Silence between words
+    no longer votes, and 30 ms of anything is still not an utterance.
+    """
     import numpy as np
 
     if not isinstance(audio, np.ndarray):
@@ -638,10 +658,17 @@ def _is_silent(audio, *, sample_rate: int = 16000,
         return True
     if audio.size / sample_rate < min_dur_s:
         return True
-    # Square in float32 (one temp the size of the input), accumulate the mean in
-    # float64 — never materializes float64 copies of a long capture.
-    rms = float(np.sqrt(np.mean(np.square(audio), dtype=np.float64)))
-    return rms < rms_threshold
+
+    frame = max(1, int(sample_rate * _FRAME_S))
+    count = audio.size // frame
+    if count == 0:                      # >= min_dur_s but shorter than one frame
+        frame, count = audio.size, 1
+    # reshape is a view; square in float32 (one temp the size of the input) and
+    # accumulate in float64 -- never materializes a float64 copy of a long capture.
+    frames = audio[:count * frame].reshape(count, frame)
+    frame_rms = np.sqrt(np.mean(np.square(frames), axis=1, dtype=np.float64))
+    speech_s = float((frame_rms >= rms_threshold).sum()) * (frame / sample_rate)
+    return speech_s < min_dur_s
 
 
 def _strip_cjk(text: str) -> str:

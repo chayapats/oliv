@@ -33,7 +33,12 @@ import SwiftUI
 /// state: a brief, auto-hiding message (icon + text from the model) shown when an
 /// utterance failed or the paste couldn't be synthesized — so a drop is never
 /// silent.
-enum HUDPhase: Equatable { case recording, processing, notice }
+/// `warming` is the Bluetooth-mic state: the hotkey is down but the input device
+/// has not delivered a single non-zero frame yet (an AirPods HFP link takes
+/// 0.5–3 s to come up, emitting digital zeros meanwhile). Recording has NOT
+/// started — showing the recording pill here is what made a whole utterance
+/// vanish into a dead mic without the user ever being told.
+enum HUDPhase: Equatable { case warming, recording, processing, notice }
 
 /// Owns the NSPanel + the SwiftUI host and exposes the three verbs the
 /// coordinator drives: show(phase:), update(level:), hide(). @MainActor — all UI.
@@ -233,6 +238,8 @@ struct RecordingHUDView: View {
 
     @ViewBuilder private var content: some View {
         switch model.phase {
+        case .warming:
+            ProcessingView(reduceMotion: model.reduceMotion, label: "Getting the mic ready…")
         case .recording:
             if model.reduceMotion {
                 LevelMeterView(level: CGFloat(model.level))
@@ -240,7 +247,7 @@ struct RecordingHUDView: View {
                 WaveformBarsView(history: model.history)
             }
         case .processing:
-            ProcessingView(reduceMotion: model.reduceMotion)
+            ProcessingView(reduceMotion: model.reduceMotion, label: "Transcribing…")
         case .notice:
             NoticeView(text: model.noticeText, systemImage: model.noticeSymbol)
         }
@@ -317,10 +324,12 @@ private struct LevelMeterView: View {
     }
 }
 
-/// Processing state: calm breathing dots (or a static glyph under Reduce Motion)
-/// plus a short label. Indeterminate — no progress is known.
+/// Indeterminate state: calm breathing dots (or a static glyph under Reduce
+/// Motion) plus a short label. Shared by `processing` ("Transcribing…") and
+/// `warming` ("Getting the mic ready…") — no progress is known in either.
 private struct ProcessingView: View {
     let reduceMotion: Bool
+    let label: String
 
     var body: some View {
         HStack(spacing: 10) {
@@ -329,7 +338,7 @@ private struct ProcessingView: View {
             } else {
                 BreathingDots()
             }
-            Text("Transcribing…")
+            Text(label)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.secondary)
         }
