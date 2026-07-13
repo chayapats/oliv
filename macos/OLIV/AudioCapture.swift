@@ -55,6 +55,23 @@
 // utterance and the `--e2e-file` byte output are provably unchanged. The two
 // testable seams (LevelThrottle cadence, normalizedLevel mapping) are pure and
 // mic-free, exercised in AudioCaptureTests.
+//
+// WHAT THE RENDER THREAD ACTUALLY DOES (an earlier revision of this file claimed
+// "it allocates nothing" while allocating a PCM buffer on every callback — so this
+// section states the truth, and the code is written to keep it true):
+//
+//   * NO allocation per callback. Both the hardware buffer AND the 16 kHz
+//     conversion buffer are pre-allocated in CaptureSession at open, and `samples`
+//     reserves its whole 10-minute ceiling in start(), so append() never reallocs.
+//   * NO logging, no I/O. The gate/cap events set a flag under bufferLock and the
+//     NSLog is dispatched to main — at most three hops per capture.
+//   * TWO short, uncontended locks (bufferLock around the sample append,
+//     levelLock around the meter sink) plus a ≤24 Hz hop to main. Not textbook
+//     lock-free, but bounded and off the allocation path. If this ever needs to be
+//     truly RT-clean, the exit is an SPSC ring buffer — or AVCaptureSession, which
+//     delivers on a dispatch queue instead of the IOProc thread.
+//   * It does NOT touch `lifecycleLock`, and it does NOT read `self.unit`. See
+//     CaptureSession for why that matters.
 
 import AVFoundation
 import AudioToolbox
@@ -172,9 +189,17 @@ final class AudioCapture {
     static let inputElement: AudioUnitElement = 1
     static let outputElement: AudioUnitElement = 0
 
-    /// Ceiling on frames per render callback, so ONE buffer can be pre-allocated
-    /// at open and reused — the realtime thread must not allocate.
-    static let maxFramesPerSlice: UInt32 = 4096
+    /// FLOOR on frames per render callback, not a ceiling. The real slice size is
+    /// the DEVICE's `kAudioDevicePropertyBufferFrameSize`, read per open — setting
+    /// kAudioUnitProperty_MaximumFramesPerSlice does NOT constrain what the HAL
+    /// hands you. A device configured with a bigger IO buffer (Audio MIDI Setup, an
+    /// aggregate device) used to overflow the fixed 4096-frame buffer, and the
+    /// callback answered by returning noErr WITHOUT rendering — dropping every
+    /// frame of every capture, forever, and reporting it as "the mic wasn't ready".
+    /// A silent total loss, in the one file whose entire purpose is to never lose
+    /// audio silently. We now size the buffer from the device and keep this only as
+    /// headroom.
+    static let minFramesPerSlice: UInt32 = 4096
 
     /// Which mic to record from: a `MicSelection` sentinel or a device UID (see
     /// AudioDevices). Read at each start(); DictationController keeps it in sync
@@ -184,19 +209,16 @@ final class AudioCapture {
     var deviceSelection: String = MicSelection.builtIn
 
     private let lifecycleLock = NSLock()
-    private var unit: AudioUnit?
+    /// The live capture, +1-retained because its pointer is the render callback's
+    /// refCon. nil = nothing open. Guarded by lifecycleLock; the RENDER THREAD
+    /// NEVER READS IT — it reaches its own session through refCon instead.
+    private var sessionRef: Unmanaged<CaptureSession>?
     private var deviceSampleRate: Double = AudioCapture.targetSampleRate
-    // Set in openUnitLocked before the unit starts, read only by the render
-    // callback and cleared in shutdown() after the unit is stopped — so they are
-    // never mutated while a callback can be running.
-    private var inputFormat: AVAudioFormat?
-    private var outputFormat: AVAudioFormat?
-    private var converter: AVAudioConverter?
-    private var renderBuffer: AVAudioPCMBuffer?
 
     private let bufferLock = NSLock()
     private var samples: [Float] = []
     private var capReported = false   // guarded by bufferLock; reset per start()
+    private var overflowReported = false   // guarded by bufferLock; reset per start()
     /// The hotkey is down and frames are landing in the utterance. Guarded by
     /// bufferLock.
     private var isCapturing = false
@@ -204,6 +226,11 @@ final class AudioCapture {
     /// opened (or the liveWaitTimeout backstop fired). Guarded by bufferLock.
     private var deviceLive = false
     private var openedAt: TimeInterval = 0   // systemUptime; guarded by bufferLock
+    /// Bumped once per start(). A CaptureSession is stamped with the generation it
+    /// was opened for, and frames from any OTHER generation are discarded — this is
+    /// what makes an abandoned (wedged) unit's still-running IOProc harmless. See
+    /// CaptureSession. Guarded by bufferLock.
+    private var generation: UInt64 = 0
 
     // Live input-level metering (W4-T2 HUD). Guarded by its own lock: the tap's
     // render thread reads the sink + throttle while the main thread sets them.
@@ -248,6 +275,85 @@ final class AudioCapture {
         return deviceLive
     }
 
+    // MARK: The capture session (one per open — the refCon the callback gets)
+
+    /// Everything ONE opened unit needs, owned by that unit and reachable ONLY
+    /// through the render callback's refCon.
+    ///
+    /// WHY THIS TYPE EXISTS — the bug it makes impossible. The callback used to get
+    /// `self` as its refCon and render into whatever `self.unit` happened to be at
+    /// the time. That is safe right up until `shutdown()` ABANDONS a wedged unit —
+    /// which it does deliberately (see the hardened-stop note in the header; this
+    /// machine has produced an 8-minute Core Audio wedge for real). An abandoned
+    /// unit is never stopped, so its IOProc KEEPS RUNNING. It was harmless only
+    /// while `self.unit` was nil; the moment the user pressed the hotkey again and
+    /// a new unit was published, the zombie IOProc would call AudioUnitRender on
+    /// the NEW unit — from the OLD unit's thread, with the OLD unit's timestamp and
+    /// frame count — and both threads would then race on the one shared render
+    /// buffer and append into the same `samples`. Corrupted audio at best.
+    ///
+    /// Now every unit carries its own buffers and its own converter, so a zombie
+    /// renders harmlessly into memory nobody else can see, and the `generation`
+    /// stamp gets its frames dropped at the door (see appendConverted). On the
+    /// wedge path we simply never release this object: it leaks WITH the unit it
+    /// belongs to, which is exactly the trade the hardened stop already makes —
+    /// a few hundred KB beats a callback firing into freed memory.
+    fileprivate final class CaptureSession {
+        let unit: AudioUnit
+        /// The capture this session was opened for. Frames from a stale generation
+        /// are dropped rather than mixed into someone else's utterance.
+        let generation: UInt64
+        /// Pre-allocated at open, sized from the DEVICE's buffer frame size. The
+        /// render thread must not allocate, so both of these are reused every
+        /// callback and never grown.
+        let renderBuffer: AVAudioPCMBuffer
+        let convertBuffer: AVAudioPCMBuffer
+        let converter: AVAudioConverter
+        /// Strong on purpose: the callback must stay valid for as long as the unit
+        /// can fire, INCLUDING after this session has been abandoned. The cycle
+        /// (AudioCapture → sessionRef → owner) is broken by release() on the clean
+        /// teardown path and leaked on the wedge path, by design.
+        let owner: AudioCapture
+
+        init(unit: AudioUnit, generation: UInt64, renderBuffer: AVAudioPCMBuffer,
+             convertBuffer: AVAudioPCMBuffer, converter: AVAudioConverter,
+             owner: AudioCapture) {
+            self.unit = unit
+            self.generation = generation
+            self.renderBuffer = renderBuffer
+            self.convertBuffer = convertBuffer
+            self.converter = converter
+            self.owner = owner
+        }
+
+        /// The realtime input callback. Renders into ITS OWN unit and ITS OWN
+        /// buffer — never into whatever the object currently has open.
+        func render(
+            flags: UnsafeMutablePointer<AudioUnitRenderActionFlags>,
+            timestamp: UnsafePointer<AudioTimeStamp>,
+            bus: UInt32,
+            frames: UInt32
+        ) -> OSStatus {
+            guard frames > 0 else { return noErr }
+            guard frames <= renderBuffer.frameCapacity else {
+                // Should now be unreachable (the buffer is sized from the device),
+                // but if the HAL ever hands us more than it promised, SAY SO rather
+                // than drop the whole capture in silence.
+                owner.noteRenderOverflow(frames: frames, capacity: renderBuffer.frameCapacity)
+                return noErr
+            }
+
+            renderBuffer.frameLength = frames
+            let status = AudioUnitRender(unit, flags, timestamp, bus, frames,
+                                         renderBuffer.mutableAudioBufferList)
+            guard status == noErr else { return status }
+
+            owner.appendConverted(from: self)
+            owner.emitLevel(from: self)
+            return noErr
+        }
+    }
+
     // MARK: Permission (mirrors app.audio.check_microphone_access)
 
     func authorizationStatus() -> MicAuthorization {
@@ -287,8 +393,13 @@ final class AudioCapture {
     /// A FRESH unit per press: the mic is open only while the hotkey is held, so
     /// the macOS mic indicator never claims more than the truth, and every capture
     /// re-resolves the device selection with no stale-binding bookkeeping.
-    private func openUnitLocked() throws {
-        if unit != nil { return }
+    ///
+    /// Returns the line to log — the caller logs it AFTER dropping lifecycleLock.
+    /// Logging while holding it would stall the render thread on its very first
+    /// callbacks (NSLog takes locks and does I/O), and dropped opening frames are
+    /// the exact bug this branch exists to end.
+    private func openUnitLocked(generation: UInt64) throws -> String {
+        if sessionRef != nil { return "" }
 
         // 1. Which mic? Re-resolved per press, so unplugging or switching a device
         //    between dictations just works.
@@ -379,21 +490,29 @@ final class AudioCapture {
             let converter = AVAudioConverter(from: inputFormat, to: outputFormat)
         else { throw fail(.converterUnavailable) }
 
-        // 5. Cap the slice size and pre-allocate ONE render buffer. The callback runs
-        //    on the realtime render thread, where allocating is how you earn a
-        //    glitch — so it allocates nothing.
-        var maxFrames = AudioCapture.maxFramesPerSlice
+        // 5. Size the slice from the DEVICE, not from a hopeful constant, and
+        //    pre-allocate BOTH buffers the callback needs. MaximumFramesPerSlice is
+        //    what WE promise to handle; it does not cap what the HAL delivers, so
+        //    the device's own buffer frame size is the number that matters. Getting
+        //    this wrong used to drop every frame of every capture in silence — see
+        //    minFramesPerSlice.
+        let deviceFrames = AudioCapture.deviceBufferFrameSize(deviceID)
+        var maxFrames = max(deviceFrames, AudioCapture.minFramesPerSlice)
         status = AudioUnitSetProperty(
             unit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0,
             &maxFrames, UInt32(MemoryLayout<UInt32>.size))
         guard status == noErr else { throw fail(.unitUnavailable(status)) }
-        guard let render = AVAudioPCMBuffer(pcmFormat: inputFormat, frameCapacity: maxFrames)
+
+        // The conversion buffer must hold a whole slice AFTER resampling. Ratio > 1
+        // when the device runs BELOW 16 kHz, so this cannot just be maxFrames.
+        let convertCapacity = AudioCapture.convertCapacity(
+            maxFrames: maxFrames, deviceRate: hardware.mSampleRate)
+        guard
+            let render = AVAudioPCMBuffer(pcmFormat: inputFormat, frameCapacity: maxFrames),
+            let convert = AVAudioPCMBuffer(pcmFormat: outputFormat,
+                                           frameCapacity: convertCapacity)
         else { throw fail(.converterUnavailable) }
 
-        self.inputFormat = inputFormat
-        self.outputFormat = outputFormat
-        self.converter = converter
-        self.renderBuffer = render
         deviceSampleRate = hardware.mSampleRate
 
         bufferLock.lock()
@@ -401,65 +520,83 @@ final class AudioCapture {
         openedAt = ProcessInfo.processInfo.systemUptime
         bufferLock.unlock()
 
-        // 6. The input callback. `self` is passed UNRETAINED: the unit is always
-        //    disposed by shutdown() before this object can go away, and retaining
-        //    self from a C callback we own would just be a cycle.
+        // 6. The input callback. Its refCon is the SESSION, not `self` — so the
+        //    callback can only ever touch the unit and buffers it was born with.
+        //    passRetained: a wedged, abandoned unit's IOProc keeps firing, and it
+        //    must find live memory when it does. shutdown() releases this on the
+        //    clean path and deliberately leaks it on the wedge path.
+        let session = CaptureSession(
+            unit: unit, generation: generation, renderBuffer: render,
+            convertBuffer: convert, converter: converter, owner: self)
+        let ref = Unmanaged.passRetained(session)
+
         var callback = AURenderCallbackStruct(
             inputProc: { refCon, flags, timestamp, bus, frames, _ in
-                let capture = Unmanaged<AudioCapture>.fromOpaque(refCon).takeUnretainedValue()
-                return capture.render(flags: flags, timestamp: timestamp, bus: bus, frames: frames)
+                let session = Unmanaged<CaptureSession>.fromOpaque(refCon).takeUnretainedValue()
+                return session.render(flags: flags, timestamp: timestamp, bus: bus, frames: frames)
             },
-            inputProcRefCon: Unmanaged.passUnretained(self).toOpaque())
+            inputProcRefCon: ref.toOpaque())
         status = AudioUnitSetProperty(
             unit, kAudioOutputUnitProperty_SetInputCallback, kAudioUnitScope_Global, 0,
             &callback, UInt32(MemoryLayout<AURenderCallbackStruct>.size))
-        guard status == noErr else { throw fail(.unitUnavailable(status)) }
+        guard status == noErr else {
+            ref.release()
+            throw fail(.unitUnavailable(status))
+        }
 
         status = AudioUnitInitialize(unit)
-        guard status == noErr else { throw fail(.unitStartFailed(status)) }
+        guard status == noErr else {
+            ref.release()
+            throw fail(.unitStartFailed(status))
+        }
+
+        // PUBLISH BEFORE START. Once AudioOutputUnitStart returns the IOProc may
+        // already be running; it finds everything it needs through refCon, so there
+        // is no window in which a frame arrives with nowhere to go.
+        self.sessionRef = ref
         status = AudioOutputUnitStart(unit)
         guard status == noErr else {
+            self.sessionRef = nil
+            ref.release()
             AudioUnitUninitialize(unit)
             throw fail(.unitStartFailed(status))
         }
 
-        self.unit = unit
-        NSLog("OLIV AudioCapture: capturing from \"\(AudioDevices.deviceName(deviceID))\" "
-            + "(\(Int(hardware.mSampleRate)) Hz, \(hardware.mChannelsPerFrame) ch) "
-            + "— resampling to \(Int(AudioCapture.targetSampleRate)) Hz mono")
+        let name: String = AudioDevices.deviceName(deviceID)
+        let rate: Int = Int(hardware.mSampleRate)
+        let channels: UInt32 = hardware.mChannelsPerFrame
+        let target: Int = Int(AudioCapture.targetSampleRate)
+        return "OLIV AudioCapture: capturing from \"\(name)\" "
+            + "(\(rate) Hz, \(channels) ch, \(maxFrames)-frame slices) "
+            + "— resampling to \(target) Hz mono"
     }
 
-    /// The realtime input callback. Pulls the hardware frames into the
-    /// pre-allocated buffer, then hands them to the SAME appendConverted /
-    /// emitLevel pair the AVAudioEngine tap used — the liveness gate, the capture
-    /// cap and the HUD meter are untouched by the backend swap.
-    private func render(
-        flags: UnsafeMutablePointer<AudioUnitRenderActionFlags>,
-        timestamp: UnsafePointer<AudioTimeStamp>,
-        bus: UInt32,
-        frames: UInt32
-    ) -> OSStatus {
-        // shutdown() nils `unit` under lifecycleLock before disposing it, so a
-        // callback racing a teardown reads nil and bows out instead of rendering
-        // into a disposed unit.
-        lifecycleLock.lock()
-        let current = unit
-        lifecycleLock.unlock()
-        guard let current,
-              let buffer = renderBuffer,
-              let converter = converter,
-              let outputFormat = outputFormat,
-              frames > 0, frames <= buffer.frameCapacity
-        else { return noErr }
+    /// The device's IO buffer frame size — how many frames the HAL will actually
+    /// hand each callback. 0 when unreadable (the caller falls back to the floor).
+    static func deviceBufferFrameSize(_ deviceID: AudioDeviceID) -> UInt32 {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyBufferFrameSize,
+            mScope: kAudioDevicePropertyScopeInput,
+            mElement: kAudioObjectPropertyElementMain)
+        var frames: UInt32 = 0
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        let status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &frames)
+        return status == noErr ? frames : 0
+    }
 
-        buffer.frameLength = frames
-        let status = AudioUnitRender(current, flags, timestamp, bus, frames,
-                                     buffer.mutableAudioBufferList)
-        guard status == noErr else { return status }
-
-        appendConverted(buffer, using: converter, outputFormat: outputFormat)
-        emitLevel(from: buffer)
-        return noErr
+    /// The HAL handed us a slice bigger than the buffer we sized from its own
+    /// reported frame count. Should be unreachable; if it ever happens, the capture
+    /// is being lost and the user must not be told "the mic wasn't ready".
+    fileprivate func noteRenderOverflow(frames: UInt32, capacity: AVAudioFrameCount) {
+        bufferLock.lock()
+        let report = !overflowReported
+        if report { overflowReported = true }
+        bufferLock.unlock()
+        guard report else { return }
+        DispatchQueue.main.async {
+            NSLog("OLIV AudioCapture: the input device delivered \(frames) frames but the "
+                + "buffer holds \(capacity) — DROPPING AUDIO. This capture is lost.")
+        }
     }
 
     /// Open the mic and begin accumulating 16 kHz mono Float32 samples.
@@ -484,16 +621,28 @@ final class AudioCapture {
         // no business existing, so it doesn't: the state is armed first and unwound
         // if the unit fails to open.
         capReported = false
+        overflowReported = false
         samples = []
+        // Reserve the whole 10-minute ceiling ONCE, here, off the render thread.
+        // 38 MB of address space (pages materialise only as you actually speak) buys
+        // a hard guarantee that samples.append() in the callback never reallocates —
+        // which is the difference between "the render thread does not allocate" being
+        // a comment and being true.
+        samples.reserveCapacity(AudioCapture.maxCaptureSamples)
         isCapturing = true
+        // Stale-generation frames (an abandoned wedged unit's IOProc, still running)
+        // are dropped from here on — see CaptureSession.
+        generation &+= 1
+        let generation = self.generation
         bufferLock.unlock()
 
         // Fresh throttle per capture so every recording's meter starts live.
         levelLock.lock(); levelThrottle.reset(); levelLock.unlock()
 
         lifecycleLock.lock()
+        let opened: String
         do {
-            try openUnitLocked()
+            opened = try openUnitLocked(generation: generation)
         } catch {
             lifecycleLock.unlock()
             bufferLock.lock()
@@ -503,6 +652,9 @@ final class AudioCapture {
             throw error
         }
         lifecycleLock.unlock()
+
+        // Outside the lock ON PURPOSE: the render thread is already delivering.
+        if !opened.isEmpty { NSLog("%@", opened) }
     }
 
     /// End capture and return the full 16 kHz mono Float32 buffer, refreshing
@@ -565,20 +717,23 @@ final class AudioCapture {
     @discardableResult
     func shutdown() -> Bool {
         lifecycleLock.lock()
-        guard let unit = self.unit else {
+        guard let ref = self.sessionRef else {
             lifecycleLock.unlock()
             return true
         }
-        // Detach FIRST, under the lock the render callback also takes: from here a
-        // callback already in flight sees nil and returns without touching the unit,
-        // and a wedged teardown cannot block the next start().
-        self.unit = nil
+        // Detach FIRST: a wedged teardown must never block the next start(). The
+        // render thread does not read this — it holds its own session through
+        // refCon — so detaching does not stop an in-flight callback. It doesn't
+        // need to: that callback renders into ITS OWN unit and buffers, and its
+        // frames are dropped on the generation check.
+        self.sessionRef = nil
         lifecycleLock.unlock()
 
         bufferLock.lock()
         deviceLive = false
         bufferLock.unlock()
 
+        let unit = ref.takeUnretainedValue().unit
         let completed = AudioCapture.boundedTeardown(
             timeout: AudioCapture.stopTimeout, queue: AudioCapture.makeTeardownQueue()) {
             AudioOutputUnitStop(unit)
@@ -586,20 +741,19 @@ final class AudioCapture {
             AudioComponentInstanceDispose(unit)
         }
         if completed {
-            // Only safe to drop these once the unit is provably gone — a wedged
-            // teardown may still have a callback running against them.
-            renderBuffer = nil
-            converter = nil
-            inputFormat = nil
-            outputFormat = nil
+            // AudioOutputUnitStop has returned, so no callback is in flight and none
+            // can start: the session (and its buffers) is now provably unreachable.
+            ref.release()
         } else {
-            // Abandon the wedged unit (its teardown may finish later on the utility
-            // queue). Port of audio.py "leak the wedged stream, salvage the audio";
-            // `self.unit` is already nil, so this object is reusable. The render
-            // buffer/converter leak WITH it, deliberately: a callback firing against
-            // freed memory is worse than a few hundred KB.
+            // Abandon the wedged unit — and, with it, its session. We do NOT release
+            // the +1: the unit was never stopped, so its IOProc may still fire, and
+            // it must find live memory when it does. It renders into its own buffers
+            // and its frames are discarded by the generation check, so it cannot
+            // corrupt the next capture. Port of app/audio.py "leak the wedged stream,
+            // salvage the audio" — a few hundred KB beats a callback firing into
+            // freed memory. `sessionRef` is already nil, so this object is reusable.
             NSLog("OLIV AudioCapture: input unit teardown did not return within "
-                + "\(AudioCapture.stopTimeout)s — abandoning wedged unit "
+                + "\(AudioCapture.stopTimeout)s — abandoning wedged unit and its session "
                 + "(port of app/audio.py hardened stop)")
         }
         return completed
@@ -607,21 +761,18 @@ final class AudioCapture {
 
     // MARK: Internals
 
-    private func appendConverted(
-        _ input: AVAudioPCMBuffer,
-        using converter: AVAudioConverter,
-        outputFormat: AVAudioFormat
-    ) {
+    /// Convert one rendered slice to 16 kHz mono and append it. Runs on the render
+    /// thread: it allocates nothing (both buffers come from the session, `samples`
+    /// reserved its ceiling in start()) and it logs nothing inline — the three
+    /// one-shot events hop to main at the end.
+    fileprivate func appendConverted(from session: CaptureSession) {
+        let input = session.renderBuffer
+        let output = session.convertBuffer
         guard input.frameLength > 0 else { return }
-        let ratio = outputFormat.sampleRate / input.format.sampleRate
-        let capacity = AVAudioFrameCount((Double(input.frameLength) * ratio).rounded(.up)) + 16
-        guard capacity > 0,
-              let output = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: capacity)
-        else { return }
 
         var consumed = false
         var convError: NSError?
-        let status = converter.convert(to: output, error: &convError) { _, inputStatus in
+        let status = session.converter.convert(to: output, error: &convError) { _, inputStatus in
             if consumed {
                 inputStatus.pointee = .noDataNow
                 return nil
@@ -638,6 +789,16 @@ final class AudioCapture {
         let incoming = UnsafeBufferPointer(start: pointer, count: frames)
 
         bufferLock.lock()
+
+        // THE GENERATION GATE. This is what makes abandoning a wedged unit safe: its
+        // IOProc is still running and still calling us, but it belongs to a capture
+        // that is over. Its frames are not this utterance's frames.
+        guard AudioCapture.acceptsFrames(
+            sessionGeneration: session.generation, currentGeneration: generation)
+        else {
+            bufferLock.unlock()
+            return
+        }
 
         // LIVENESS GATE. A Bluetooth mic whose link is still coming up emits
         // EXACTLY 0.0 — never a noise floor. Those frames are not audio, they are
@@ -674,16 +835,25 @@ final class AudioCapture {
         }
         bufferLock.unlock()
 
-        if wentLive {
-            NSLog("OLIV AudioCapture: input device is live (first non-zero frame)")
-        }
-        if forcedLive {
-            NSLog("OLIV AudioCapture: input device produced only digital silence for "
-                + "\(AudioCapture.liveWaitTimeout)s — capturing anyway; is the right mic selected?")
-        }
-        if reportCap {
-            NSLog("OLIV AudioCapture: capture hit the \(Int(AudioCapture.maxCaptureSeconds))s "
-                + "ceiling — dropping further audio for this capture (missed release / stuck hotkey?)")
+        // OFF THE RENDER THREAD. NSLog takes locks and does I/O; calling it inline
+        // here — which an earlier revision did — put a filesystem write in the audio
+        // callback at the exact instant speech starts. Each of these fires at most
+        // once per capture, so the hop to main is cheap and, unlike NSLog, bounded.
+        guard wentLive || forcedLive || reportCap else { return }
+        DispatchQueue.main.async {
+            if wentLive {
+                NSLog("OLIV AudioCapture: input device is live (first non-zero frame)")
+            }
+            if forcedLive {
+                NSLog("OLIV AudioCapture: input device produced only digital silence for "
+                    + "\(AudioCapture.liveWaitTimeout)s — capturing anyway; "
+                    + "is the right mic selected?")
+            }
+            if reportCap {
+                NSLog("OLIV AudioCapture: capture hit the "
+                    + "\(Int(AudioCapture.maxCaptureSeconds))s ceiling — dropping further "
+                    + "audio for this capture (missed release / stuck hotkey?)")
+            }
         }
     }
 
@@ -704,6 +874,28 @@ final class AudioCapture {
     /// mic-free.
     static func appendBudget(current: Int, incoming: Int, limit: Int) -> Int {
         max(0, min(incoming, limit - current))
+    }
+
+    /// Do frames from a session opened at `sessionGeneration` belong in the capture
+    /// currently running at `currentGeneration`?
+    ///
+    /// The whole safety argument for abandoning a wedged unit rests on this
+    /// returning false for the zombie. Pure so it unit-tests without a mic — the
+    /// live path (appendConverted, emitLevel) calls exactly this function.
+    static func acceptsFrames(sessionGeneration: UInt64, currentGeneration: UInt64) -> Bool {
+        sessionGeneration == currentGeneration
+    }
+
+    /// Frames the 16 kHz conversion buffer must hold for one `maxFrames` slice off a
+    /// device running at `deviceRate`.
+    ///
+    /// The ratio EXCEEDS 1 when the device runs below 16 kHz, so this is not just
+    /// `maxFrames` — an 8 kHz device needs twice the room. Pure so the sizing math
+    /// unit-tests mic-free; under-allocating here silently truncates every buffer.
+    static func convertCapacity(maxFrames: UInt32, deviceRate: Double) -> AVAudioFrameCount {
+        guard deviceRate > 0 else { return AVAudioFrameCount(maxFrames) + 64 }
+        let ratio = targetSampleRate / deviceRate
+        return AVAudioFrameCount((Double(maxFrames) * ratio).rounded(.up)) + 64
     }
 
     // MARK: File decode (W3-T3 e2e harness)
@@ -769,15 +961,20 @@ final class AudioCapture {
     /// Compute a throttled 0…1 level from the tap's RAW hardware buffer and hand
     /// it to `onLevel` on the main queue. Runs on the render thread — lean: the
     /// RMS is computed ONLY when the throttle says it's time, then one hop to main.
-    private func emitLevel(from buffer: AVAudioPCMBuffer) {
+    fileprivate func emitLevel(from session: CaptureSession) {
         // Nothing to meter until the device is awake: while a Bluetooth link comes
         // up the buffers are exact zeros, the HUD is showing "getting the mic
         // ready", and `update(level:)` drops anything that isn't the recording
         // phase anyway. Bail before the RMS and the hop to main.
+        //
+        // The generation check comes along for the ride: an abandoned unit's zombie
+        // IOProc must not drive the meter of a capture it has nothing to do with.
         bufferLock.lock()
-        let live = isCapturing && deviceLive
+        let live = isCapturing && deviceLive && AudioCapture.acceptsFrames(
+            sessionGeneration: session.generation, currentGeneration: generation)
         bufferLock.unlock()
         guard live else { return }
+        let buffer = session.renderBuffer
 
         levelLock.lock()
         guard _onLevel != nil else { levelLock.unlock(); return }

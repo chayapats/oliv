@@ -100,6 +100,69 @@ final class AudioCaptureTests: XCTestCase {
         XCTAssertTrue(second, "a wedged earlier teardown must not cascade into later stops")
     }
 
+    // MARK: The generation gate (what makes abandoning a wedged unit safe)
+
+    // shutdown() ABANDONS a wedged audio unit without stopping it — so its IOProc
+    // keeps running and keeps calling back. The ONLY thing standing between that
+    // zombie and the next utterance is this check. If it ever returns true for a
+    // stale session, the abandoned unit's frames get spliced into whatever the user
+    // says next, and two threads race on the sample buffer.
+    func testFramesFromTheLiveSessionAreAccepted() {
+        XCTAssertTrue(AudioCapture.acceptsFrames(sessionGeneration: 7, currentGeneration: 7))
+    }
+
+    func testFramesFromAnAbandonedSessionAreRejected() {
+        // The wedged unit was opened for capture 7; the user has since started 8.
+        XCTAssertFalse(
+            AudioCapture.acceptsFrames(sessionGeneration: 7, currentGeneration: 8),
+            "an abandoned unit's IOProc must not append into a later capture")
+        // And it must stay rejected no matter how many captures go by.
+        XCTAssertFalse(
+            AudioCapture.acceptsFrames(sessionGeneration: 7, currentGeneration: 99))
+    }
+
+    // MARK: Conversion buffer sizing (pre-allocated, so it must be right up front)
+
+    // The render thread must not allocate, so the 16 kHz buffer is sized ONCE at
+    // open. Under-allocate and every slice is silently truncated.
+    func testConvertCapacityForA48kDeviceDownsamples() {
+        // 48 kHz -> 16 kHz is a third of the frames; the buffer only needs headroom.
+        let capacity = AudioCapture.convertCapacity(maxFrames: 4096, deviceRate: 48000)
+        XCTAssertGreaterThanOrEqual(capacity, 4096 / 3)
+        XCTAssertLessThan(capacity, 4096, "a downsampled slice should not need the full input size")
+    }
+
+    // The case a naive `capacity = maxFrames` gets WRONG: a device slower than the
+    // 16 kHz target produces MORE frames than it consumed.
+    func testConvertCapacityForASubTargetDeviceUpsamples() {
+        let capacity = AudioCapture.convertCapacity(maxFrames: 4096, deviceRate: 8000)
+        XCTAssertGreaterThanOrEqual(
+            capacity, 8192, "an 8 kHz device doubles the frame count on the way to 16 kHz")
+    }
+
+    // AirPods in their HFP call profile — the device that started this whole bug.
+    func testConvertCapacityForAirPodsHFP() {
+        let capacity = AudioCapture.convertCapacity(maxFrames: 4096, deviceRate: 24000)
+        XCTAssertGreaterThanOrEqual(capacity, 2731)   // 4096 * 16/24, rounded up
+    }
+
+    // A device that reports a nonsense rate must not produce a zero-sized buffer.
+    func testConvertCapacityWithAnUnreadableRateStillAllocates() {
+        XCTAssertGreaterThan(AudioCapture.convertCapacity(maxFrames: 4096, deviceRate: 0), 4096)
+    }
+
+    // MARK: Slice sizing (the silent-total-loss bug)
+
+    // 4096 is a FLOOR, not a ceiling: kAudioUnitProperty_MaximumFramesPerSlice does
+    // not constrain what the HAL hands you, so a device with a larger IO buffer used
+    // to overflow the render buffer — and the callback answered by dropping every
+    // frame, forever, while reporting "the mic wasn't ready".
+    func testMinFramesPerSliceIsAFloorNotACeiling() {
+        XCTAssertEqual(max(AudioCapture.deviceBufferFrameSize(0), AudioCapture.minFramesPerSlice),
+                       AudioCapture.minFramesPerSlice,
+                       "an unreadable device falls back to the floor")
+    }
+
     // MARK: Capture cap (post-release hardening)
 
     // The cap math: how many incoming frames still fit under the ceiling. Under
