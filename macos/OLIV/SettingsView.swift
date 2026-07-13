@@ -15,6 +15,8 @@
 // (ModelState.download), so there is one code path for fetching models.
 
 import AppKit
+import Combine
+import CoreAudio
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -60,6 +62,10 @@ private struct GeneralSettingsView: View {
                      + "or function key is recommended.")
                     .font(.caption).foregroundStyle(.orange)
             }
+
+            Divider()
+
+            MicrophonePicker()
 
             Divider()
 
@@ -208,6 +214,68 @@ private struct GeneralSettingsView: View {
 /// modifier or regular key; Escape cancels). A quick menu beside it keeps the
 /// five named presets one click away. The captured key persists as
 /// `settings.hotkeyID` (a HotkeyKey.id) and live-applies via the store's onChange.
+/// Mic picker. Defaults to the built-in mic and says plainly what a Bluetooth mic
+/// costs — because macOS silently promotes a paired headset to default input, and
+/// dictating through one eats the first ~1 s of speech while its link wakes AND
+/// drops that headset's own playback from 48 kHz stereo to a 24 kHz mono call
+/// profile (music goes tinny and stutters). Both were measured on AirPods Pro; see
+/// AudioDevices. Users can still choose the headset — they just get to know.
+private struct MicrophonePicker: View {
+    @EnvironmentObject private var settings: OLIVSettings
+    @State private var devices: [InputDevice] = []
+    @State private var systemDefaultID: AudioDeviceID = 0
+
+    /// Devices come and go while Settings is open (AirPods connect, a dock is
+    /// unplugged). A picker still listing a mic that is no longer there is how a
+    /// user ends up selecting one that records nothing.
+    private let tick = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
+
+    private var systemDefaultName: String {
+        devices.first(where: { $0.id == systemDefaultID })?.name ?? "none"
+    }
+
+    private var warnsAboutBluetooth: Bool {
+        AudioDevices.resolvesToBluetooth(
+            selection: settings.micDevice, devices: devices, systemDefaultID: systemDefaultID)
+    }
+
+    var body: some View {
+        Picker("Microphone", selection: $settings.micDevice) {
+            Text("Built-in microphone").tag(MicSelection.builtIn)
+            Text("System default — \(systemDefaultName)").tag(MicSelection.systemDefault)
+            if !devices.isEmpty {
+                Divider()
+                ForEach(devices) { device in
+                    Text(device.isBluetooth ? "\(device.name) (Bluetooth)" : device.name)
+                        .tag(device.uid)
+                }
+            }
+        }
+
+        Group {
+            if warnsAboutBluetooth {
+                Label("A Bluetooth mic switches your headphones to call quality — music "
+                      + "and video go mono and stutter while you dictate — and its link "
+                      + "takes about a second to wake, so speak only once the pill shows "
+                      + "a waveform.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption).foregroundStyle(.orange)
+            } else {
+                Text("The built-in mic records instantly and leaves Bluetooth headphone "
+                     + "audio untouched — you can still wear AirPods to listen.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .onAppear(perform: refresh)
+        .onReceive(tick) { _ in refresh() }
+    }
+
+    private func refresh() {
+        devices = AudioDevices.inputDevices()
+        systemDefaultID = AudioDevices.systemDefaultInputID()
+    }
+}
+
 private struct HotkeyRecorderField: View {
     @EnvironmentObject private var settings: OLIVSettings
     @State private var recorder: HotkeyRecorder?

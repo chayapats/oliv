@@ -35,6 +35,7 @@ final class OLIVSettings: ObservableObject {
         static let vocabulary = "oliv.vocabulary"         // B3 custom-vocabulary term list [String]
         static let formatCommands = "oliv.formatCommands" // B4 spoken formatting-command toggle
         static let historyEnabled = "oliv.historyEnabled" // 0.1.5 recent-transcripts toggle
+        static let micDevice = "oliv.micDevice"           // MicSelection sentinel or a device UID
         // NOTE: the Groq API key is NOT a UserDefaults key — it's a secret and
         // lives in the Keychain (KeychainStore), never on disk in the clear.
     }
@@ -115,6 +116,18 @@ final class OLIVSettings: ObservableObject {
     /// dictating. Default ON; live-applied to the DictationController.
     @Published var showRecordingIndicator: Bool {
         didSet { defaults.set(showRecordingIndicator, forKey: Key.showRecordingIndicator); onChange?() }
+    }
+
+    /// Which mic to dictate from: a `MicSelection` sentinel or a device UID.
+    ///
+    /// Defaults to the BUILT-IN mic rather than the system default, because macOS
+    /// silently promotes a paired Bluetooth headset to default input — and
+    /// dictating through a Bluetooth mic eats the first ~1 s of the utterance while
+    /// its link comes up AND drops that headset's own playback from 48 kHz stereo
+    /// to a 24 kHz mono call profile. Both measured; see AudioDevices. Users who
+    /// want the headset mic can pick it — they just shouldn't get it by accident.
+    @Published var micDevice: String {
+        didSet { defaults.set(micDevice, forKey: Key.micDevice); onChange?() }
     }
 
     /// B3 custom vocabulary: user terms (names / jargon / product names) sent
@@ -199,6 +212,7 @@ final class OLIVSettings: ObservableObject {
         vocabulary = defaults.array(forKey: Key.vocabulary) as? [String] ?? []
         formatCommands = defaults.object(forKey: Key.formatCommands) as? Bool ?? false
         historyEnabled = defaults.object(forKey: Key.historyEnabled) as? Bool ?? true
+        micDevice = defaults.string(forKey: Key.micDevice) ?? MicSelection.builtIn
         let stored = defaults.array(forKey: Key.verbatimApps) as? [String] ?? []
         verbatimApps = Set(stored.map { $0.lowercased() })
         groqCloudEnabled = defaults.object(forKey: Key.groqEnabled) as? Bool ?? false

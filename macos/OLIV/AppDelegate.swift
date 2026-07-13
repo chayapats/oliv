@@ -65,6 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         controller.vocabulary = settings.vocabulary
         controller.formatCommands = settings.formatCommands
         controller.showHUD = settings.showRecordingIndicator
+        controller.micDevice = settings.micDevice
         controller.historyEnabled = settings.historyEnabled
         // Opt-in cloud fallback: inject GROQ_API_KEY into the sidecar's spawn env
         // only when the toggle is on and a key is set (nil = local-only).
@@ -97,6 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         controller.formatCommands = settings.formatCommands
         controller.showHUD = settings.showRecordingIndicator
         if !settings.showRecordingIndicator { controller.hud?.hide() }
+        controller.micDevice = settings.micDevice
         controller.historyEnabled = settings.historyEnabled
         // Toggle OFF clears what's already retained immediately (the user just
         // said "stop keeping these"). Idempotent, so re-running on every

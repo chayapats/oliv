@@ -82,6 +82,13 @@ final class DictationController {
     /// HUD is never shown; live-applied via the coordinator.
     var showHUD: Bool = true
 
+    /// The mic to dictate from (a `MicSelection` sentinel or a device UID).
+    /// Forwarded to AudioCapture, which re-resolves it on every press — so
+    /// switching or unplugging a mic between dictations just works.
+    var micDevice: String = MicSelection.builtIn {
+        didSet { audio.deviceSelection = micDevice }
+    }
+
     /// 0.1.5: record pasted transcripts into AppState's in-memory history
     /// (Settings › General, default ON). Seeded + live-applied like every other
     /// knob; read at release time so mid-utterance flips can't half-apply.

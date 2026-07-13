@@ -1,13 +1,22 @@
 // Push-to-talk audio capture — a Swift port of app/audio.py (W1-T3).
 //
 // Turns a press/record/release into a 16 kHz MONO Float32 sample buffer (the
-// STT stage's array contract). start() opens an AVAudioEngine input tap and
+// STT stage's array contract). start() opens the CHOSEN input device and
 // accumulates converted samples; stop() ends capture and returns the buffer.
 //
-// Samplerate: we NEVER assume the mic is natively 16 kHz (some devices only
-// expose 44.1/48 kHz). We read the hardware input format and run every buffer
-// through an AVAudioConverter down to 16 kHz mono Float32 — the AVFoundation
-// analogue of app/audio.py's resample-on-stop path, done streaming here.
+// The backend is a raw AUHAL (kAudioUnitSubType_HALOutput, output element
+// DISABLED), not AVAudioEngine — see openUnitLocked for why. Short version:
+// AVAudioEngine gives inputNode and outputNode the same audio unit, so it cannot
+// be pointed at an input-only device, which is every laptop mic. Letting the user
+// pick their mic is not optional (macOS silently promotes a paired Bluetooth
+// headset to default input, and dictating through one costs the first second of
+// every sentence AND drops the headset's playback to call quality), so the
+// backend had to go.
+//
+// Samplerate: we NEVER assume the mic is natively 16 kHz (built-in reads 48 kHz,
+// AirPods 24 kHz in their call profile). We read the hardware input format and run
+// every buffer through an AVAudioConverter down to 16 kHz mono Float32 — the
+// AVFoundation analogue of app/audio.py's resample-on-stop path, done streaming.
 //
 // The HARDENED STOP (the core Wave-1 lesson):
 // Core Audio's stop() wedged >8 minutes at 0% CPU on this machine when
@@ -48,6 +57,7 @@
 // mic-free, exercised in AudioCaptureTests.
 
 import AVFoundation
+import AudioToolbox
 import CoreAudio
 import Foundation
 
@@ -89,7 +99,10 @@ final class AudioCapture {
     enum CaptureError: Error, CustomStringConvertible {
         case alreadyRunning
         case converterUnavailable
-        case engineStartFailed(Error)
+        case noInputDevice
+        case unitUnavailable(OSStatus)
+        case deviceBindFailed(AudioDeviceID, OSStatus)
+        case unitStartFailed(OSStatus)
 
         var description: String {
             switch self {
@@ -97,8 +110,15 @@ final class AudioCapture {
                 return "AudioCapture already started — call stop() before starting again"
             case .converterUnavailable:
                 return "could not build the 16 kHz mono AVAudioConverter from the hardware format"
-            case let .engineStartFailed(error):
-                return "AVAudioEngine failed to start: \(error)"
+            case .noInputDevice:
+                return "no input device is available"
+            case let .unitUnavailable(status):
+                return "could not configure the HAL input unit (OSStatus \(status))"
+            case let .deviceBindFailed(device, status):
+                return "could not bind input device \(AudioDevices.deviceName(device)) "
+                    + "(OSStatus \(status))"
+            case let .unitStartFailed(status):
+                return "the HAL input unit failed to start (OSStatus \(status))"
             }
         }
     }
@@ -147,9 +167,32 @@ final class AudioCapture {
     /// nothing, forever".
     static let liveWaitTimeout: TimeInterval = 5.0
 
+    /// AUHAL element numbering: the input bus is element 1, the (disabled) output
+    /// bus is element 0. Naming them beats a bare `1` three property calls deep.
+    static let inputElement: AudioUnitElement = 1
+    static let outputElement: AudioUnitElement = 0
+
+    /// Ceiling on frames per render callback, so ONE buffer can be pre-allocated
+    /// at open and reused — the realtime thread must not allocate.
+    static let maxFramesPerSlice: UInt32 = 4096
+
+    /// Which mic to record from: a `MicSelection` sentinel or a device UID (see
+    /// AudioDevices). Read at each start(); DictationController keeps it in sync
+    /// with Settings. Defaults to the built-in mic — never a Bluetooth headset by
+    /// accident, because macOS promotes a paired headset to default input and that
+    /// silently costs the user their first second of speech and their music.
+    var deviceSelection: String = MicSelection.builtIn
+
     private let lifecycleLock = NSLock()
-    private var engine: AVAudioEngine?
+    private var unit: AudioUnit?
     private var deviceSampleRate: Double = AudioCapture.targetSampleRate
+    // Set in openUnitLocked before the unit starts, read only by the render
+    // callback and cleared in shutdown() after the unit is stopped — so they are
+    // never mutated while a callback can be running.
+    private var inputFormat: AVAudioFormat?
+    private var outputFormat: AVAudioFormat?
+    private var converter: AVAudioConverter?
+    private var renderBuffer: AVAudioPCMBuffer?
 
     private let bufferLock = NSLock()
     private var samples: [Float] = []
@@ -225,105 +268,198 @@ final class AudioCapture {
 
     // MARK: Capture
 
-    /// Build + start the engine and its tap. Requires `lifecycleLock`.
+    /// Open the CHOSEN mic and start its render callback. Requires `lifecycleLock`.
     ///
-    /// A FRESH engine per press. That costs a Bluetooth mic its 0.5–3 s link-up
-    /// (see the dead-lead-in note above) but it is also what keeps the mic
-    /// indicator honest — the mic is open only while the hotkey is held — and it
-    /// means every capture rebinds whatever the system default input is NOW, with
-    /// no device-change bookkeeping to get wrong.
-    private func openEngineLocked() throws {
-        if engine != nil { return }
+    /// A raw AUHAL, not AVAudioEngine — and that choice IS the mic picker.
+    /// AVAudioEngine backs `inputNode` and `outputNode` with the SAME audio unit
+    /// (verified: `engine.outputNode.audioUnit == engine.inputNode.audioUnit`), so
+    /// pointing it at an input-ONLY device — which every laptop mic is, having zero
+    /// output channels — leaves a graph it cannot start (-10868 out of
+    /// AUGraphParser::InitializeActiveNodesInInputChain) or, worse, one that starts
+    /// and then delivers zero buffers forever. Both were measured. The second one
+    /// shipped for an afternoon.
+    ///
+    /// A HALOutput unit with the OUTPUT element DISABLED has no such coupling: it
+    /// binds any input device, leaves the system output device alone (headphone
+    /// playback keeps its A2DP profile — no more music dropping to call quality
+    /// mid-dictation), and delivered its first sample 60–76 ms after open.
+    ///
+    /// A FRESH unit per press: the mic is open only while the hotkey is held, so
+    /// the macOS mic indicator never claims more than the truth, and every capture
+    /// re-resolves the device selection with no stale-binding bookkeeping.
+    private func openUnitLocked() throws {
+        if unit != nil { return }
 
-        let engine = AVAudioEngine()
-        let input = engine.inputNode
+        // 1. Which mic? Re-resolved per press, so unplugging or switching a device
+        //    between dictations just works.
+        let devices = AudioDevices.inputDevices()
+        guard let deviceID = AudioDevices.resolve(
+            selection: deviceSelection,
+            devices: devices,
+            systemDefaultID: AudioDevices.systemDefaultInputID())
+        else {
+            throw CaptureError.noInputDevice
+        }
 
-        // We deliberately do NOT choose the input device here — we take whatever
-        // Core Audio calls the default input.
-        //
-        // Not for lack of trying: AVAudioEngine backs inputNode and outputNode with
-        // the SAME AUHAL (verified: `engine.outputNode.audioUnit == engine.inputNode
-        // .audioUnit`), so pointing it at an input-ONLY device via
-        // kAudioOutputUnitProperty_CurrentDevice leaves a graph the engine cannot
-        // start (-10868 from AUGraphParser::InitializeActiveNodesInInputChain) or,
-        // worse, one that starts and then delivers ZERO buffers forever. Selecting a
-        // device properly needs a different capture backend (a raw AUHAL with the
-        // output element disabled, or AVCaptureSession) — not a property poke on
-        // this one. Until then, the mic is chosen in System Settings ▸ Sound ▸ Input.
-        let deviceID = AudioCapture.defaultInputDeviceID()
+        // 2. A HALOutput unit: input element ON, output element OFF.
+        var description = AudioComponentDescription(
+            componentType: kAudioUnitType_Output,
+            componentSubType: kAudioUnitSubType_HALOutput,
+            componentManufacturer: kAudioUnitManufacturer_Apple,
+            componentFlags: 0,
+            componentFlagsMask: 0)
+        guard let component = AudioComponentFindNext(nil, &description) else {
+            throw CaptureError.unitUnavailable(-1)
+        }
+        var newUnit: AudioUnit?
+        var status = AudioComponentInstanceNew(component, &newUnit)
+        guard status == noErr, let unit = newUnit else {
+            throw CaptureError.unitUnavailable(status)
+        }
+        // Nothing past this point may leak the unit.
+        func fail(_ error: CaptureError) -> CaptureError {
+            AudioComponentInstanceDispose(unit)
+            return error
+        }
 
-        let hardwareFormat = input.inputFormat(forBus: 0)
-        deviceSampleRate = hardwareFormat.sampleRate
+        var enable: UInt32 = 1
+        var disable: UInt32 = 0
+        status = AudioUnitSetProperty(
+            unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input,
+            AudioCapture.inputElement, &enable, UInt32(MemoryLayout<UInt32>.size))
+        guard status == noErr else { throw fail(.unitUnavailable(status)) }
+        // THE line that makes an input-only device legal here.
+        status = AudioUnitSetProperty(
+            unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output,
+            AudioCapture.outputElement, &disable, UInt32(MemoryLayout<UInt32>.size))
+        guard status == noErr else { throw fail(.unitUnavailable(status)) }
 
-        // Always convert from the ACTUAL hardware format — do not assume 16k.
-        // A device that is mid-switch can report 0 Hz / 0 ch; AVAudioFormat would
-        // happily build a nonsense format from it, so reject it explicitly.
+        // 3. Bind the device — must happen before AudioUnitInitialize.
+        var device = deviceID
+        status = AudioUnitSetProperty(
+            unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
+            &device, UInt32(MemoryLayout<AudioDeviceID>.size))
+        guard status == noErr else { throw fail(.deviceBindFailed(deviceID, status)) }
+
+        // 4. What the hardware gives, and what we want it as. Never assume 16 kHz:
+        //    the built-in mic reports 48 kHz, AirPods 24 kHz in the HFP call profile.
+        var hardware = AudioStreamBasicDescription()
+        var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        status = AudioUnitGetProperty(
+            unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input,
+            AudioCapture.inputElement, &hardware, &size)
+        guard status == noErr, hardware.mSampleRate > 0, hardware.mChannelsPerFrame > 0
+        else { throw fail(.converterUnavailable) }
+
+        var client = AudioStreamBasicDescription(
+            mSampleRate: hardware.mSampleRate,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kAudioFormatFlagIsFloat
+                | kAudioFormatFlagIsPacked
+                | kAudioFormatFlagIsNonInterleaved,
+            mBytesPerPacket: 4,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: 4,
+            mChannelsPerFrame: hardware.mChannelsPerFrame,
+            mBitsPerChannel: 32,
+            mReserved: 0)
+        status = AudioUnitSetProperty(
+            unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output,
+            AudioCapture.inputElement, &client,
+            UInt32(MemoryLayout<AudioStreamBasicDescription>.size))
+        guard status == noErr else { throw fail(.converterUnavailable) }
+
         guard
-            hardwareFormat.sampleRate > 0,
-            hardwareFormat.channelCount > 0,
+            let inputFormat = AVAudioFormat(streamDescription: &client),
             let outputFormat = AVAudioFormat(
                 commonFormat: .pcmFormatFloat32,
                 sampleRate: AudioCapture.targetSampleRate,
                 channels: 1,
-                interleaved: false
-            ),
-            let converter = AVAudioConverter(from: hardwareFormat, to: outputFormat)
-        else {
-            throw CaptureError.converterUnavailable
-        }
+                interleaved: false),
+            let converter = AVAudioConverter(from: inputFormat, to: outputFormat)
+        else { throw fail(.converterUnavailable) }
+
+        // 5. Cap the slice size and pre-allocate ONE render buffer. The callback runs
+        //    on the realtime render thread, where allocating is how you earn a
+        //    glitch — so it allocates nothing.
+        var maxFrames = AudioCapture.maxFramesPerSlice
+        status = AudioUnitSetProperty(
+            unit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0,
+            &maxFrames, UInt32(MemoryLayout<UInt32>.size))
+        guard status == noErr else { throw fail(.unitUnavailable(status)) }
+        guard let render = AVAudioPCMBuffer(pcmFormat: inputFormat, frameCapacity: maxFrames)
+        else { throw fail(.converterUnavailable) }
+
+        self.inputFormat = inputFormat
+        self.outputFormat = outputFormat
+        self.converter = converter
+        self.renderBuffer = render
+        deviceSampleRate = hardware.mSampleRate
 
         bufferLock.lock()
         deviceLive = false
         openedAt = ProcessInfo.processInfo.systemUptime
         bufferLock.unlock()
 
-        input.installTap(onBus: 0, bufferSize: 4096, format: hardwareFormat) { [weak self] buffer, _ in
-            // Runs on AVAudioEngine's render thread — keep it lean.
-            self?.appendConverted(buffer, using: converter, outputFormat: outputFormat)
-            self?.emitLevel(from: buffer)
+        // 6. The input callback. `self` is passed UNRETAINED: the unit is always
+        //    disposed by shutdown() before this object can go away, and retaining
+        //    self from a C callback we own would just be a cycle.
+        var callback = AURenderCallbackStruct(
+            inputProc: { refCon, flags, timestamp, bus, frames, _ in
+                let capture = Unmanaged<AudioCapture>.fromOpaque(refCon).takeUnretainedValue()
+                return capture.render(flags: flags, timestamp: timestamp, bus: bus, frames: frames)
+            },
+            inputProcRefCon: Unmanaged.passUnretained(self).toOpaque())
+        status = AudioUnitSetProperty(
+            unit, kAudioOutputUnitProperty_SetInputCallback, kAudioUnitScope_Global, 0,
+            &callback, UInt32(MemoryLayout<AURenderCallbackStruct>.size))
+        guard status == noErr else { throw fail(.unitUnavailable(status)) }
+
+        status = AudioUnitInitialize(unit)
+        guard status == noErr else { throw fail(.unitStartFailed(status)) }
+        status = AudioOutputUnitStart(unit)
+        guard status == noErr else {
+            AudioUnitUninitialize(unit)
+            throw fail(.unitStartFailed(status))
         }
-        engine.prepare()
-        do {
-            try engine.start()
-        } catch {
-            input.removeTap(onBus: 0)
-            throw CaptureError.engineStartFailed(error)
-        }
-        self.engine = engine
-        NSLog("OLIV AudioCapture: capturing from \"\(AudioCapture.deviceName(deviceID))\" "
-            + "(\(Int(hardwareFormat.sampleRate)) Hz, \(hardwareFormat.channelCount) ch) "
+
+        self.unit = unit
+        NSLog("OLIV AudioCapture: capturing from \"\(AudioDevices.deviceName(deviceID))\" "
+            + "(\(Int(hardware.mSampleRate)) Hz, \(hardware.mChannelsPerFrame) ch) "
             + "— resampling to \(Int(AudioCapture.targetSampleRate)) Hz mono")
     }
 
-    /// Human-readable name of a Core Audio device. Logged on every capture: the
-    /// mic comes from the system default, so when dictation returns nothing there
-    /// is otherwise no way — for the user or for us — to tell whether OLIV
-    /// listened to the headset or to the laptop.
-    static func deviceName(_ deviceID: AudioDeviceID) -> String {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioObjectPropertyName,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain)
-        var name: Unmanaged<CFString>?
-        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
-        let status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &name)
-        guard status == noErr, let value = name?.takeRetainedValue() else {
-            return "unknown device (id \(deviceID))"
-        }
-        return value as String
-    }
+    /// The realtime input callback. Pulls the hardware frames into the
+    /// pre-allocated buffer, then hands them to the SAME appendConverted /
+    /// emitLevel pair the AVAudioEngine tap used — the liveness gate, the capture
+    /// cap and the HUD meter are untouched by the backend swap.
+    private func render(
+        flags: UnsafeMutablePointer<AudioUnitRenderActionFlags>,
+        timestamp: UnsafePointer<AudioTimeStamp>,
+        bus: UInt32,
+        frames: UInt32
+    ) -> OSStatus {
+        // shutdown() nils `unit` under lifecycleLock before disposing it, so a
+        // callback racing a teardown reads nil and bows out instead of rendering
+        // into a disposed unit.
+        lifecycleLock.lock()
+        let current = unit
+        lifecycleLock.unlock()
+        guard let current,
+              let buffer = renderBuffer,
+              let converter = converter,
+              let outputFormat = outputFormat,
+              frames > 0, frames <= buffer.frameCapacity
+        else { return noErr }
 
-    /// The system's current default input device, or 0 if Core Audio won't say.
-    static func defaultInputDeviceID() -> AudioDeviceID {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioHardwarePropertyDefaultInputDevice,
-            mScope: kAudioObjectPropertyScopeGlobal,
-            mElement: kAudioObjectPropertyElementMain)
-        var deviceID = AudioDeviceID(0)
-        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
-        let status = AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &deviceID)
-        return status == noErr ? deviceID : 0
+        buffer.frameLength = frames
+        let status = AudioUnitRender(current, flags, timestamp, bus, frames,
+                                     buffer.mutableAudioBufferList)
+        guard status == noErr else { return status }
+
+        appendConverted(buffer, using: converter, outputFormat: outputFormat)
+        emitLevel(from: buffer)
+        return noErr
     }
 
     /// Open the mic and begin accumulating 16 kHz mono Float32 samples.
@@ -346,7 +482,7 @@ final class AudioCapture {
         // frames of the utterance would be discarded. In an audio path whose whole
         // purpose is "stop losing the start of what people say", that window has
         // no business existing, so it doesn't: the state is armed first and unwound
-        // if the engine fails to open.
+        // if the unit fails to open.
         capReported = false
         samples = []
         isCapturing = true
@@ -357,11 +493,11 @@ final class AudioCapture {
 
         lifecycleLock.lock()
         do {
-            try openEngineLocked()
+            try openUnitLocked()
         } catch {
             lifecycleLock.unlock()
             bufferLock.lock()
-            isCapturing = false      // unwind: no engine ⇒ no capture in flight
+            isCapturing = false      // unwind: no unit ⇒ no capture in flight
             samples = []
             bufferLock.unlock()
             throw error
@@ -419,22 +555,24 @@ final class AudioCapture {
         return captured
     }
 
-    /// Close the mic (bounded, abandons a wedged engine). Idempotent; safe to call
-    /// with no engine open. stop() calls it on every release, and DictationController
+    /// Close the mic (bounded, abandons a wedged unit). Idempotent; safe to call
+    /// with nothing open. stop() calls it on every release, and DictationController
     /// calls it defensively when the hotkey is torn down.
     ///
-    /// Returns true if the teardown completed, false if it wedged and the engine
-    /// was abandoned — `stop()` carries that into `stats.stopForced` so a wedge is
-    /// reported, not just logged. No engine open is a completed teardown (true).
+    /// Returns true if the teardown completed, false if it wedged and the unit was
+    /// abandoned — `stop()` carries that into `stats.stopForced` so a wedge is
+    /// reported, not just logged. Nothing open is a completed teardown (true).
     @discardableResult
     func shutdown() -> Bool {
         lifecycleLock.lock()
-        guard let engine = self.engine else {
+        guard let unit = self.unit else {
             lifecycleLock.unlock()
             return true
         }
-        // Detach immediately so a wedged teardown can't block the next start().
-        self.engine = nil
+        // Detach FIRST, under the lock the render callback also takes: from here a
+        // callback already in flight sees nil and returns without touching the unit,
+        // and a wedged teardown cannot block the next start().
+        self.unit = nil
         lifecycleLock.unlock()
 
         bufferLock.lock()
@@ -443,15 +581,25 @@ final class AudioCapture {
 
         let completed = AudioCapture.boundedTeardown(
             timeout: AudioCapture.stopTimeout, queue: AudioCapture.makeTeardownQueue()) {
-            engine.inputNode.removeTap(onBus: 0)
-            engine.stop()
+            AudioOutputUnitStop(unit)
+            AudioUnitUninitialize(unit)
+            AudioComponentInstanceDispose(unit)
         }
-        if !completed {
-            // Abandon the wedged engine (its teardown may finish later on the
-            // utility queue). Port of audio.py "leak the wedged stream, salvage
-            // the audio". `self.engine` is already nil → object is reusable.
-            NSLog("OLIV AudioCapture: engine teardown did not return within "
-                + "\(AudioCapture.stopTimeout)s — abandoning wedged engine "
+        if completed {
+            // Only safe to drop these once the unit is provably gone — a wedged
+            // teardown may still have a callback running against them.
+            renderBuffer = nil
+            converter = nil
+            inputFormat = nil
+            outputFormat = nil
+        } else {
+            // Abandon the wedged unit (its teardown may finish later on the utility
+            // queue). Port of audio.py "leak the wedged stream, salvage the audio";
+            // `self.unit` is already nil, so this object is reusable. The render
+            // buffer/converter leak WITH it, deliberately: a callback firing against
+            // freed memory is worse than a few hundred KB.
+            NSLog("OLIV AudioCapture: input unit teardown did not return within "
+                + "\(AudioCapture.stopTimeout)s — abandoning wedged unit "
                 + "(port of app/audio.py hardened stop)")
         }
         return completed
