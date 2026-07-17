@@ -142,6 +142,14 @@ else:
     sys.stdout = sys.stderr
     _PROTO = os.fdopen(_proto_fd, "w", encoding="utf-8", buffering=1)
 
+# Deterministic Thai-formatting post-pass (default-ON feature). thai_format pulls
+# pythainlp, so import it HERE -- after the protocol fd-split above -- so any
+# import-time stdout noise lands on stderr, never the protocol channel, and so the
+# pythainlp lexicon load happens ONCE at startup, never per dictate call (latency
+# contract). The dictate handler applies it as the LAST text pass, gated on the
+# request flag; with the flag off it is never called (zero work).
+from thai_format import apply_thai_format  # noqa: E402
+
 # The serve loop is single-threaded, but `download` progress lines are emitted
 # from snapshot_download's worker threads (byte bars updated per file/thread),
 # so guard the protocol channel with a lock to keep JSON lines from interleaving.
@@ -220,6 +228,43 @@ DEFAULT_ENGINE = "typhoon-turbo-mlx"  # W7-STT: Thai fine-tune of whisper-turbo,
 # Same dict-hit priming utterance as cleanup_worker.py: forces the LLM path so
 # the first real clean is warm.
 _PRIME_TEXT = "รีสตาร์ทเซิร์ฟเวอร์แล้วเช็คล็อกในกราฟา"
+
+# Option B (background Gemma warm): a `warm` with `background_cleanup` loads STT
+# synchronously but moves the ~5s Gemma load onto ONE daemon thread so the request
+# loop is free for dictation ~STT-load after launch. _BG_WARM_STARTED is a one-shot
+# guard (never resets, even on failure) so a repeat warm can never spawn a second
+# loader; _BG_WARM_LOCK makes the check-and-set atomic against a rapid second warm.
+_BG_WARM_LOCK = threading.Lock()
+_BG_WARM_STARTED = False
+
+
+def _bg_cleanup_warm() -> None:
+    """Daemon-thread body: load AND prime Gemma via pipeline.warm_load(), OFF the
+    request loop, so warm can return after STT while Gemma loads in the background.
+
+    warm_load() holds pipeline._MODEL_LOCK across BOTH the weight load and the
+    priming generation, publishing the model only afterward. That is what makes an
+    OFF-request-loop load safe on this MLX/Metal stack: the prime materializes the
+    weights on THIS thread (so a later request-loop generate doesn't crash with
+    "no Stream(gpu, N) in current thread"), and holding the lock across the prime
+    means a code-switched dictate arriving in the load window blocks in
+    _ensure_model until the prime is done and never generates concurrently with it
+    (two concurrent MLX generates also crash). See pipeline.warm_load for the full
+    rationale. Doing the prime as a plain clean_ex HERE (off the lock) would
+    reintroduce exactly those two crashes -- both reproduced live.
+
+    Best-effort: on ANY exception (missing weights, OOM, a failed prime) log to
+    STDERR -- never stdout, the JSON protocol channel -- and return; the dictate
+    lazy-load path (_ensure_model, also _MODEL_LOCK-guarded) stays intact, so a
+    later code-switched dictate loads Gemma on demand on the request-loop thread
+    (load + first generate on the same thread, trivially safe). Never raises, so the
+    request loop can't crash from the background thread."""
+    try:
+        _get_pipeline().warm_load()
+    except Exception as exc:  # noqa: BLE001 -- best-effort, never propagate
+        print(f"sidecar: background Gemma warm failed ({type(exc).__name__}: {exc}) "
+              "-- Gemma will load lazily on the first code-switched dictate",
+              file=sys.stderr, flush=True)
 
 
 def _release_stt_memory() -> None:
@@ -694,6 +739,7 @@ def _no_speech_reply(rid, engine: str, *, t_stt: float = 0.0) -> dict:
         "dict_hits": 0, "t_llm": 0.0,
         "fillers_removed": 0, "replacements_fired": 0,
         "format_commands_fired": 0, "vocab_fired": 0,
+        "thai_format_fired": 0,
     }
 
 
@@ -739,8 +785,32 @@ def _handle(req: dict) -> "dict | None":
         _get_backend(engine)
         t_stt = time.time() - t0
 
+        cleanup = req.get("cleanup", True)
+        # Option B: async cleanup warm. Honored ONLY when cleanup is also requested
+        # (background_cleanup with cleanup:false is a no-op -- no Gemma at all, same
+        # as today). Truthiness-checked (not presence) so an explicit false from any
+        # client takes the sync path, keeping the reply byte-identical.
+        if cleanup and req.get("background_cleanup"):
+            # STT is loaded (above); kick Gemma's load onto ONE daemon thread and
+            # return immediately, so dictation is serviceable ~STT-load after launch
+            # instead of after STT+Gemma. Inference (incl. any priming generation)
+            # stays on the request loop; ONLY the weight LOAD runs off-thread (see
+            # _bg_cleanup_warm on why the prime must NOT move off-thread).
+            global _BG_WARM_STARTED
+            with _BG_WARM_LOCK:
+                if not _BG_WARM_STARTED:
+                    _BG_WARM_STARTED = True
+                    threading.Thread(target=_bg_cleanup_warm, daemon=True,
+                                     name="gemma-bg-warm").start()
+                # else: a loader is already running/finished -- never spawn a second.
+            return {
+                "id": rid, "ok": True, "engine": engine,
+                "t_stt_load": t_stt, "t_cleanup_load": 0.0,
+                "cleanup_warming": True,
+            }
+
         t_cleanup = 0.0
-        if req.get("cleanup", True):
+        if cleanup:
             t0 = time.time()
             pl = _get_pipeline()
             pl._ensure_model()
@@ -785,6 +855,7 @@ def _handle(req: dict) -> "dict | None":
             "dict_hits": 0, "t_llm": 0.0,
             "fillers_removed": 0, "replacements_fired": 0,
             "format_commands_fired": 0,
+            "thai_format_fired": 0,
         }
 
         # W7 no-speech gate (B): OLIV only ever types Thai + English, so strip any
@@ -831,6 +902,25 @@ def _handle(req: dict) -> "dict | None":
             vocab=req.get("vocabulary"),
         )
         reply["final"] = info["final"]
+
+        # Deterministic Thai-formatting post-pass -- the LAST text pass, run on the
+        # fully cleaned+rejoined text (after clean_ex -> replacements ->
+        # normalize_thai_spacing -> _join_format) so it fixes BOTH the LLM path and
+        # the pipeline gate-skip path (clean-thai utterances that never reach Gemma).
+        # Opt-in per request: the client sends `thai_format` only when cleanup is
+        # effective, so verbatim / cleanup-off dictation never reaches here (D3). With
+        # the flag absent this is a no-op and reply["final"] stays byte-identical.
+        if req.get("thai_format", False) and reply["final"].strip():
+            # Fail-safe (pipeline guardrail philosophy: cleanup NEVER loses or
+            # degrades the transcript). apply_thai_format is total by construction,
+            # but if anything at all raises here we must NOT turn the whole dictate
+            # into ok:false (the Swift client would discard the captured utterance).
+            # Keep the pre-pass reply["final"] verbatim and report zero fires.
+            try:
+                reply["final"], reply["thai_format_fired"] = apply_thai_format(reply["final"])
+            except Exception:
+                reply["thai_format_fired"] = 0
+
         reply["t_cleanup"] = info["t_cleanup"]
         reply["cleanup_error"] = info["cleanup_error"]
         reply["llm_ran"] = info["llm_ran"]

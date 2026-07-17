@@ -60,12 +60,23 @@ struct DictationResult {
     /// B4 count (informational): spoken formatting commands (new line / paragraph
     /// / bullet) that fired. 0 when the feature was off / nothing matched.
     var formatCommandsFired: Int = 0
+    /// Thai-format count (informational): reduplication collapses + converted
+    /// number runs from the deterministic post-pass. 0 when the feature was off /
+    /// nothing matched (also 0 decoded from an older sidecar that omits the key).
+    var thaiFormatFired: Int = 0
 }
 
 /// What `warm` reports back (model load times, seconds).
 struct WarmResult {
     let tSTTLoad: Double
     let tCleanupLoad: Double
+    /// True when the sidecar took the async background-cleanup path (Option B):
+    /// STT loaded synchronously and warm returned immediately, with Gemma still
+    /// loading on a daemon thread. `tCleanupLoad` is 0.0 in that case (the load is
+    /// not timed into the reply). Defaults false, so an absent key — the sync path,
+    /// cleanup disabled, or an older sidecar — decodes as false. Informational: the
+    /// caller may ignore it (used only so the warm NSLog isn't a misleading 0.0s).
+    var cleanupWarming: Bool = false
 }
 
 /// Outcome of a `download` (W3-T4 first-run onboarding / Settings model fetch).
@@ -275,15 +286,24 @@ final class SidecarClient {
     /// Throws on any comms failure (non-fatal to the caller — cleanup/STT just
     /// load lazily on the first dictate instead).
     @discardableResult
-    func warm(engine: String? = nil, cleanup: Bool) throws -> WarmResult {
-        let reply = try exchange([
+    func warm(engine: String? = nil, cleanup: Bool,
+              backgroundCleanup: Bool = false) throws -> WarmResult {
+        var body: [String: Any] = [
             "cmd": "warm",
             "engine": engine ?? self.engine,
             "cleanup": cleanup,
-        ], timeout: SidecarClient.warmTimeout)
+        ]
+        // Omit-when-default (like thai_format / remove_fillers / vocabulary): the
+        // key is absent unless the caller opts in, so a default warm is byte-
+        // identical on the wire to the pre-Option-B request (eval / CLI / OLIVMain
+        // stay fully synchronous). Option B: the launch warm (DictationController)
+        // passes true so warm returns after STT while Gemma loads in the background.
+        if backgroundCleanup { body["background_cleanup"] = true }
+        let reply = try exchange(body, timeout: SidecarClient.warmTimeout)
         return WarmResult(
             tSTTLoad: SidecarClient.double(reply["t_stt_load"]),
-            tCleanupLoad: SidecarClient.double(reply["t_cleanup_load"])
+            tCleanupLoad: SidecarClient.double(reply["t_cleanup_load"]),
+            cleanupWarming: (reply["cleanup_warming"] as? Bool) ?? false
         )
     }
 
@@ -308,7 +328,8 @@ final class SidecarClient {
                  removeFillers: Bool = false,
                  replacements: [String: String] = [:],
                  vocabulary: [String] = [],
-                 formatCommands: Bool = false) throws -> DictationResult {
+                 formatCommands: Bool = false,
+                 thaiFormat: Bool = false) throws -> DictationResult {
         let data = samples.withUnsafeBufferPointer { Data(buffer: $0) }
         var body: [String: Any] = [
             "cmd": "dictate",
@@ -323,6 +344,7 @@ final class SidecarClient {
         if !replacements.isEmpty { body["replacements"] = replacements }
         if !vocabulary.isEmpty { body["vocabulary"] = vocabulary }
         if formatCommands { body["format_commands"] = true }
+        if thaiFormat { body["thai_format"] = true }
         let reply = try exchange(body, timeout: SidecarClient.dictateTimeout)
         return DictationResult(
             raw: reply["raw"] as? String ?? "",
@@ -335,7 +357,8 @@ final class SidecarClient {
             cleanupError: reply["cleanup_error"] as? String,
             fillersRemoved: (reply["fillers_removed"] as? NSNumber)?.intValue ?? 0,
             replacementsFired: (reply["replacements_fired"] as? NSNumber)?.intValue ?? 0,
-            formatCommandsFired: (reply["format_commands_fired"] as? NSNumber)?.intValue ?? 0
+            formatCommandsFired: (reply["format_commands_fired"] as? NSNumber)?.intValue ?? 0,
+            thaiFormatFired: (reply["thai_format_fired"] as? NSNumber)?.intValue ?? 0
         )
     }
 

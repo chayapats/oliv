@@ -36,6 +36,8 @@ final class SettingsStoreTests: XCTestCase {
         // B3/B4: empty vocabulary, formatting commands OFF by default.
         XCTAssertTrue(s.vocabulary.isEmpty)
         XCTAssertFalse(s.formatCommands)
+        // Thai formatting post-pass defaults ON.
+        XCTAssertTrue(s.thaiFormat)
     }
 
     // Engine → weights-repo mapping: every LOCAL engine must declare the HF
@@ -82,6 +84,7 @@ final class SettingsStoreTests: XCTestCase {
         s.replacements = ["อีเมลของผม": "me@example.com", "เบอร์ผม": "080-000-0000"]
         s.vocabulary = ["Grafana", "คูเบอร์เนติส", "OLIV"]
         s.formatCommands = true
+        s.thaiFormat = false   // default is ON; flip to prove the round-trip
 
         let reloaded = OLIVSettings(defaults: defaults, keychain: InMemoryKeychain())
         XCTAssertEqual(reloaded.hotkeyID, "f19")
@@ -95,6 +98,7 @@ final class SettingsStoreTests: XCTestCase {
         // B3: vocabulary round-trips AND preserves the user's ordering.
         XCTAssertEqual(reloaded.vocabulary, ["Grafana", "คูเบอร์เนติส", "OLIV"])
         XCTAssertTrue(reloaded.formatCommands)
+        XCTAssertFalse(reloaded.thaiFormat)
     }
 
     // B3: addVocabularyTerm trims, ignores blanks, de-duplicates

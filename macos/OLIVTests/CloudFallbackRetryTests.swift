@@ -82,6 +82,68 @@ final class CloudFallbackRetryTests: XCTestCase {
                       "the local fallback failure is logged")
     }
 
+    // D3: the Thai-format post-pass flag must be gated on the SAME effective-cleanup
+    // bool each dictate attempt receives. With the setting ON but effective cleanup
+    // FALSE (a verbatim app / global cleanup off), thaiFormat must be false on EVERY
+    // attempt — the cloud try AND the local fallback try. We drive dictateWithFallback
+    // so BOTH attempts run (cloud throws → local retry) and record what the release
+    // closure would send for `thai_format` on each. This FAILS if the `&& cl` gate in
+    // effectiveThaiFormat is deleted (it would then send true on a cleanup-off dictate,
+    // reformatting a transcript the user asked to keep byte-for-byte).
+    func testThaiFormatGatedOffWhenCleanupIneffective() {
+        let setting = true                       // Settings toggle ON
+        var sent: [Bool] = []
+        _ = DictationController.dictateWithFallback(
+            engine: cloud, cleanup: false,       // effective cleanup FALSE (verbatim/off)
+            dictate: { eng, cl in
+                sent.append(DictationController.effectiveThaiFormat(setting: setting, cleanup: cl))
+                if eng == self.cloud { throw Boom.fail }   // force the local fallback
+                return self.result(eng)
+            },
+            log: { _ in })
+
+        XCTAssertEqual(sent, [false, false],
+                       "thaiFormat must be false on BOTH the cloud and local attempts when cleanup is off")
+    }
+
+    // Positive control: with the setting ON and effective cleanup TRUE the flag DOES
+    // pass through — proving the gate lets a real formatting dictate reach the sidecar.
+    func testThaiFormatPassesThroughWhenCleanupEffective() {
+        var sent: [Bool] = []
+        _ = DictationController.dictateWithFallback(
+            engine: local, cleanup: true,
+            dictate: { eng, cl in
+                sent.append(DictationController.effectiveThaiFormat(setting: true, cleanup: cl))
+                return self.result(eng)
+            },
+            log: { _ in })
+
+        XCTAssertEqual(sent, [true], "thaiFormat passes through when cleanup is effective")
+    }
+
+    // D3, the complementary operand: with the Settings toggle OFF but effective
+    // cleanup TRUE (an ordinary cleaned dictate — the user just never enabled
+    // Thai-format), thaiFormat must be FALSE on EVERY attempt: the cloud try AND the
+    // local fallback try. This guards the `setting &&` half of the gate that the
+    // other tests (which hard-code setting=true) can't see. It FAILS if the gate body
+    // is mutated to `return cleanup` — that would leave the Settings toggle
+    // ineffective and reformat a normally-cleaned transcript the user didn't opt into.
+    func testThaiFormatGatedOffWhenSettingDisabled() {
+        let setting = false                      // Settings toggle OFF
+        var sent: [Bool] = []
+        _ = DictationController.dictateWithFallback(
+            engine: cloud, cleanup: true,        // effective cleanup TRUE (normal clean)
+            dictate: { eng, cl in
+                sent.append(DictationController.effectiveThaiFormat(setting: setting, cleanup: cl))
+                if eng == self.cloud { throw Boom.fail }   // force the local fallback
+                return self.result(eng)
+            },
+            log: { _ in })
+
+        XCTAssertEqual(sent, [false, false],
+                       "thaiFormat must be false on BOTH the cloud and local attempts when the Settings toggle is off")
+    }
+
     // A2: the release worker's paste-outcome classifier. A successfully
     // synthesized Cmd+V is .pastedOK (→ HUD hides); a usedFallback inject (here
     // forced via secure input, with Accessibility granted) is .pasteNeedsManual

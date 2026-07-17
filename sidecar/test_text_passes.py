@@ -25,6 +25,9 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
+import time
+import types
 from pathlib import Path
 
 # Import the sidecar for its pure helper WITHOUT letting its protocol setup
@@ -50,6 +53,12 @@ from sidecar_server import (  # noqa: E402
 )
 import numpy as np  # noqa: E402
 from dictionary import apply_dictionary     # noqa: E402
+from thai_format import (                    # noqa: E402
+    apply_thai_format,
+    _collapse_reduplication,
+    _convert_numbers,
+    _num,
+)
 
 PASSED: list[str] = []
 FAILED: list[tuple[str, str]] = []
@@ -456,7 +465,8 @@ def _():
     # parity: carries every field the client reads off a real dictate reply
     for k in ("stt_redecoded", "t_stt", "t_cleanup", "cleanup_error", "llm_ran",
               "guardrail_flag", "dict_hits", "t_llm", "fillers_removed",
-              "replacements_fired", "format_commands_fired", "vocab_fired"):
+              "replacements_fired", "format_commands_fired", "vocab_fired",
+              "thai_format_fired"):
         assert k in r, f"missing {k}"
 
 
@@ -526,6 +536,72 @@ def _():
     assert rep["raw"] == "ประชุมบ่ายสอง" and rep["final"] == "ประชุมบ่ายสอง", rep
 
 
+@register("thai_format_handle_flag_on_applies_pass_and_sets_counter")
+def _():
+    # With the request flag set, the Thai-formatting post-pass runs as the LAST
+    # text pass on reply["final"] and reports its change count. cleanup:False keeps
+    # this model-free (the gate-skip path the pass exists to cover).
+    import sidecar_server as ss
+    loud = _pcm(np.full(16000, 0.1))
+    orig_b, orig_tx = ss._get_backend, ss._transcribe_maybe_redecode
+    try:
+        ss._get_backend = lambda engine: type("_B", (), {"seed_prompt": False})()
+        ss._transcribe_maybe_redecode = lambda *a, **k: ("สี่สิบห้า", False)
+        rep = ss._handle({"cmd": "dictate", "id": "tfOn", "cleanup": False,
+                          "thai_format": True, "pcm_b64": loud})
+    finally:
+        ss._get_backend, ss._transcribe_maybe_redecode = orig_b, orig_tx
+    assert rep["raw"] == "สี่สิบห้า", rep              # raw stays the true STT output
+    assert rep["final"] == "45", rep                  # post-pass converted the number
+    assert rep["thai_format_fired"] == 1, rep         # one converted number run
+
+
+@register("thai_format_handle_flag_off_byte_identical_counter_zero")
+def _():
+    # With the flag absent the pass is never called: reply["final"] is byte-identical
+    # to the cleaned text and the counter stays 0 (off-path passthrough contract).
+    import sidecar_server as ss
+    loud = _pcm(np.full(16000, 0.1))
+    orig_b, orig_tx = ss._get_backend, ss._transcribe_maybe_redecode
+    try:
+        ss._get_backend = lambda engine: type("_B", (), {"seed_prompt": False})()
+        ss._transcribe_maybe_redecode = lambda *a, **k: ("สี่สิบห้า", False)
+        rep = ss._handle({"cmd": "dictate", "id": "tfOff", "cleanup": False,
+                          "pcm_b64": loud})
+    finally:
+        ss._get_backend, ss._transcribe_maybe_redecode = orig_b, orig_tx
+    assert rep["final"] == "สี่สิบห้า", rep            # untouched -- flag off
+    assert rep["thai_format_fired"] == 0, rep         # counter present and zero
+
+
+@register("thai_format_handle_apply_raises_keeps_transcript")
+def _():
+    # FIX #3b: if apply_thai_format raises at the sidecar boundary, the dictate must
+    # NOT become ok:false and must NOT lose the transcript. reply["final"] stays the
+    # pre-pass cleaned text and thai_format_fired is 0 (fail-safe, matching the
+    # pipeline guardrail: cleanup never drops text -> the Swift client keeps typing).
+    import sidecar_server as ss
+    loud = _pcm(np.full(16000, 0.1))
+    orig_b, orig_tx, orig_af = (ss._get_backend, ss._transcribe_maybe_redecode,
+                                ss.apply_thai_format)
+
+    def _boom(_text):
+        raise RuntimeError("boom in apply_thai_format")
+
+    try:
+        ss._get_backend = lambda engine: type("_B", (), {"seed_prompt": False})()
+        ss._transcribe_maybe_redecode = lambda *a, **k: ("สี่สิบห้า", False)
+        ss.apply_thai_format = _boom
+        rep = ss._handle({"cmd": "dictate", "id": "tfBoom", "cleanup": False,
+                          "thai_format": True, "pcm_b64": loud})
+    finally:
+        (ss._get_backend, ss._transcribe_maybe_redecode,
+         ss.apply_thai_format) = orig_b, orig_tx, orig_af
+    assert rep["ok"] is True, rep                     # NOT turned into ok:false
+    assert rep["final"] == "สี่สิบห้า", rep            # pre-pass transcript preserved
+    assert rep["thai_format_fired"] == 0, rep         # fail-safe counter
+
+
 # --------------------------------------------------------------------------- #
 # Backend cache: an engine switch must evict the stale backend AND release the
 # previous engine's weights BEFORE the new load (all local engines share
@@ -565,6 +641,636 @@ def _():
         ss._release_stt_memory = orig_release
         ss._BACKENDS.clear()
         ss._BACKENDS.update(orig_backends)
+
+
+# --------------------------------------------------------------------------- #
+# Thai format pass: (A) reduplication -> ๆ  and  (B) spoken numbers -> Arabic.
+# apply_thai_format(text) -> (formatted_text, n_changes). Deterministic post-pass
+# that runs on BOTH the LLM path and the clean-thai gate-skip path.
+# --------------------------------------------------------------------------- #
+@register("thai_format_reduplication_positive")
+def _():
+    # adjacent identical real Thai words collapse to word+ๆ; 3+ -> a single ๆ.
+    assert apply_thai_format("มากมาก") == ("มากๆ", 1)
+    assert apply_thai_format("ตลอดตลอด") == ("ตลอดๆ", 1)
+    assert apply_thai_format("มากมากมาก") == ("มากๆ", 1)          # 3+ collapse to one ๆ
+    assert apply_thai_format("ดีดีเลย") == ("ดีๆเลย", 1)          # trailing token kept
+
+
+@register("thai_format_reduplication_negatives")
+def _():
+    # single token (not a repeat) untouched
+    assert apply_thai_format("จริงจัง") == ("จริงจัง", 0)
+    # stoplist particles never collapse -- a stutter of these is not ๆ
+    assert apply_thai_format("ไม่ไม่") == ("ไม่ไม่", 0)
+    assert apply_thai_format("ที่ที่") == ("ที่ที่", 0)
+
+
+@register("thai_format_reduplication_garble_not_collapsed")
+def _():
+    # a doubled NON-word (garble) must NOT be reduplicated -- the thai_words() gate.
+    # Tested at the helper with a synthetic non-word token so the assertion is
+    # independent of newmm's segmentation of an arbitrary garble.
+    from thai_format import _THAI_WORDS
+    garble = "ฟฟฟฟ"                                              # not a real Thai word
+    assert garble not in _THAI_WORDS, "test premise: garble must be a non-word"
+    assert _collapse_reduplication([garble, garble]) == ([garble, garble], 0)
+
+
+@register("thai_format_reduplication_existing_yamok_not_doubled")
+def _():
+    # Cosmetic edge: if STT already emitted a literal ๆ after a doubled word
+    # ("มากมากๆ" -> ['มาก','มาก','ๆ']), collapsing must NOT double the mark
+    # ("มากๆๆ"). The run collapses to a bare token and the existing ๆ passes
+    # through, yielding a single mark. Change still counts (the run WAS collapsed).
+    assert apply_thai_format("มากมากๆ") == ("มากๆ", 1)
+    # helper-level pin, independent of newmm segmentation
+    assert _collapse_reduplication(["มาก", "มาก", "ๆ"]) == (["มาก", "ๆ"], 1)
+    assert _collapse_reduplication(["ตลอด", "ตลอด", "ๆ"]) == (["ตลอด", "ๆ"], 1)
+
+
+@register("thai_format_numbers_cardinal_positive")
+def _():
+    # maximal numeral runs with value >= 10 become Arabic digits
+    assert apply_thai_format("สี่สิบห้า") == ("45", 1)
+    assert apply_thai_format("เก้าสิบเก้า") == ("99", 1)
+
+
+@register("thai_format_numbers_lone_small_stay_words")
+def _():
+    # lone 1-9 stay Thai so natural phrasing survives
+    assert apply_thai_format("ขอสองแก้ว") == ("ขอสองแก้ว", 0)
+    assert apply_thai_format("ครั้งหนึ่ง") == ("ครั้งหนึ่ง", 0)   # one token, words_to_num fails
+    assert apply_thai_format("บ่ายสอง") == ("บ่ายสอง", 0)
+
+
+@register("thai_format_numbers_version_decimal")
+def _():
+    # จุด flanked by numerals on BOTH sides => version/decimal, threshold-exempt
+    assert apply_thai_format("สองจุดสี่จุดหนึ่ง") == ("2.4.1", 1)
+    assert apply_thai_format("สองจุดห้า") == ("2.5", 1)           # < 10 yet converted (จุด path)
+    # the common clean form tokenizes correctly and works
+    assert apply_thai_format("เวอร์ชันสองจุดสี่จุดหนึ่ง") == ("เวอร์ชัน2.4.1", 1)
+
+
+@register("thai_format_hidden_numeral_syllables_untouched")
+def _():
+    # words that merely CONTAIN a numeral syllable -- words_to_num fails on the
+    # whole token, so they are left exactly as spoken.
+    assert apply_thai_format("สามารถ") == ("สามารถ", 0)
+    assert apply_thai_format("เก้าอี้") == ("เก้าอี้", 0)
+    assert apply_thai_format("ห้าม") == ("ห้าม", 0)
+
+
+@register("thai_format_existing_digits_left_glued")
+def _():
+    # D4: already-Arabic digits are not a numeral token (char filter) -> untouched,
+    # and digits stay glued to Thai (no spacing logic).
+    assert apply_thai_format("อายุ45ปี") == ("อายุ45ปี", 0)
+
+
+@register("thai_format_short_circuit_no_thai")
+def _():
+    # no Thai char -> returned byte-identical, 0 changes, BEFORE any tokenize
+    assert apply_thai_format("hello world") == ("hello world", 0)
+    assert apply_thai_format("v2.4.1 build 12") == ("v2.4.1 build 12", 0)
+    assert apply_thai_format("") == ("", 0)
+
+
+@register("thai_format_whitespace_and_newline_preserved")
+def _():
+    # D6 order + byte-for-byte rebuild: the \n from a format command and the space
+    # both survive; reduplication still fires inside.
+    out, n = apply_thai_format("ประชุม\nมากมาก พรุ่งนี้")
+    assert out == "ประชุม\nมากๆ พรุ่งนี้" and n == 1, (repr(out), n)
+
+
+@register("thai_format_both_passes_and_count")
+def _():
+    # reduplication FIRST then numbers, both in one utterance -> two changes.
+    assert apply_thai_format("มากมากสี่สิบห้า") == ("มากๆ45", 2)
+
+
+@register("thai_format_known_limitation_glued_decimal_pinned")
+def _():
+    # KNOWN LIMITATION (documented, xfail-style pin): a decimal whose leading
+    # digit-word is glued by newmm into the preceding Thai word (ที่สอง|จุด|ห้า)
+    # is missed -- the จุด is not flanked by a numeral on its left, so no run
+    # forms and the text is returned unchanged (it is NOT rewritten to 2.5).
+    from pythainlp.tokenize import word_tokenize
+    assert word_tokenize("ที่สองจุดห้า", engine="newmm", keep_whitespace=True) \
+        == ["ที่สอง", "จุด", "ห้า"], "test premise: newmm glues the leading digit-word"
+    out, n = apply_thai_format("ที่สองจุดห้า")
+    assert (out, n) == ("ที่สองจุดห้า", 0), (out, n)              # missed, not 2.5 -- accepted
+
+
+@register("thai_format_helpers_are_pure")
+def _():
+    # helpers operate on token lists / single tokens, independent of tokenization
+    assert _collapse_reduplication(["ดี", "ดี", "เลย"]) == (["ดีๆ", "เลย"], 1)
+    assert _collapse_reduplication(["ไม่", "ไม่"]) == (["ไม่", "ไม่"], 0)  # stoplist
+    assert _convert_numbers(["สี่", "สิบห้า"]) == (["45"], 1)              # newmm split run
+    assert _convert_numbers(["สอง", "แก้ว"]) == (["สอง", "แก้ว"], 0)       # lone < 10 kept
+    assert _convert_numbers(["สอง", "จุด", "ห้า"]) == (["2.5"], 1)         # จุด path
+    assert _num("สี่สิบห้า") == 45
+    assert _num("จุด") is None and _num("สามารถ") is None
+
+
+# --------------------------------------------------------------------------- #
+# FIX #2: reduplication must NEVER touch a numeral word. Reduplication runs FIRST
+# (D6); a repeated numeral (ศูนย์ศูนย์) turned into ๆ here would corrupt the number
+# pass and drop the digit-run inside a decimal (1.001).
+# --------------------------------------------------------------------------- #
+@register("thai_format_reduplication_numerals_not_collapsed")
+def _():
+    # helper-level pin: doubled numeral words are NOT collapsed (the _num guard),
+    # independent of newmm segmentation.
+    assert _collapse_reduplication(["ศูนย์", "ศูนย์"]) == (["ศูนย์", "ศูนย์"], 0)
+    assert _collapse_reduplication(["ห้า", "ห้า"]) == (["ห้า", "ห้า"], 0)
+    assert _collapse_reduplication(["หนึ่ง", "หนึ่ง"]) == (["หนึ่ง", "หนึ่ง"], 0)
+    # end-to-end: the digit-run survives so the decimal forms (Codex probe #2).
+    assert apply_thai_format("หนึ่งจุดศูนย์ศูนย์หนึ่ง") == ("1.001", 1)
+    # a real (non-numeral) doubled word still collapses -- FIX #2 didn't over-reach.
+    assert apply_thai_format("มากมาก") == ("มากๆ", 1)
+
+
+# --------------------------------------------------------------------------- #
+# FIX #1: full digit-by-digit decimals. A multi-digit fraction after a single จุด
+# is rendered digit-by-digit (zeros preserved); the integer part stays a CARDINAL.
+# --------------------------------------------------------------------------- #
+@register("thai_format_multidigit_decimal_positive")
+def _():
+    # Codex probes #1 + #2: the previously-broken multi-digit fractions now convert.
+    assert apply_thai_format("สองจุดสี่ห้า") == ("2.45", 1)
+    assert apply_thai_format("หนึ่งจุดศูนย์ศูนย์หนึ่ง") == ("1.001", 1)   # zeros preserved
+    # integer part is a CARDINAL, not digit-by-digit: 45.5 (not 4.5.5)
+    assert apply_thai_format("สี่สิบห้าจุดห้า") == ("45.5", 1)
+    # helper-level pins over explicit token lists (independent of newmm)
+    assert _convert_numbers(["สอง", "จุด", "สี่", "ห้า"]) == (["2.45"], 1)
+    assert _convert_numbers(["หนึ่ง", "จุด", "ศูนย์", "ศูนย์", "หนึ่ง"]) == (["1.001"], 1)
+
+
+@register("thai_format_multidigit_decimal_regressions_still_work")
+def _():
+    # the single-digit and version forms the unified model must NOT break
+    assert apply_thai_format("สองจุดห้า") == ("2.5", 1)
+    assert apply_thai_format("สองจุดสี่จุดหนึ่ง") == ("2.4.1", 1)
+    assert apply_thai_format("ศูนย์จุดห้า") == ("0.5", 1)
+    assert apply_thai_format("สี่สิบห้า") == ("45", 1)                    # no จุด, >= 10 rule
+    assert apply_thai_format("เวอร์ชันสองจุดสี่จุดหนึ่ง") == ("เวอร์ชัน2.4.1", 1)
+    # known limitation still pinned: newmm glues ที่สอง, so no run forms -> unchanged
+    assert apply_thai_format("ที่สองจุดห้า") == ("ที่สองจุดห้า", 0)
+
+
+# --------------------------------------------------------------------------- #
+# FINDING A: a จุด-segment renders per its OWN tokens. Bare unit words (0-9, zeros
+# significant) go DIGIT-BY-DIGIT; a segment carrying a place-value word (สิบ/ร้อย/..)
+# is a spoken CARDINAL. The bug: [สี่,สิบห้า] (4 and 15, newmm's split of "สี่สิบห้า")
+# was concatenated digit-wise to "415" instead of the cardinal 45.
+# --------------------------------------------------------------------------- #
+@register("thai_format_decimal_segment_cardinal_vs_digitwise")
+def _():
+    # the two cases the fix targets (previously "2.415" and — already ok — "2.20")
+    assert apply_thai_format("สองจุดสี่สิบห้า") == ("2.45", 1)     # [สี่,สิบห้า] -> cardinal 45
+    assert apply_thai_format("สองจุดยี่สิบ") == ("2.20", 1)        # [ยี่สิบ] -> cardinal 20
+    # the digit-by-digit forms the per-segment rule must NOT break
+    assert apply_thai_format("สองจุดสี่ห้า") == ("2.45", 1)         # [สี่,ห้า] -> "45"
+    assert apply_thai_format("หนึ่งจุดศูนย์ศูนย์หนึ่ง") == ("1.001", 1)  # zeros preserved
+    assert apply_thai_format("สองจุดห้า") == ("2.5", 1)
+    assert apply_thai_format("สองจุดสี่จุดหนึ่ง") == ("2.4.1", 1)
+    assert apply_thai_format("ศูนย์จุดห้า") == ("0.5", 1)
+    assert apply_thai_format("สี่สิบห้าจุดห้า") == ("45.5", 1)       # int part stays cardinal
+    assert apply_thai_format("สี่สิบห้า") == ("45", 1)              # no จุด, >= 10 rule
+    # known-limitation pin stays: newmm glues ที่สอง -> no run -> unchanged
+    assert apply_thai_format("ที่สองจุดห้า") == ("ที่สองจุดห้า", 0)
+    # helper-level pins over explicit token lists (independent of newmm segmentation)
+    assert _convert_numbers(["สอง", "จุด", "สี่", "สิบห้า"]) == (["2.45"], 1)   # cardinal seg
+    assert _convert_numbers(["สอง", "จุด", "ยี่สิบ"]) == (["2.20"], 1)         # cardinal seg
+    assert _convert_numbers(["สอง", "จุด", "สี่", "ห้า"]) == (["2.45"], 1)      # digit-wise
+    assert _convert_numbers(["หนึ่ง", "จุด", "ศูนย์", "ศูนย์", "หนึ่ง"]) == (["1.001"], 1)
+    # the per-segment helper in isolation
+    from thai_format import _render_decimal_segment
+    assert _render_decimal_segment(["สี่", "ห้า"]) == "45"          # (1) digit-by-digit
+    assert _render_decimal_segment(["ศูนย์", "ศูนย์", "หนึ่ง"]) == "001"  # zeros significant
+    assert _render_decimal_segment(["สี่", "สิบห้า"]) == "45"       # (2) cardinal
+    assert _render_decimal_segment(["ยี่สิบ"]) == "20"             # (2) cardinal
+
+
+# --------------------------------------------------------------------------- #
+# FIX #3a: the number pass is TOTAL -- a pathological numeral run must not raise
+# (Python's int->str >4300-digit cap) and must never lose the transcript; it
+# degrades to the original Thai tokens (the _MAX_NUM_RUN cap + str() guard).
+# --------------------------------------------------------------------------- #
+@register("thai_format_pathological_run_never_raises_or_drops")
+def _():
+    huge = "หนึ่งล้าน" * 800                  # ~1600 numeral tokens (Codex probe #3)
+    out, n = apply_thai_format(huge)         # MUST NOT raise
+    assert out == huge, "pathological run must degrade to verbatim, never lose text"
+    assert n == 0, n                          # over the cap -> nothing converted
+    # a run right below the cap still converts normally (cap didn't over-reach)
+    assert _convert_numbers(["สี่", "สิบ", "ห้า"]) == (["45"], 1)
+
+
+# --------------------------------------------------------------------------- #
+# Option B: thread-safe Gemma load (pipeline._ensure_model double-checked lock)
+# + background cleanup warm in the sidecar (STT sync, Gemma on a daemon thread).
+# All model-free: the loader is a fake mlx_lm injected into sys.modules, and the
+# sidecar warm is exercised with stub backend/pipeline (no real weights).
+# --------------------------------------------------------------------------- #
+class _FakeTok:
+    """A tokenizer stub for pipeline._build_prompt (warm_load's prime step calls
+    tok.apply_chat_template); returns a fixed prompt string, no real template."""
+
+    def apply_chat_template(self, *a, **k):
+        return "PRIME_PROMPT"
+
+
+class _FakeMLX:
+    """Install a fake `mlx_lm` (+ mlx_lm.sample_utils) into sys.modules so
+    pipeline._ensure_model / warm_load's inner `from mlx_lm import load, generate` /
+    `from mlx_lm.sample_utils import make_sampler` resolve to counted, slow stubs --
+    exercising the double-checked lock (and the load+prime-under-lock in warm_load)
+    without loading real weights. Restores the prior sys.modules entries on exit."""
+
+    def __init__(self, load_sleep: float = 0.2, generate_sleep: float = 0.0,
+                 generate_entered=None, generate_release=None, generate_boom: bool = False):
+        self.load_sleep = load_sleep
+        self.generate_sleep = generate_sleep
+        # Optional prime (generate) controls for the publish-order tests:
+        #   generate_entered -- Event set the instant the prime generate is entered.
+        #   generate_release -- Event the prime generate blocks on before returning.
+        #   generate_boom    -- raise inside the prime generate (simulates a prime failure).
+        self.generate_entered = generate_entered
+        self.generate_release = generate_release
+        self.generate_boom = generate_boom
+        self.load_calls = 0
+        self.generate_calls = 0
+        self._saved = {}
+
+    def __enter__(self):
+        for k in ("mlx_lm", "mlx_lm.sample_utils"):
+            self._saved[k] = sys.modules.get(k)
+        fake = types.ModuleType("mlx_lm")
+
+        def _load(model_id):
+            time.sleep(self.load_sleep)
+            self.load_calls += 1
+            return object(), _FakeTok()   # (model, tok)
+
+        def _generate(model, tok, **k):
+            if self.generate_entered is not None:
+                self.generate_entered.set()   # signal: the prime is in progress
+            if self.generate_boom:
+                raise RuntimeError("prime boom")   # simulate a prime failure (before any count)
+            if self.generate_release is not None:
+                self.generate_release.wait(5.0)    # hold the prime open until the test releases it
+            time.sleep(self.generate_sleep)
+            self.generate_calls += 1
+            return "OUT"
+
+        fake.load = _load
+        fake.generate = _generate
+        sample = types.ModuleType("mlx_lm.sample_utils")
+        sample.make_sampler = lambda temp=0.0: object()
+        fake.sample_utils = sample
+        sys.modules["mlx_lm"] = fake
+        sys.modules["mlx_lm.sample_utils"] = sample
+        return self
+
+    def __exit__(self, *exc):
+        for k, v in self._saved.items():
+            if v is None:
+                sys.modules.pop(k, None)
+            else:
+                sys.modules[k] = v
+        return False
+
+
+def _reset_pipeline_model(pipeline):
+    pipeline._MODEL = None
+    pipeline._TOK = None
+    pipeline._SAMPLER = None
+    pipeline.LOAD_TIME = None
+
+
+@register("pipeline_ensure_model_loads_once_under_concurrency")
+def _():
+    import pipeline
+    saved = (pipeline._MODEL, pipeline._TOK, pipeline._SAMPLER, pipeline.LOAD_TIME)
+    try:
+        _reset_pipeline_model(pipeline)
+        with _FakeMLX(load_sleep=0.2) as fake:
+            results: list = []
+            barrier = threading.Barrier(2)
+
+            def worker():
+                barrier.wait()   # maximize overlap on the load window
+                results.append(pipeline._ensure_model())
+
+            threads = [threading.Thread(target=worker) for _ in range(2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join(timeout=5)
+
+            assert fake.load_calls == 1, f"load body ran {fake.load_calls}x, expected exactly 1"
+            assert len(results) == 2, results
+            m0, tok0, s0 = results[0]
+            for m, tok, s in results:
+                assert m is m0 and tok is tok0 and s is s0, "callers must get the SAME triple"
+                assert m is not None and tok is not None and s is not None, "no None in triple"
+            assert pipeline.LOAD_TIME is not None, "LOAD_TIME must be recorded"
+    finally:
+        pipeline._MODEL, pipeline._TOK, pipeline._SAMPLER, pipeline.LOAD_TIME = saved
+
+
+@register("pipeline_ensure_model_publishes_model_last")
+def _():
+    # While the (slow) load runs, a hammer thread reading the globals must NEVER
+    # see _MODEL non-None beside a None _TOK / _SAMPLER -- the publish-last order.
+    import pipeline
+    saved = (pipeline._MODEL, pipeline._TOK, pipeline._SAMPLER, pipeline.LOAD_TIME)
+    try:
+        _reset_pipeline_model(pipeline)
+        with _FakeMLX(load_sleep=0.3):
+            observed_bad: list = []
+            stop = threading.Event()
+
+            def hammer():
+                while not stop.is_set():
+                    m = pipeline._MODEL
+                    if m is not None and (pipeline._TOK is None or pipeline._SAMPLER is None):
+                        observed_bad.append((pipeline._TOK, pipeline._SAMPLER))
+                        return
+
+            h = threading.Thread(target=hammer)
+            h.start()
+            pipeline._ensure_model()
+            stop.set()
+            h.join(timeout=5)
+            assert not observed_bad, f"half-initialized triple observed: {observed_bad}"
+            assert pipeline._MODEL is not None and pipeline._TOK is not None
+    finally:
+        pipeline._MODEL, pipeline._TOK, pipeline._SAMPLER, pipeline.LOAD_TIME = saved
+
+
+@register("pipeline_warm_load_loads_primes_and_publishes_last")
+def _():
+    # warm_load loads AND primes (one generate) under the lock, publishing _MODEL
+    # last; idempotent.
+    import pipeline
+    saved = (pipeline._MODEL, pipeline._TOK, pipeline._SAMPLER, pipeline.LOAD_TIME)
+    try:
+        _reset_pipeline_model(pipeline)
+        with _FakeMLX(load_sleep=0.1) as fake:
+            pipeline.warm_load()
+            assert fake.load_calls == 1, fake.load_calls
+            assert fake.generate_calls == 1, "warm_load must PRIME (one generate)"
+            assert pipeline._MODEL is not None, "model published"
+            assert pipeline._TOK is not None and pipeline._SAMPLER is not None
+            assert pipeline.LOAD_TIME is not None
+            # idempotent: a second call neither reloads nor re-primes
+            pipeline.warm_load()
+            assert fake.load_calls == 1 and fake.generate_calls == 1
+    finally:
+        pipeline._MODEL, pipeline._TOK, pipeline._SAMPLER, pipeline.LOAD_TIME = saved
+
+
+@register("pipeline_warm_load_and_ensure_model_coordinate_one_load")
+def _():
+    # warm_load holds _MODEL_LOCK across load+prime; a concurrent _ensure_model
+    # (a code-switched dictate lazy-load) must BLOCK on the lock and NOT trigger a
+    # second load -- exactly one load, both see the same published model.
+    import pipeline
+    saved = (pipeline._MODEL, pipeline._TOK, pipeline._SAMPLER, pipeline.LOAD_TIME)
+    try:
+        _reset_pipeline_model(pipeline)
+        with _FakeMLX(load_sleep=0.3, generate_sleep=0.2) as fake:
+            got: list = []
+
+            def dictator():
+                time.sleep(0.05)   # let warm_load grab the lock first
+                got.append(pipeline._ensure_model())
+
+            t = threading.Thread(target=dictator)
+            t.start()
+            pipeline.warm_load()
+            t.join(timeout=5)
+            assert fake.load_calls == 1, f"expected one load, got {fake.load_calls}"
+            assert got and got[0][0] is pipeline._MODEL, "dictate got the published model"
+            assert pipeline._MODEL is not None
+    finally:
+        pipeline._MODEL, pipeline._TOK, pipeline._SAMPLER, pipeline.LOAD_TIME = saved
+
+
+@register("pipeline_warm_load_keeps_model_unpublished_during_prime")
+def _():
+    # THE crash-sensitive invariant (second-eye): _MODEL must stay UNPUBLISHED for
+    # the whole priming generate. If _MODEL were published BEFORE the prime, a dictate
+    # arriving mid-prime would take the lock-free fast path and run a SECOND MLX
+    # generate concurrent with the prime -- the documented "Stream(gpu,N)" crash. This
+    # test blocks INSIDE the prime and proves (a) _MODEL is still None and (b) a
+    # concurrent _ensure_model stays blocked until the prime is released. Move
+    # `_MODEL = model` above the prime generate in pipeline.warm_load and this FAILS.
+    import pipeline
+    saved = (pipeline._MODEL, pipeline._TOK, pipeline._SAMPLER, pipeline.LOAD_TIME)
+    entered, release = threading.Event(), threading.Event()
+    try:
+        _reset_pipeline_model(pipeline)
+        with _FakeMLX(load_sleep=0.0, generate_entered=entered,
+                      generate_release=release) as fake:
+            errs: list = []
+
+            def warmer():
+                try:
+                    pipeline.warm_load()
+                except Exception as e:            # pragma: no cover - failure path
+                    errs.append(e)
+
+            wt = threading.Thread(target=warmer)
+            wt.start()
+            assert entered.wait(3.0), "prime generate never started"
+            # DURING the prime: nothing may be published yet.
+            assert pipeline._MODEL is None, "MODEL published BEFORE the prime finished"
+            # A concurrent dictate lazy-load must be BLOCKED on _MODEL_LOCK (its fast
+            # path cannot fire while _MODEL is None), not fast-path onto a half-ready model.
+            got: list = []
+            dt = threading.Thread(target=lambda: got.append(pipeline._ensure_model()))
+            dt.start()
+            time.sleep(0.15)
+            assert not got, "_ensure_model returned mid-prime (fast-pathed on an early publish!)"
+            assert pipeline._MODEL is None
+            # Release the prime -> warm_load publishes _MODEL last -> both proceed.
+            release.set()
+            wt.join(3.0)
+            dt.join(3.0)
+            assert not errs, errs
+            assert pipeline._MODEL is not None and pipeline._TOK is not None \
+                and pipeline._SAMPLER is not None, "publish incomplete after prime"
+            assert got and got[0][0] is pipeline._MODEL, "dictate got the published model"
+            assert fake.load_calls == 1 and fake.generate_calls == 1, (fake.load_calls, fake.generate_calls)
+    finally:
+        release.set()   # never wedge a thread if an assertion fired mid-prime
+        pipeline._MODEL, pipeline._TOK, pipeline._SAMPLER, pipeline.LOAD_TIME = saved
+
+
+@register("pipeline_warm_load_prime_failure_leaves_all_unpublished")
+def _():
+    # If the prime raises, warm_load must leave _MODEL / _TOK / _SAMPLER ALL unpublished
+    # (None) so the request loop's own _ensure_model reloads cleanly on-thread. Guards
+    # the rollback path second-eye flagged as untested.
+    import pipeline
+    saved = (pipeline._MODEL, pipeline._TOK, pipeline._SAMPLER, pipeline.LOAD_TIME)
+    try:
+        _reset_pipeline_model(pipeline)
+        with _FakeMLX(load_sleep=0.0, generate_boom=True) as fake:
+            raised = False
+            try:
+                pipeline.warm_load()
+            except RuntimeError:
+                raised = True
+            assert raised, "warm_load must propagate the prime failure"
+            assert pipeline._MODEL is None and pipeline._TOK is None \
+                and pipeline._SAMPLER is None, "prime failure left a partial publish"
+            assert fake.load_calls == 1 and fake.generate_calls == 0, (fake.load_calls, fake.generate_calls)
+        # Lazy path reloads cleanly afterwards (fresh fake, prime OK).
+        with _FakeMLX(load_sleep=0.0) as fake2:
+            m, tok, samp = pipeline._ensure_model()
+            assert m is not None and pipeline._MODEL is m and tok is not None and samp is not None
+            assert fake2.load_calls == 1, f"lazy reload should load once, got {fake2.load_calls}"
+    finally:
+        pipeline._MODEL, pipeline._TOK, pipeline._SAMPLER, pipeline.LOAD_TIME = saved
+
+
+class _StubPipe:
+    """A pipeline stand-in for the sidecar warm tests. The ASYNC bg path calls
+    warm_load (slow + counted; `boom` makes it raise a bg-failure); the SYNC path
+    calls _ensure_model (slow) + clean_ex (no-op)."""
+
+    def __init__(self, sleep: float = 0.4, boom: bool = False):
+        self.sleep = sleep
+        self.boom = boom
+        self.ensure_calls = 0
+        self.warm_calls = 0
+
+    def warm_load(self):
+        if self.boom:
+            raise RuntimeError("no model files")
+        time.sleep(self.sleep)
+        self.warm_calls += 1
+
+    def _ensure_model(self):
+        time.sleep(self.sleep)
+        self.ensure_calls += 1
+
+    def clean_ex(self, text, vocab=None):
+        return None
+
+
+def _with_stub_sidecar(stub, fn):
+    """Run fn() with ss._get_backend / ss._get_pipeline stubbed and the one-shot
+    _BG_WARM_STARTED reset; restore everything in finally."""
+    import sidecar_server as ss
+    orig_b, orig_p = ss._get_backend, ss._get_pipeline
+    ss._BG_WARM_STARTED = False
+    try:
+        ss._get_backend = lambda engine: object()
+        ss._get_pipeline = lambda: stub
+        return fn(ss)
+    finally:
+        ss._get_backend, ss._get_pipeline = orig_b, orig_p
+        ss._BG_WARM_STARTED = False
+
+
+@register("warm_background_cleanup_returns_promptly_loads_once")
+def _():
+    stub = _StubPipe(sleep=0.5)
+
+    def body(ss):
+        t0 = time.perf_counter()
+        rep = ss._handle({"cmd": "warm", "id": "w1", "cleanup": True,
+                          "background_cleanup": True})
+        elapsed = time.perf_counter() - t0
+        # Returned WITHOUT blocking on the 0.5s Gemma load.
+        assert elapsed < 0.3, f"async warm blocked {elapsed:.2f}s on the load"
+        assert rep["ok"] is True, rep
+        assert rep["t_cleanup_load"] == 0.0, rep
+        assert rep["cleanup_warming"] is True, rep
+        assert "t_stt_load" in rep, rep
+        # The loader thread runs warm_load exactly once, in the background.
+        dl = time.time() + 5
+        while stub.warm_calls < 1 and time.time() < dl:
+            time.sleep(0.02)
+        assert stub.warm_calls == 1, f"loader ran {stub.warm_calls}x, expected 1"
+
+    _with_stub_sidecar(stub, body)
+
+
+@register("warm_background_cleanup_duplicate_guard")
+def _():
+    stub = _StubPipe(sleep=0.4)
+
+    def body(ss):
+        r1 = ss._handle({"cmd": "warm", "id": "w1", "cleanup": True,
+                         "background_cleanup": True})
+        # Immediately a second warm with the flag: the one-shot guard must NOT
+        # spawn a second loader (it returns promptly, still reports warming).
+        r2 = ss._handle({"cmd": "warm", "id": "w2", "cleanup": True,
+                         "background_cleanup": True})
+        assert r1["cleanup_warming"] is True and r2["cleanup_warming"] is True, (r1, r2)
+        dl = time.time() + 5
+        while stub.warm_calls < 1 and time.time() < dl:
+            time.sleep(0.02)
+        time.sleep(0.4)   # give any erroneous second loader time to also increment
+        assert stub.warm_calls == 1, f"expected exactly one loader, got {stub.warm_calls}"
+
+    _with_stub_sidecar(stub, body)
+
+
+@register("warm_sync_path_unchanged_and_blocks")
+def _():
+    stub = _StubPipe(sleep=0.3)
+
+    def body(ss):
+        # No flag: sync warm BLOCKS on the load and the reply is byte-identical to
+        # today (exact key set, t_cleanup_load timed, NO cleanup_warming).
+        t0 = time.perf_counter()
+        rep = ss._handle({"cmd": "warm", "id": "ws", "cleanup": True})
+        elapsed = time.perf_counter() - t0
+        assert elapsed >= 0.3, f"sync warm did not block on the load ({elapsed:.2f}s)"
+        assert set(rep.keys()) == {"id", "ok", "engine", "t_stt_load", "t_cleanup_load"}, rep
+        assert rep["t_cleanup_load"] > 0, rep
+        assert "cleanup_warming" not in rep, rep
+        # cleanup:false -> t_cleanup_load 0.0, no new key (unchanged from today).
+        rep2 = ss._handle({"cmd": "warm", "id": "wf", "cleanup": False})
+        assert set(rep2.keys()) == {"id", "ok", "engine", "t_stt_load", "t_cleanup_load"}, rep2
+        assert rep2["t_cleanup_load"] == 0.0 and "cleanup_warming" not in rep2, rep2
+        # background_cleanup WITH cleanup:false is ignored -> sync path, no Gemma,
+        # byte-identical reply (no cleanup_warming, no loader spawned).
+        rep3 = ss._handle({"cmd": "warm", "id": "wbf", "cleanup": False,
+                           "background_cleanup": True})
+        assert set(rep3.keys()) == {"id", "ok", "engine", "t_stt_load", "t_cleanup_load"}, rep3
+        assert rep3["t_cleanup_load"] == 0.0 and "cleanup_warming" not in rep3, rep3
+        assert ss._BG_WARM_STARTED is False, "cleanup:false must not start a loader"
+
+    _with_stub_sidecar(stub, body)
+
+
+@register("warm_background_cleanup_failure_is_nonfatal")
+def _():
+    stub = _StubPipe(boom=True)
+
+    def body(ss):
+        rep = ss._handle({"cmd": "warm", "id": "wb", "cleanup": True,
+                          "background_cleanup": True})
+        # A failing bg load must NOT fail the warm: it still returns ok + warming.
+        assert rep["ok"] is True and rep["cleanup_warming"] is True, rep
+        time.sleep(0.3)   # let the bg thread run, raise, and log to stderr
+        # The request loop keeps working afterward (the bg thread can't crash it).
+        pong = ss._handle({"cmd": "ping", "id": "pg"})
+        assert pong["ok"] is True and "pid" in pong, pong
+
+    _with_stub_sidecar(stub, body)
 
 
 if __name__ == "__main__":

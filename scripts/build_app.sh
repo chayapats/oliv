@@ -12,6 +12,8 @@
 #               see step 2b for the why and the evidence).
 #     root/     the MINIMAL source tree the sidecar imports at runtime:
 #                 sidecar/sidecar_server.py     (the server itself)
+#                 sidecar/thai_format.py        (deterministic Thai post-pass,
+#                                                imported at server top level)
 #                 app/ (the STT package)        (import app.stt -> build_backend)
 #                 benchmark/pipeline.py + its   (import pipeline -> clean_ex, which
 #                   dictionary/prompts/metrics    pulls these three as top-level modules)
@@ -307,7 +309,7 @@ echo "    runtime size after slim: $(du -sh "$RUNTIME/python" | cut -f1)   (pyth
 log "2c. Stage the minimal source tree -> $RUNTIME/root"
 RTROOT="$RUNTIME/root"
 mkdir -p "$RTROOT/sidecar" "$RTROOT/app/stt" "$RTROOT/benchmark"
-cp "$ROOT/sidecar/sidecar_server.py"        "$RTROOT/sidecar/"
+cp "$ROOT/sidecar/sidecar_server.py"  "$ROOT/sidecar/thai_format.py"  "$RTROOT/sidecar/"
 cp "$ROOT/app/__init__.py"                  "$RTROOT/app/"
 # All backend modules via glob, not a whitelist: app/stt/__init__.py imports
 # every registered backend, so a module missing from the staged tree fails the
@@ -328,13 +330,21 @@ log "2c. Verify the staged tree imports self-contained (no dev repo on sys.path)
 ( cd / && PYTHONSAFEPATH=1 PYTHONDONTWRITEBYTECODE=1 HF_HUB_OFFLINE=1 OLIV_ROOT="$RTROOT" "$PYBIN" - "$RTROOT" <<'PY'
 import sys, os
 rtroot = sys.argv[1]
-# Only the staged tree — mirrors sidecar_server.py's sys.path setup.
+# Only the staged tree — mirrors sidecar_server.py's sys.path setup. The sidecar/
+# dir is added here explicitly because at runtime Python auto-prepends the script's
+# own directory ($RTROOT/sidecar) for `from thai_format import ...`; PYTHONSAFEPATH
+# suppresses that auto-add under this stdin heredoc, so reproduce it by hand.
 sys.path.insert(0, os.path.join(rtroot, "benchmark"))
 sys.path.insert(0, rtroot)
+sys.path.insert(0, os.path.join(rtroot, "sidecar"))
 import app, app.stt
 from app.stt import build_backend
 import pipeline, dictionary, prompts, metrics
-for m in (app, app.stt, pipeline, dictionary, prompts, metrics):
+# thai_format is a sidecar/*.py sibling module the sidecar imports at top level
+# (deterministic Thai post-pass); catch a future sidecar module missing from 2c's
+# copy list HERE, at build time, not at the final ping smoke.
+import thai_format
+for m in (app, app.stt, pipeline, dictionary, prompts, metrics, thai_format):
     f = getattr(m, "__file__", "") or ""
     assert f.startswith(rtroot), f"{m.__name__} loaded from OUTSIDE the staged tree: {f}"
 # build the default engine's backend class (does NOT load weights) to prove the

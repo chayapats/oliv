@@ -34,6 +34,7 @@ final class OLIVSettings: ObservableObject {
         static let showRecordingIndicator = "oliv.showRecordingIndicator" // W4-T2 HUD toggle
         static let vocabulary = "oliv.vocabulary"         // B3 custom-vocabulary term list [String]
         static let formatCommands = "oliv.formatCommands" // B4 spoken formatting-command toggle
+        static let thaiFormat = "oliv.thaiFormat"         // Thai number/reduplication post-pass toggle
         static let historyEnabled = "oliv.historyEnabled" // 0.1.5 recent-transcripts toggle
         static let micDevice = "oliv.micDevice"           // MicSelection sentinel or a device UID
         // NOTE: the Groq API key is NOT a UserDefaults key — it's a secret and
@@ -146,6 +147,15 @@ final class OLIVSettings: ObservableObject {
         didSet { defaults.set(formatCommands, forKey: Key.formatCommands); onChange?() }
     }
 
+    /// Thai formatting post-pass: collapse repeated words to ๆ (มากมาก → มากๆ)
+    /// and write spoken numbers from ten up as Arabic digits (สี่สิบห้า → 45,
+    /// สองจุดห้า → 2.5). Default ON. A deterministic pass that runs on the final
+    /// cleaned text on BOTH the LLM and gate-skip paths; sent per-dictate and
+    /// gated on effective cleanup (verbatim/cleanup-off dictation gets raw text).
+    @Published var thaiFormat: Bool {
+        didSet { defaults.set(thaiFormat, forKey: Key.thaiFormat); onChange?() }
+    }
+
     /// 0.1.5: keep the last few transcripts in the menu's "Recent…" submenu.
     /// Default ON. The retained entries live ONLY in memory (TranscriptLog);
     /// this toggle gates recording, and the coordinator clears what's retained
@@ -211,6 +221,7 @@ final class OLIVSettings: ObservableObject {
         replacements = defaults.dictionary(forKey: Key.replacements) as? [String: String] ?? [:]
         vocabulary = defaults.array(forKey: Key.vocabulary) as? [String] ?? []
         formatCommands = defaults.object(forKey: Key.formatCommands) as? Bool ?? false
+        thaiFormat = defaults.object(forKey: Key.thaiFormat) as? Bool ?? true   // default ON
         historyEnabled = defaults.object(forKey: Key.historyEnabled) as? Bool ?? true
         micDevice = defaults.string(forKey: Key.micDevice) ?? MicSelection.builtIn
         let stored = defaults.array(forKey: Key.verbatimApps) as? [String] ?? []

@@ -356,6 +356,14 @@ private struct CleanupSettingsView: View {
 
             Divider()
 
+            Toggle("Format numbers & repeated words", isOn: $settings.thaiFormat)
+            Text("Collapses repeated words to ๆ (มากมาก → มากๆ) and writes spoken numbers "
+                 + "from ten up as digits (สี่สิบห้า → 45, สองจุดห้า → 2.5). Small counts "
+                 + "stay words. On by default.")
+                .font(.caption).foregroundStyle(.secondary)
+
+            Divider()
+
             Text("Verbatim apps (cleanup bypassed)").font(.headline)
 
             List {

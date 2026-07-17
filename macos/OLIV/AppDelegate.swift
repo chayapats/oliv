@@ -64,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         controller.replacements = settings.replacements
         controller.vocabulary = settings.vocabulary
         controller.formatCommands = settings.formatCommands
+        controller.thaiFormat = settings.thaiFormat
         controller.showHUD = settings.showRecordingIndicator
         controller.micDevice = settings.micDevice
         controller.historyEnabled = settings.historyEnabled
@@ -96,6 +97,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         controller.replacements = settings.replacements
         controller.vocabulary = settings.vocabulary
         controller.formatCommands = settings.formatCommands
+        controller.thaiFormat = settings.thaiFormat
         controller.showHUD = settings.showRecordingIndicator
         if !settings.showRecordingIndicator { controller.hud?.hide() }
         controller.micDevice = settings.micDevice
@@ -167,6 +169,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             cleanupEnabled: settings.cleanupEnabled,
             removeFillers: settings.removeFillers,
             formatCommands: settings.formatCommands,
+            thaiFormat: settings.thaiFormat,
             // EFFECTIVE state (toggle AND key present) — the toggle alone
             // can't reach the cloud, and "on" without a key would send a
             // privacy triage down the wrong path. Still boolean-only; the

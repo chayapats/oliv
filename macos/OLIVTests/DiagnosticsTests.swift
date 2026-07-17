@@ -15,6 +15,7 @@ final class DiagnosticsTests: XCTestCase {
             appVersion: "0.1.5", build: "10", macOSVersion: "Version 15.5 (Build 24F74)",
             engineID: "typhoon-turbo-mlx", hotkeyID: "right_option",
             cleanupEnabled: true, removeFillers: true, formatCommands: false,
+            thaiFormat: true,
             cloudFallbackEnabled: false,
             microphone: .granted, inputMonitoring: .denied, accessibility: .notDetermined,
             models: [
@@ -33,6 +34,7 @@ final class DiagnosticsTests: XCTestCase {
         Cleanup: on
         Remove fillers: on
         Format commands: off
+        Thai format: on
         Cloud fallback: off
         Permissions:
         - Microphone: granted
@@ -52,6 +54,7 @@ final class DiagnosticsTests: XCTestCase {
             appVersion: "0.1.5", build: "10", macOSVersion: "x",
             engineID: "e", hotkeyID: "h",
             cleanupEnabled: true, removeFillers: false, formatCommands: false,
+            thaiFormat: false,
             cloudFallbackEnabled: true,
             microphone: .granted, inputMonitoring: .granted, accessibility: .granted,
             models: [info], storagePath: "/p", lastDictation: nil)
@@ -66,6 +69,7 @@ final class DiagnosticsTests: XCTestCase {
             appVersion: "0.1.5", build: "10", macOSVersion: "x",
             engineID: "e", hotkeyID: "h",
             cleanupEnabled: false, removeFillers: false, formatCommands: true,
+            thaiFormat: false,
             cloudFallbackEnabled: false,
             microphone: .denied, inputMonitoring: .denied, accessibility: .denied,
             models: [], storagePath: "/p",
@@ -73,5 +77,6 @@ final class DiagnosticsTests: XCTestCase {
         XCTAssertTrue(report.contains("Last dictation: 1.4s · 38 chars"))
         XCTAssertTrue(report.contains("Cleanup: off"))
         XCTAssertTrue(report.contains("Format commands: on"))
+        XCTAssertTrue(report.contains("Thai format: off"))
     }
 }

@@ -40,8 +40,21 @@ final class SidecarClientTests: XCTestCase {
         elif cmd == "ping":
             send({"id": rid, "ok": True, "pid": os.getpid()})
         elif cmd == "warm":
-            send({"id": rid, "ok": True, "engine": req.get("engine"),
-                  "t_stt_load": 0.5, "t_cleanup_load": 0.25})
+            # Option B wire contract. The client OMITS background_cleanup when false
+            # (byte-compat) and sends true only on the async launch warm; reflect
+            # KEY PRESENCE so the test can assert the omit-when-default idiom, and
+            # mirror the real sidecar reply shapes (cleanup_warming only async).
+            if req.get("background_cleanup"):
+                send({"id": rid, "ok": True, "engine": req.get("engine"),
+                      "t_stt_load": 2.0, "t_cleanup_load": 0.0, "cleanup_warming": True})
+            elif "background_cleanup" in req:
+                # present-but-false must NEVER happen from this client -> sentinel
+                send({"id": rid, "ok": True, "engine": req.get("engine"),
+                      "t_stt_load": -1.0, "t_cleanup_load": -1.0})
+            else:
+                # sync path, key omitted: byte-identical to the pre-Option-B reply
+                send({"id": rid, "ok": True, "engine": req.get("engine"),
+                      "t_stt_load": 0.5, "t_cleanup_load": 0.25})
         elif cmd == "dictate":
             # Echo the request shape back through the count fields so the test can
             # assert payload construction: remove_fillers only when the client
@@ -52,13 +65,16 @@ final class SidecarClientTests: XCTestCase {
             rf = 7 if req.get("remove_fillers") else 0
             repl = len(req.get("replacements") or {})
             fmt = len(req.get("vocabulary") or []) * 10 + (1 if req.get("format_commands") else 0)
+            # thai_format is omitted-when-default; echo 5 (sentinel) only when the
+            # client sent the flag, so the test can assert payload construction.
+            tf = 5 if req.get("thai_format") else 0
             send({"id": rid, "ok": True, "engine": req.get("engine"),
                   "raw": "hello world", "final": "Hello world.",
                   "t_stt": 0.012, "t_cleanup": 0.003, "llm_ran": True,
                   "gate_reason": "dict-hit", "guardrail_flag": "ok",
                   "cleanup_error": None,
                   "fillers_removed": rf, "replacements_fired": repl,
-                  "format_commands_fired": fmt})
+                  "format_commands_fired": fmt, "thai_format_fired": tf})
         elif cmd == "hang":
             time.sleep(30)
         elif cmd == "garbage":
@@ -120,6 +136,18 @@ final class SidecarClientTests: XCTestCase {
         XCTAssertEqual(result.fillersRemoved, 0, "remove_fillers omitted by default")
         XCTAssertEqual(result.replacementsFired, 0, "no replacements table by default")
         XCTAssertEqual(result.formatCommandsFired, 0, "vocabulary + format_commands omitted by default")
+        XCTAssertEqual(result.thaiFormatFired, 0, "thai_format omitted by default")
+    }
+
+    // Thai-format payload construction: thaiFormat is omitted-when-default (the
+    // happy round-trip above proves the 0 case) and sent only when on. The fake
+    // echoes a 5 sentinel into thai_format_fired iff the request carried the flag.
+    func testDictateSendsThaiFormatFlag() throws {
+        let client = makeClient()
+        defer { client.close() }
+        let result = try client.dictate(
+            samples: [0.0, 0.1], cleanup: true, thaiFormat: true)
+        XCTAssertEqual(result.thaiFormatFired, 5, "thai_format=true was sent")
     }
 
     // B3/B4 payload construction: a non-empty vocabulary list and formatCommands
@@ -161,6 +189,34 @@ final class SidecarClientTests: XCTestCase {
         let warm = try client.warm(cleanup: true)
         XCTAssertEqual(warm.tSTTLoad, 0.5, accuracy: 1e-9)
         XCTAssertEqual(warm.tCleanupLoad, 0.25, accuracy: 1e-9)
+    }
+
+    // Option B: a default warm OMITS background_cleanup (omit-when-default idiom),
+    // so the sidecar takes the sync path. The fake's sync-path sentinel (0.5/0.25)
+    // — NOT the present-but-false sentinel (-1.0) — proves the key was omitted, not
+    // sent as false; cleanup_warming is absent so cleanupWarming decodes false.
+    func testWarmOmitsBackgroundFlagByDefault() throws {
+        let client = makeClient()
+        defer { client.close() }
+        let warm = try client.warm(cleanup: true)
+        XCTAssertEqual(warm.tSTTLoad, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(warm.tCleanupLoad, 0.25, accuracy: 1e-9,
+                       "sync-path sentinel — key omitted, NOT sent as false (-1.0)")
+        XCTAssertFalse(warm.cleanupWarming, "no background_cleanup key => not warming")
+    }
+
+    // Option B: warm(backgroundCleanup: true) sends background_cleanup == true, and
+    // the async reply {t_stt_load, t_cleanup_load: 0.0, cleanup_warming: true}
+    // parses to cleanupWarming == true with a zero cleanup-load time.
+    func testWarmBackgroundCleanupAsync() throws {
+        let client = makeClient()
+        defer { client.close() }
+        let warm = try client.warm(cleanup: true, backgroundCleanup: true)
+        XCTAssertEqual(warm.tSTTLoad, 2.0, accuracy: 1e-9)
+        XCTAssertEqual(warm.tCleanupLoad, 0.0, accuracy: 1e-9,
+                       "async path does not time the (background) Gemma load")
+        XCTAssertTrue(warm.cleanupWarming,
+                      "background_cleanup=true => async warm reports cleanup_warming")
     }
 
     // Timeout → typed error → the child is killed → the next call respawns and

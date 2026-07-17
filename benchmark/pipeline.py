@@ -93,6 +93,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+import threading
 import time
 from dataclasses import dataclass, field
 
@@ -137,20 +138,101 @@ _MODEL = None
 _TOK = None
 _SAMPLER = None
 LOAD_TIME: float | None = None  # seconds spent loading the model (excluded from per-call timings)
+# Serializes the one-time load so a background warm loader (sidecar Option B) and a
+# concurrent dictate lazy-load coordinate: exactly one load, the other waits.
+_MODEL_LOCK = threading.Lock()
 
 
 def _ensure_model():
-    """Load Gemma 4 once; record load time in LOAD_TIME. Returns (model, tok, sampler)."""
+    """Load Gemma 4 once; record load time in LOAD_TIME. Returns (model, tok, sampler).
+
+    Thread-safe via DOUBLE-CHECKED locking so the sidecar's background warm loader
+    and a concurrent dictate lazy-load never both load: the lock-free fast path
+    returns immediately once loaded (steady state pays no lock); otherwise a caller
+    takes _MODEL_LOCK, RE-CHECKS under it, and only the first runs the load body —
+    the second blocks, then the re-check sees the published model and returns it.
+
+    Publish ORDER matters: _TOK / _SAMPLER / LOAD_TIME are assigned first and
+    _MODEL is published LAST, so the lock-free fast path can never observe a
+    non-None _MODEL beside a still-None _TOK / _SAMPLER (each assignment is atomic
+    under the GIL; publish-last is the ordering guarantee). Single-threaded
+    behaviour is unchanged — the fast path is the old `if _MODEL is None` inverted.
+    """
     global _MODEL, _TOK, _SAMPLER, LOAD_TIME
-    if _MODEL is None:
-        from mlx_lm import load
+    # Lock-free fast path: once loaded, never take the lock.
+    if _MODEL is not None:
+        return _MODEL, _TOK, _SAMPLER
+    with _MODEL_LOCK:
+        # Re-check under the lock: a concurrent caller may have loaded while we
+        # waited, so the load body runs exactly once.
+        if _MODEL is None:
+            from mlx_lm import load
+            from mlx_lm.sample_utils import make_sampler
+
+            t0 = time.time()
+            model, tok = load(MODEL)
+            sampler = make_sampler(temp=0.0)  # greedy / deterministic
+            _TOK = tok
+            _SAMPLER = sampler
+            LOAD_TIME = time.time() - t0
+            _MODEL = model  # publish LAST (after _TOK / _SAMPLER / LOAD_TIME)
+    return _MODEL, _TOK, _SAMPLER
+
+
+# One priming generation warms the MLX generate graph AND -- critically for
+# warm_load below -- materializes the weights on the thread that loaded them. A
+# dict-hit code-switch text exercises the real path; the exact content only affects
+# warmth, not correctness.
+_PRIME_TEXT = "รีสตาร์ทเซิร์ฟเวอร์แล้วเช็คล็อกในกราฟา"
+
+
+def warm_load() -> None:
+    """LOAD **and prime** Gemma under _MODEL_LOCK, publishing _MODEL LAST — the
+    thread-safe entry point for loading the model OFF the request loop (the
+    sidecar's Option B background warm).
+
+    Why this exists separately from _ensure_model: on this MLX/Metal stack a model
+    whose weights were loaded on thread A cannot be generated with from thread B
+    until thread A has first MATERIALIZED the weights with a real generate —
+    otherwise thread B crashes with "There is no Stream(gpu, N) in current thread."
+    (reproduced live). And two generates running on different threads at once ALSO
+    crash. So a background loader must (1) prime on its OWN thread so the request
+    loop can later generate safely, and (2) never let a request-loop generate
+    overlap that prime.
+
+    Both are satisfied by holding _MODEL_LOCK across BOTH the load and the prime and
+    publishing _MODEL only AFTER the prime: a concurrent dictate's _ensure_model
+    blocks on _MODEL_LOCK (its fast path can't fire — _MODEL is still None) until
+    this returns, then takes the fast path and generates on the request-loop thread
+    with fully-materialized weights, never concurrently with the prime. A pure-Thai
+    dictate gate-skips the LLM entirely, so its STT runs concurrent with the prime —
+    the exact load+prime-vs-STT scenario the Option B spike validated as safe.
+
+    If the prime raises, _MODEL is left UNPUBLISHED on purpose: the caller
+    (_bg_cleanup_warm) logs it and the request loop's own _ensure_model then loads
+    cleanly on-thread (load and first generate on the same thread — trivially safe).
+    Idempotent; a no-op once loaded."""
+    global _MODEL, _TOK, _SAMPLER, LOAD_TIME
+    if _MODEL is not None:
+        return
+    with _MODEL_LOCK:
+        if _MODEL is not None:
+            return
+        from mlx_lm import generate, load
         from mlx_lm.sample_utils import make_sampler
 
         t0 = time.time()
-        _MODEL, _TOK = load(MODEL)
-        _SAMPLER = make_sampler(temp=0.0)  # greedy / deterministic
+        model, tok = load(MODEL)
+        sampler = make_sampler(temp=0.0)  # greedy / deterministic
         LOAD_TIME = time.time() - t0
-    return _MODEL, _TOK, _SAMPLER
+        # Prime on THIS (loader) thread so the weights are materialized here BEFORE
+        # _MODEL is published. If this raises, _MODEL stays None (unpublished) so the
+        # lazy path reloads cleanly on the request-loop thread.
+        generate(model, tok, prompt=_build_prompt(tok, _PRIME_TEXT),
+                 max_tokens=MAX_TOKENS, sampler=sampler, verbose=False)
+        _TOK = tok
+        _SAMPLER = sampler
+        _MODEL = model  # publish LAST (after load + prime)
 
 
 def _hint_line(hints: "list[str] | None") -> str:

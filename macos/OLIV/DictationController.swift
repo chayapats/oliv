@@ -59,6 +59,12 @@ final class DictationController {
     var vocabulary: [String] = []
     var formatCommands: Bool = false
 
+    /// Thai formatting post-pass (Settings default ON): collapse repeated words
+    /// to ๆ and write spoken numbers from ten up as digits. Sent per-dictate,
+    /// but only when cleanup is EFFECTIVE for this utterance — verbatim apps and
+    /// cleanup-off dictation skip it (D3: "verbatim = exactly what I said").
+    var thaiFormat: Bool = true
+
     /// W3-T4 per-app verbatim list — lowercased bundle ids the user wants left
     /// VERBATIM (cleanup bypassed). This is the simplified Swift model of
     /// Wave-2's `[cleanup_apps]` on/off table: since the global switch already
@@ -201,6 +207,16 @@ final class DictationController {
         return !verbatimApps.contains(bid)
     }
 
+    /// D3 gate for the Thai-format post-pass: the flag is meaningful ONLY when
+    /// cleanup is EFFECTIVE for this dictate. verbatim / cleanup-off dictation must
+    /// never send `thai_format` — the sidecar would otherwise reformat numbers /
+    /// reduplication in a transcript the user asked to keep byte-for-byte. Factored
+    /// out (from the release closure) so the gate is unit-testable and can't be
+    /// silently dropped: see CloudFallbackRetryTests.testThaiFormat*.
+    nonisolated static func effectiveThaiFormat(setting: Bool, cleanup: Bool) -> Bool {
+        return setting && cleanup
+    }
+
     /// Cloud→local fallback (W3-T4): run one dictate and, if it was on the opt-in
     /// Groq CLOUD engine and failed (a comms SidecarError OR an ok:false STT
     /// failure — both surface as a throw from `dictate`), retry ONCE on the local
@@ -256,8 +272,21 @@ final class DictationController {
         ) { _ in sidecar.terminateNow() }
         DispatchQueue.global(qos: .userInitiated).async {
             do {
-                let warm = try sidecar.warm(engine: engine, cleanup: cleanup)
-                NSLog("OLIV sidecar warmed: stt=\(warm.tSTTLoad)s cleanup=\(warm.tCleanupLoad)s")
+                // Option B: opt into the async Gemma warm. The sidecar loads STT
+                // synchronously and returns after ~STT-load (~2s) while Gemma loads
+                // on a daemon thread, so SidecarClient's serial requestQueue — held
+                // for the WHOLE warm exchange (see terminateNow above) — is released
+                // ~2s after launch instead of ~6.8s, making dictation serviceable
+                // that much sooner. A pure-Thai dictate in the load window gate-skips
+                // Gemma (never blocks); a code-switched one blocks on the model lock
+                // until the load finishes, then runs at full quality.
+                let warm = try sidecar.warm(engine: engine, cleanup: cleanup,
+                                            backgroundCleanup: true)
+                if warm.cleanupWarming {
+                    NSLog("OLIV sidecar warmed: stt=\(warm.tSTTLoad)s, cleanup warming in background")
+                } else {
+                    NSLog("OLIV sidecar warmed: stt=\(warm.tSTTLoad)s cleanup=\(warm.tCleanupLoad)s")
+                }
             } catch {
                 NSLog("OLIV sidecar warm failed (\(error)) — STT/cleanup will load "
                     + "lazily on the first dictate")
@@ -360,6 +389,7 @@ final class DictationController {
         let replacements = self.replacements
         let vocabulary = self.vocabulary
         let formatCommands = self.formatCommands
+        let thaiFormat = self.thaiFormat
         // Resolve cleanup ONCE, here at release (main actor), against the app the
         // user actually dictated into — NOT at paste time (see frontmostBundleID
         // / app/dictation.py). A per-app verbatim entry passes cleanup:false so
@@ -414,7 +444,12 @@ final class DictationController {
                                             removeFillers: removeFillers,
                                             replacements: replacements,
                                             vocabulary: vocabulary,
-                                            formatCommands: formatCommands)
+                                            formatCommands: formatCommands,
+                                            // D3: gate on the SAME effective-cleanup
+                                            // bool the closure receives — verbatim /
+                                            // cleanup-off dictation never sends the flag.
+                                            thaiFormat: DictationController.effectiveThaiFormat(
+                                                setting: thaiFormat, cleanup: cl))
                     })
                 if let result = result {
                     if let err = result.cleanupError {
