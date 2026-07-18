@@ -7,6 +7,20 @@ Sparkle appcast's release notes, so keep entries short and end-user readable.
 
 ## [Unreleased]
 
+## [0.1.8] — 2026-07-18
+- **Spoken numbers and repeated words come out tidy.** Say a number and OLIV
+  writes it in digits — "สี่สิบห้า" becomes 45, and version numbers like
+  "สองจุดสี่จุดหนึ่ง" become 2.4.1. A word you stretch for emphasis becomes the
+  proper Thai form with ๆ ("มากมาก" → "มากๆ"), which also cleans up the times
+  speech-to-text echoes a word two or three times. Small counts and number
+  words inside everyday phrases (ครั้งหนึ่ง, ขอสองแก้ว) are left alone. On by
+  default — switch it off in Settings › Cleanup ("Format numbers & repeated
+  words") if you'd rather keep everything spelled out.
+- **Ready to dictate sooner after you open OLIV.** OLIV now gets speech
+  recognition ready first and warms up the cleanup model quietly in the
+  background, so you can start talking about 2.5× sooner after launch instead
+  of waiting for everything to finish loading.
+
 ## [0.1.7] — 2026-07-13
 - **Dictation no longer goes silently missing.** If you spoke a short sentence
   while holding the key for a while, OLIV could decide the whole clip was
