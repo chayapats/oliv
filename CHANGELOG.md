@@ -7,6 +7,14 @@ Sparkle appcast's release notes, so keep entries short and end-user readable.
 
 ## [Unreleased]
 
+## [0.1.9] — 2026-07-19
+- **Settings scroll properly again.** As OLIV gained options, the General and
+  Cleanup tabs grew taller than the Settings window, so the controls at the top
+  and bottom — the push-to-talk key, Launch at login, the list of verbatim
+  apps — were cut off with no way to scroll to them. Every tab now scrolls, so
+  nothing is out of reach, and the "Push-to-talk key" row lines up with the
+  other labelled rows.
+
 ## [0.1.8] — 2026-07-18
 - **Spoken numbers and repeated words come out tidy.** Say a number and OLIV
   writes it in digits — "สี่สิบห้า" becomes 45, and version numbers like

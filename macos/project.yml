@@ -71,8 +71,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.oliv.app
-        MARKETING_VERSION: 0.1.8
-        CURRENT_PROJECT_VERSION: 13
+        MARKETING_VERSION: 0.1.9
+        CURRENT_PROJECT_VERSION: 14
         # App icon from OLIV/Assets.xcassets (the "light" export set from
         # oliv_logo_assets/ — cream rounded square, transparent corners).
         # actool compiles it into Assets.car and merges CFBundleIconName

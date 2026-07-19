@@ -34,7 +34,49 @@ struct SettingsView: View {
             ModelsSettingsView()
                 .tabItem { Label("Models", systemImage: "square.and.arrow.down") }
         }
-        .frame(width: 520, height: 410)
+        // Fixed window (a Settings scene isn't user-resizable); every pane scrolls
+        // (SettingsPane / the General Form is wrapped in a ScrollView) so a pane
+        // taller than this height scrolls instead of clipping its top and bottom
+        // rows. Panes grew past the old 410 (mic picker, cloud fallback, the Thai
+        // toggle) and macOS neither scrolls nor resizes an over-tall pane on its own.
+        .frame(width: 520, height: 460)
+    }
+}
+
+// MARK: - Layout helpers
+
+/// Wraps a settings pane's content in a ScrollView so a pane taller than the
+/// fixed window scrolls rather than clipping (macOS clips an over-tall pane, it
+/// doesn't scroll it). Content is top-aligned and full-width — a short pane
+/// leaves space below instead of floating vertically centred.
+private struct SettingsPane<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                content()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
+        }
+    }
+}
+
+/// A bordered, non-scrolling stand-in for `List`, for use inside a SettingsPane's
+/// ScrollView — a real `List` can't live in a ScrollView (it demands unbounded
+/// height and collapses to nothing). These collections are small and
+/// user-curated, so a plain stack of rows is enough; the pane does the scrolling.
+private struct SettingsListBox<Content: View>: View {
+    var minHeight: CGFloat
+    @ViewBuilder var content: () -> Content
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content()
+        }
+        .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .topLeading)
+        .padding(.vertical, 4)
+        .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .textBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1))
     }
 }
 
@@ -51,6 +93,7 @@ private struct GeneralSettingsView: View {
     @State private var enginePresence: [String: Bool] = [:]
 
     var body: some View {
+      ScrollView {
         Form {
             HotkeyRecorderField()
             Text("Hold to record; release to transcribe and paste.")
@@ -170,6 +213,7 @@ private struct GeneralSettingsView: View {
         .onChange(of: models.isDownloading) { downloading in
             if !downloading { refreshEnginePresence() }
         }
+      }
     }
 
     /// The weights repo the SELECTED engine still needs, or nil when ready.
@@ -282,25 +326,30 @@ private struct HotkeyRecorderField: View {
     @State private var isCapturing = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text("Push-to-talk key")
-            Button(action: toggleCapture) {
-                Text(isCapturing ? "Press a key…  (Esc to cancel)" : settings.hotkeyKey.displayName)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 2)
-            }
-            .buttonStyle(.bordered)
-            .help("Click, then press the key you want to hold to dictate.")
-
-            Menu {
-                ForEach(HotkeyKey.all) { key in
-                    Button(key.displayName) { choose(key) }
+        // LabeledContent puts "Push-to-talk key" in the Form's leading label
+        // column, aligned with the Microphone / STT engine / Groq API key rows —
+        // a bare leading Text inside an HStack lands in the trailing content
+        // column instead, misaligned with the other labelled rows.
+        LabeledContent("Push-to-talk key") {
+            HStack(spacing: 8) {
+                Button(action: toggleCapture) {
+                    Text(isCapturing ? "Press a key…  (Esc to cancel)" : settings.hotkeyKey.displayName)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 2)
                 }
-            } label: {
-                Image(systemName: "list.bullet")
+                .buttonStyle(.bordered)
+                .help("Click, then press the key you want to hold to dictate.")
+
+                Menu {
+                    ForEach(HotkeyKey.all) { key in
+                        Button(key.displayName) { choose(key) }
+                    }
+                } label: {
+                    Image(systemName: "list.bullet")
+                }
+                .frame(width: 42)
+                .help("Pick a preset key")
             }
-            .frame(width: 42)
-            .help("Pick a preset key")
         }
     }
 
@@ -333,7 +382,7 @@ private struct CleanupSettingsView: View {
     @State private var newBundleID = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        SettingsPane {
             Toggle("Cleanup (dictionary → gate → LLM → guardrails)", isOn: $settings.cleanupEnabled)
             Text("When off, every app gets the raw transcript. The list below keeps "
                  + "specific apps verbatim even while cleanup is on.")
@@ -366,12 +415,14 @@ private struct CleanupSettingsView: View {
 
             Text("Verbatim apps (cleanup bypassed)").font(.headline)
 
-            List {
+            SettingsListBox(minHeight: 90) {
                 if settings.verbatimApps.isEmpty {
                     Text("No apps — cleanup applies everywhere.")
                         .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8).padding(.vertical, 6)
                 } else {
-                    ForEach(settings.verbatimApps.sorted(), id: \.self) { bundleID in
+                    ForEach(Array(settings.verbatimApps.sorted().enumerated()), id: \.element) { index, bundleID in
+                        if index > 0 { Divider() }
                         HStack {
                             Text(bundleID).font(.system(.body, design: .monospaced))
                             Spacer()
@@ -382,10 +433,10 @@ private struct CleanupSettingsView: View {
                             }
                             .buttonStyle(.borderless)
                         }
+                        .padding(.horizontal, 8).padding(.vertical, 4)
                     }
                 }
             }
-            .frame(minHeight: 90)
 
             HStack {
                 TextField("Bundle id (e.g. com.apple.dt.Xcode)", text: $newBundleID)
@@ -396,7 +447,6 @@ private struct CleanupSettingsView: View {
                 Button("Choose App…", action: addViaPanel)
             }
         }
-        .padding()
     }
 
     private func addTyped() {
@@ -427,18 +477,20 @@ private struct ReplacementsSettingsView: View {
     @State private var newReplacement = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        SettingsPane {
             Text("Replacements (snippets)").font(.headline)
             Text("When you say the spoken phrase, OLIV types the replacement — "
                  + "e.g. “อีเมลของผม” → your real email. Applied after cleanup, "
                  + "longest phrase first, never inside a real Thai word.")
                 .font(.caption).foregroundStyle(.secondary)
 
-            List {
+            SettingsListBox(minHeight: 120) {
                 if settings.replacements.isEmpty {
                     Text("No replacements yet.").foregroundStyle(.secondary)
+                        .padding(.horizontal, 8).padding(.vertical, 6)
                 } else {
-                    ForEach(settings.replacements.keys.sorted(), id: \.self) { spoken in
+                    ForEach(Array(settings.replacements.keys.sorted().enumerated()), id: \.element) { index, spoken in
+                        if index > 0 { Divider() }
                         HStack(spacing: 8) {
                             Text(spoken)
                                 .font(.system(.body, design: .monospaced))
@@ -454,10 +506,10 @@ private struct ReplacementsSettingsView: View {
                             }
                             .buttonStyle(.borderless)
                         }
+                        .padding(.horizontal, 8).padding(.vertical, 4)
                     }
                 }
             }
-            .frame(minHeight: 120)
 
             HStack {
                 TextField("Spoken phrase", text: $newSpoken)
@@ -472,7 +524,6 @@ private struct ReplacementsSettingsView: View {
                               || newReplacement.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
-        .padding()
     }
 
     private func addTyped() {
@@ -493,7 +544,7 @@ private struct VocabularySettingsView: View {
     @State private var newTerm = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        SettingsPane {
             Text("Vocabulary").font(.headline)
             Text("Names, jargon, product names, or acronyms OLIV keeps mishearing. "
                  + "Unlike Replacements, these steer the transcription itself — so a "
@@ -501,11 +552,13 @@ private struct VocabularySettingsView: View {
                  + "dictation.")
                 .font(.caption).foregroundStyle(.secondary)
 
-            List {
+            SettingsListBox(minHeight: 150) {
                 if settings.vocabulary.isEmpty {
                     Text("No terms yet.").foregroundStyle(.secondary)
+                        .padding(.horizontal, 8).padding(.vertical, 6)
                 } else {
-                    ForEach(settings.vocabulary, id: \.self) { term in
+                    ForEach(Array(settings.vocabulary.enumerated()), id: \.element) { index, term in
+                        if index > 0 { Divider() }
                         HStack {
                             Text(term)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -517,10 +570,10 @@ private struct VocabularySettingsView: View {
                             }
                             .buttonStyle(.borderless)
                         }
+                        .padding(.horizontal, 8).padding(.vertical, 4)
                     }
                 }
             }
-            .frame(minHeight: 150)
 
             HStack {
                 TextField("Term (e.g. Grafana, คูเบอร์เนติส, OLIV)", text: $newTerm)
@@ -530,7 +583,6 @@ private struct VocabularySettingsView: View {
                     .disabled(newTerm.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
-        .padding()
     }
 
     private func addTyped() {
@@ -555,7 +607,7 @@ private struct ModelsSettingsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        SettingsPane {
             HStack {
                 Text("Storage").font(.headline)
                 Spacer()
@@ -610,6 +662,5 @@ private struct ModelsSettingsView: View {
                     .disabled(models.isDownloading)
             }
         }
-        .padding()
     }
 }
