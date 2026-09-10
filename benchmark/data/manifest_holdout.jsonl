@@ -1,0 +1,46 @@
+# OLIV Phase-5 HOLDOUT manifest (2026-07-08). Record BEFORE any D2 tuning; score
+# SEPARATELY. Fresh sentences + fresh jargon (Istio/Elasticsearch/RabbitMQ/Vault/
+# Cassandra/ArgoCD/Datadog/Sentry/Triton — none in manifest_all) to test that the
+# vocab corrector + cleanup GENERALIZE rather than fit the training clips.
+# Record clips/<id>.wav (16k mono ok; the loader resamples). ids map to buckets
+# by prefix, same as the main set. fm references contain literal newlines.
+{"id": "vb91", "path": "clips/vb91.wav", "bucket": "vb", "reference": "deploy ตัว service ผ่าน Istio service mesh", "keywords": ["Istio"], "vocab": ["Istio"]}
+{"id": "vb92", "path": "clips/vb92.wav", "bucket": "vb", "reference": "เก็บ log ไว้ใน Elasticsearch แล้ว query ผ่าน Kibana", "keywords": ["Elasticsearch", "Kibana"], "vocab": ["Elasticsearch", "Kibana"]}
+{"id": "vb93", "path": "clips/vb93.wav", "bucket": "vb", "reference": "ใช้ RabbitMQ เป็น message broker แทน", "keywords": ["RabbitMQ"], "vocab": ["RabbitMQ"]}
+{"id": "vb94", "path": "clips/vb94.wav", "bucket": "vb", "reference": "เก็บ secret ไว้ใน Vault ให้ปลอดภัย", "keywords": ["Vault"], "vocab": ["Vault"]}
+{"id": "vb95", "path": "clips/vb95.wav", "bucket": "vb", "reference": "database เราใช้ Cassandra สำหรับ write-heavy workload", "keywords": ["Cassandra"], "vocab": ["Cassandra"]}
+{"id": "vb96", "path": "clips/vb96.wav", "bucket": "vb", "reference": "รัน CI ผ่าน CircleCI แล้ว deploy ด้วย ArgoCD", "keywords": ["CircleCI", "ArgoCD"], "vocab": ["CircleCI", "ArgoCD"]}
+{"id": "vb97", "path": "clips/vb97.wav", "bucket": "vb", "reference": "ตั้ง observability ด้วย Datadog กับ Sentry", "keywords": ["Datadog", "Sentry"], "vocab": ["Datadog", "Sentry"]}
+{"id": "vb98", "path": "clips/vb98.wav", "bucket": "vb", "reference": "เทรน model ด้วย PyTorch แล้ว serve ผ่าน Triton", "keywords": ["PyTorch", "Triton"], "vocab": ["PyTorch", "Triton"]}
+{"id": "hx91", "path": "clips/hx91.wav", "bucket": "hx", "reference": "ต้อง refactor ตัว authentication middleware ก่อน merge เข้า main", "keywords": ["refactor", "authentication", "middleware", "merge", "main"]}
+{"id": "hx92", "path": "clips/hx92.wav", "bucket": "hx", "reference": "ตัว endpoint นี้ throttle ที่หนึ่งร้อย request ต่อวินาที", "keywords": ["endpoint", "throttle", "request"]}
+{"id": "hx93", "path": "clips/hx93.wav", "bucket": "hx", "reference": "async function นี้ leak memory ตอน high load", "keywords": ["async", "function", "leak", "memory", "high load"]}
+{"id": "hx94", "path": "clips/hx94.wav", "bucket": "hx", "reference": "cache invalidation ทำงานไม่ถูกตอน concurrent write", "keywords": ["cache", "invalidation", "concurrent", "write"]}
+{"id": "hx95", "path": "clips/hx95.wav", "bucket": "hx", "reference": "migrate schema แล้ว rebuild index ใหม่ทั้งหมด", "keywords": ["migrate", "schema", "rebuild", "index"]}
+{"id": "hx96", "path": "clips/hx96.wav", "bucket": "hx", "reference": "load balancer route traffic ไป replica ที่ healthy", "keywords": ["load balancer", "route", "traffic", "replica", "healthy"]}
+{"id": "hx97", "path": "clips/hx97.wav", "bucket": "hx", "reference": "webhook payload validate ด้วย HMAC signature", "keywords": ["webhook", "payload", "validate", "HMAC", "signature"]}
+{"id": "hx98", "path": "clips/hx98.wav", "bucket": "hx", "reference": "container OOM ตอน batch job รันพร้อมกันหลายตัว", "keywords": ["container", "OOM", "batch job"]}
+{"id": "en91", "path": "clips/en91.wav", "bucket": "en", "reference": "can you send me the updated deck before the standup", "keywords": ["deck", "standup"]}
+{"id": "en92", "path": "clips/en92.wav", "bucket": "en", "reference": "the migration script needs a dry run first", "keywords": ["migration", "dry run"]}
+{"id": "en93", "path": "clips/en93.wav", "bucket": "en", "reference": "let me know if the staging environment is stable now", "keywords": ["staging", "environment", "stable"]}
+{"id": "en94", "path": "clips/en94.wav", "bucket": "en", "reference": "we should add more unit tests for the edge cases", "keywords": ["unit tests", "edge cases"]}
+{"id": "en95", "path": "clips/en95.wav", "bucket": "en", "reference": "the api latency spiked after the last deployment", "keywords": ["api", "latency", "deployment"]}
+{"id": "en96", "path": "clips/en96.wav", "bucket": "en", "reference": "please rebase your branch on top of main before merging", "keywords": ["rebase", "branch", "main", "merging"]}
+{"id": "fm91", "path": "clips/fm91.wav", "bucket": "fm", "reference": "หัวข้อประชุม\nวาระที่หนึ่ง", "keywords": []}
+{"id": "fm92", "path": "clips/fm92.wav", "bucket": "fm", "reference": "shopping list\nmilk\neggs", "keywords": []}
+{"id": "fm93", "path": "clips/fm93.wav", "bucket": "fm", "reference": "สรุป\n\nรายละเอียดด้านล่าง", "keywords": []}
+{"id": "fm94", "path": "clips/fm94.wav", "bucket": "fm", "reference": "todo\n- call client\n- send report", "keywords": []}
+{"id": "fm95", "path": "clips/fm95.wav", "bucket": "fm", "reference": "บทที่หนึ่ง\nบทที่สอง\nบทที่สาม", "keywords": []}
+{"id": "mx91", "path": "clips/mx91.wav", "bucket": "mixed", "reference": "ช่วย review PR ตัวนี้แล้ว approve ให้หน่อย", "keywords": ["review", "PR", "approve"]}
+{"id": "mx92", "path": "clips/mx92.wav", "bucket": "mixed", "reference": "เดี๋ยว sync กับ team ตอนบ่าย แล้วค่อย update timeline", "keywords": ["sync", "team", "update", "timeline"]}
+{"id": "mx93", "path": "clips/mx93.wav", "bucket": "mixed", "reference": "ตัว build fail เพราะ dependency version ไม่ตรง", "keywords": ["build", "fail", "dependency", "version"]}
+{"id": "mx94", "path": "clips/mx94.wav", "bucket": "mixed", "reference": "ขอ access เข้า dashboard ของ production หน่อย", "keywords": ["access", "dashboard", "production"]}
+{"id": "mx95", "path": "clips/mx95.wav", "bucket": "mixed", "reference": "feature นี้ rollout แบบ canary ก่อนนะ", "keywords": ["feature", "rollout", "canary"]}
+{"id": "nu91", "path": "clips/nu91.wav", "bucket": "nu", "reference": "ประชุมกับคุณธนกฤตเรื่อง proposal พรุ่งนี้", "keywords": ["proposal"]}
+{"id": "nu92", "path": "clips/nu92.wav", "bucket": "nu", "reference": "ส่งเอกสารให้ทีมที่ตึกเอ็มไพร์ทาวเวอร์", "keywords": []}
+{"id": "nu93", "path": "clips/nu93.wav", "bucket": "nu", "reference": "คุณศิริพรจะดูแล onboarding ของ intern", "keywords": ["onboarding", "intern"]}
+{"id": "nu94", "path": "clips/nu94.wav", "bucket": "nu", "reference": "นัดกินข้าวแถวทองหล่อกับคุณปรัชญา", "keywords": []}
+{"id": "lf91", "path": "clips/lf91.wav", "bucket": "lf", "reference": "เรียนทุกท่าน ขอแจ้งว่าระบบจะปิดปรับปรุงคืนวันเสาร์ตั้งแต่เที่ยงคืนถึงตีสาม ช่วงนั้นจะเข้าใช้งานไม่ได้ ขออภัยในความไม่สะดวก", "keywords": []}
+{"id": "lf92", "path": "clips/lf92.wav", "bucket": "lf", "reference": "สรุปงานสัปดาห์นี้ ทีม backend ปิด sprint ได้ตามเป้า ส่วน frontend ยังเหลือหน้า report อีกสองหน้า คาดว่าจะเสร็จต้นสัปดาห์หน้า", "keywords": ["backend", "sprint", "frontend", "report"]}
+{"id": "lf93", "path": "clips/lf93.wav", "bucket": "lf", "reference": "ฝากทุกคนช่วยกัน test feature ใหม่ก่อน release วันศุกร์ ถ้าเจอ bug ตรงไหนช่วย log ไว้ใน Jira ด้วยนะครับ", "keywords": ["test", "feature", "release", "bug", "log", "Jira"]}
+{"id": "lf94", "path": "clips/lf94.wav", "bucket": "lf", "reference": "ขอบคุณทุกคนที่ช่วยกัน migrate ระบบเก่ามาขึ้น cloud สำเร็จ ต่อไปเราจะ monitor performance อีกสองสัปดาห์ก่อนปิดระบบเดิม", "keywords": ["migrate", "cloud", "monitor", "performance"]}

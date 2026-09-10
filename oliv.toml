@@ -1,0 +1,68 @@
+# OLIV configuration.
+#
+# This file is optional: if it is missing, or missing individual keys,
+# app/config.py's OLIVConfig falls back to its built-in defaults (shown
+# below, uncommented). Delete/rename this file to prove that -- `python -m
+# app --selftest` still works on defaults with no oliv.toml present.
+
+# Hotkey to hold for push-to-talk capture (wired in W1-T2).
+hotkey = "right_option"
+
+# STT backend registry id -- see app/stt/__init__.py BACKENDS.
+# "pathumma-mlx" (kinoppy555/Pathumma-whisper-th-large-v3-mlx -- community
+# MLX conversion of the same Pathumma fine-tune) is the PRIMARY backend and
+# the default as of the 2026-07-07 latency decision: ~1.5s/utterance vs the
+# HF backend's 7-9s at equal post-cleanup quality. "mlx-large-v3" (vanilla
+# Whisper large-v3 via MLX) is the FALLBACK for English-heavy dictation;
+# "pathumma" (HF transformers, slow) stays selectable for A/B comparison.
+stt_backend = "pathumma-mlx"
+
+# Decode policy for the STT stage: "auto" never forces a language token,
+# which is the correct choice for Thai+English code-switching. Set to "th"
+# or "en" to force that language (used for A/B testing, not normal use).
+decode_policy = "auto"  # auto | th | en
+
+# How paste-at-cursor (app/inject.py) behaves (wired in W1-T5):
+#   "clipboard_restore" (default) -- put the text on the clipboard, synthesize
+#       Cmd+V to paste at the focused app's cursor, then restore the original
+#       clipboard. Posting the keystroke needs macOS Accessibility granted;
+#       without it the text is left on the clipboard for a manual Cmd+V.
+#   "clipboard_only" -- degraded/consent-free: just put the text on the
+#       clipboard and stop (no synthesized keys, no restore). Paste manually.
+paste_mode = "clipboard_restore"
+
+# Whether the cleanup stage (benchmark/pipeline.py's Gemma-4 pass) runs
+# after STT.
+cleanup_enabled = true
+
+# Cleanup's pinned deps (mlx-lm 0.31.3 + transformers==5.0.0) conflict with
+# the STT stack's deps (transformers 5.13 in .venv-app), so cleanup CANNOT
+# run in-process. Resolved in W1-T6: it runs as a subprocess "worker"
+# (benchmark/cleanup_worker.py under benchmark/.venv-gemma4), spoken to over
+# a JSON stdio protocol by app/cleanup.py's CleanupClient. Only "worker" is
+# supported.
+cleanup_mode = "worker"
+
+# Per-backend model repo overrides, keyed by stt_backend registry id.
+# Uncomment/add entries to pin a specific repo instead of each backend's
+# built-in default. Example:
+# [model_repo]
+# "mlx-large-v3" = "mlx-community/whisper-large-v3-mlx"
+# "pathumma" = "nectec/Pathumma-whisper-th-large-v3"
+
+# W1-T3: whether app/audio.py's trim_silence() (leading/trailing only) runs
+# on captured audio before handing it to STT. Off by default.
+trim_silence = false
+
+# W2-T3: per-app cleanup override, keyed by bundle id -> "on" | "off".
+# Precedence: cleanup_enabled=false above means cleanup is OFF EVERYWHERE
+# (this table can only REFINE a globally-ON config, never turn it back on).
+# An app with no entry here gets the global (on) behavior; "off" bypasses
+# cleanup for that app entirely (raw STT text passes through verbatim, and
+# the cleanup worker isn't even invoked) -- e.g. leave code editors verbatim
+# while email stays cleaned. Find an app's bundle id with:
+#   osascript -e 'id of app "Notes"'
+# Example (uncomment + adjust to taste):
+# [cleanup_apps]
+# "com.apple.Notes" = "on"
+# "com.microsoft.VSCode" = "off"

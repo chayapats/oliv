@@ -1,0 +1,21 @@
+# --- metrics (always needed) ---
+pythainlp>=5.0            # newmm tokenizer (ships built-in) + Thai text utils
+
+# --- optional: canonical Thonburian tokenizer (heavy: pulls TensorFlow) ---
+# deepcut                 # enables the WER-deepcut column; skip if you don't need it
+
+# --- engines: install only the ones you plan to run ---
+# cloud baseline oracle (needs GROQ_API_KEY):
+groq>=0.11
+
+# local vanilla Whisper on Apple Silicon:
+mlx-whisper>=0.4
+
+# local Thai fine-tunes (Thonburian / Pathumma) via HF transformers:
+transformers>=4.40
+torch>=2.2
+librosa>=0.10
+soundfile>=0.12
+
+# optional CT2 runtime (if you convert a fine-tune to CTranslate2 yourself):
+# faster-whisper>=1.0
