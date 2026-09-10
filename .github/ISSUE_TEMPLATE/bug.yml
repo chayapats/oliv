@@ -1,0 +1,56 @@
+name: Bug report
+description: Something in OLIV is wrong — dictation, UI, install, or a crash
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thai or English is fine. For anything that could leak audio, transcripts, or API keys, use the [security policy](https://github.com/chayapats/oliv/blob/main/SECURITY.md) instead of this form.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you got.
+    validations:
+      required: true
+  - type: input
+    id: oliv-version
+    attributes:
+      label: OLIV version
+      description: Settings, About, or the GitHub release you installed (e.g. 0.1.11).
+      placeholder: "0.1.11"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "15.6, M-series"
+    validations:
+      required: true
+  - type: dropdown
+    id: engine
+    attributes:
+      label: STT engine
+      options:
+        - Typhoon turbo (default, local)
+        - Pathumma (local)
+        - Whisper large-v3 (local)
+        - Groq cloud (opt-in)
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Copy Diagnostics
+      description: Menu-bar olive → Copy Diagnostics. Paste the plain text here. It should not include transcripts or your API key.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots of the HUD/Settings are useful. Do not attach voice recordings unless a maintainer asks, and never in a public issue if they contain secrets.

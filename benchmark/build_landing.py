@@ -149,6 +149,22 @@ HTML = f'''<!doctype html><html lang="en" data-lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OLIV — Thai + English dictation, fully on your Mac</title>
 <meta name="description" content="OLIV types your Thai-English speech correctly ~9 times in 10 — fully on your Mac, nothing uploaded. An honest, reproducible benchmark.">
+<link rel="canonical" href="https://chayapats.github.io/oliv/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="OLIV">
+<meta property="og:title" content="OLIV — Thai + English dictation, fully on your Mac">
+<meta property="og:description" content="OLIV types your Thai-English speech correctly ~9 times in 10 — fully on your Mac, nothing uploaded. An honest, reproducible benchmark.">
+<meta property="og:url" content="https://chayapats.github.io/oliv/">
+<meta property="og:image" content="https://chayapats.github.io/oliv/img/oliv-mark.png">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="th_TH">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="OLIV — Thai + English dictation, fully on your Mac">
+<meta name="twitter:description" content="OLIV types your Thai-English speech correctly ~9 times in 10 — fully on your Mac, nothing uploaded.">
+<meta name="twitter:image" content="https://chayapats.github.io/oliv/img/oliv-mark.png">
+<script type="application/ld+json">
+{{"@context":"https://schema.org","@type":"SoftwareApplication","name":"OLIV","alternateName":"Offline Local Inference Voice","applicationCategory":"UtilitiesApplication","operatingSystem":"macOS 14","softwareVersion":"0.1.11","license":"https://opensource.org/licenses/MIT","url":"https://github.com/chayapats/oliv","downloadUrl":"https://github.com/chayapats/oliv/releases/latest/download/OLIV.dmg","isAccessibleForFree":true,"inLanguage":["en","th"],"author":{{"@type":"Person","name":"Chayapat Sriwattanachote","url":"https://github.com/chayapats"}},"offers":{{"@type":"Offer","price":"0","priceCurrency":"USD"}}}}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="img/favicon.png">

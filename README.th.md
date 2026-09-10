@@ -5,8 +5,12 @@
 
 # OLIV — Offline Local Inference Voice
 
+[![License: MIT](https://img.shields.io/github/license/chayapats/oliv?color=57761f)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B%20Apple%20Silicon-111111)](#สเปกที่ต้องมี)
+[![Release](https://img.shields.io/github/v/release/chayapats/oliv?color=57761f)](https://github.com/chayapats/oliv/releases/latest)
+
 **พิมพ์ด้วยเสียง ไทยปนอังกฤษ ทำงานในเครื่องทั้งหมด สำหรับ macOS**
-กดปุ่มแล้วพูดไทยปนศัพท์อังกฤษได้เลย OLIV พิมพ์ออกมา*ถูก* — บน Mac ของคุณ ไม่ส่งเสียงขึ้น cloud
+โอเพนซอร์ส voice typing: กดปุ่มแล้วพูดไทยปนอังกฤษ OLIV พิมพ์ลงแอปที่เปิดอยู่ Speech-to-text รันบน Mac ชิป Apple Silicon — ไม่ส่งเสียงขึ้น cloud
 
 > 🇬🇧 [English version →](README.md)
 
@@ -105,6 +109,24 @@ sidecar/.venv/bin/python benchmark/build_landing.py      # regenerate docs/index
 
 Manifest: `benchmark/data/manifest_{all,holdout,d2}.jsonl` (264 คลิป; ไฟล์เสียงไม่อยู่ใน repo)
 เมตริก: `benchmark/semantic_score.py` (LaBSE ตัดคำไทยก่อน embed เกณฑ์ผ่าน 0.80)
+
+## สร้างจากซอร์ส
+
+Mac ชิป Apple Silicon, macOS 14+ รายละเอียดอยู่ใน [CONTRIBUTING.md](CONTRIBUTING.md)
+
+```bash
+brew install xcodegen
+python3.11 -m venv sidecar/.venv
+sidecar/.venv/bin/pip install -r sidecar/requirements.lock
+( cd macos && xcodegen generate )
+bash scripts/build_app.sh    # -> build/OLIV.app
+```
+
+## มีส่วนร่วม
+
+แจ้งบั๊กและส่ง pull request ได้ — ไทยหรืออังกฤษก็ได้
+อ่าน [CONTRIBUTING.md](CONTRIBUTING.md) กับ [Code of Conduct](CODE_OF_CONDUCT.md)
+เรื่องความปลอดภัย: [SECURITY.md](SECURITY.md) อย่าเปิดเป็น issue สาธารณะ
 
 ## สัญญาอนุญาต
 

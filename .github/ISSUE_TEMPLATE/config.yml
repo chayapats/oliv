@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Honest benchmark (numbers & limitations)
+    url: https://chayapats.github.io/oliv/
+    about: How accurate OLIV is, which clips, and what the numbers do not mean
+  - name: Download the latest .dmg
+    url: https://github.com/chayapats/oliv/releases/latest
+    about: Installable macOS app — not a usage question

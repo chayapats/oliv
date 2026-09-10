@@ -5,8 +5,12 @@
 
 # OLIV — Offline Local Inference Voice
 
+[![License: MIT](https://img.shields.io/github/license/chayapats/oliv?color=57761f)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B%20Apple%20Silicon-111111)](#requirements)
+[![Release](https://img.shields.io/github/v/release/chayapats/oliv?color=57761f)](https://github.com/chayapats/oliv/releases/latest)
+
 **Fully-local Thai + English push-to-talk dictation for macOS.**
-Speak Thai mixed with English tech terms; OLIV types it back *right* — on your Mac, no cloud.
+Open-source voice typing: hold a key, speak Thai mixed with English, and OLIV types into the frontmost app. Speech-to-text runs on your Apple Silicon Mac — nothing uploaded.
 
 > 🇹🇭 **ย่อ:** พิมพ์ด้วยเสียง ไทยปนอังกฤษ บน Mac ทำงานในเครื่องทั้งหมด ไม่ส่งเสียงขึ้น cloud
 > STT ไทยมักเขียนคำอังกฤษเป็นตัวไทยเพราะเสียงคล้าย (`ดีพลอย`, `เกรดเวย์`) — OLIV คืนมันกลับเป็น `deploy`, `gateway`
@@ -106,6 +110,24 @@ sidecar/.venv/bin/python benchmark/build_landing.py      # regenerate docs/index
 ```
 
 Manifests: `benchmark/data/manifest_{all,holdout,d2}.jsonl` (264 clips; audio not tracked). Metric: `benchmark/semantic_score.py` (LaBSE, Thai word-segmented before embedding, threshold 0.80).
+
+## Build from source
+
+Apple Silicon Mac, macOS 14+. Full notes in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+```bash
+brew install xcodegen
+python3.11 -m venv sidecar/.venv
+sidecar/.venv/bin/pip install -r sidecar/requirements.lock
+( cd macos && xcodegen generate )
+bash scripts/build_app.sh    # -> build/OLIV.app
+```
+
+## Contributing
+
+Bug reports and pull requests are welcome — Thai or English.
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
+Security reports: [SECURITY.md](SECURITY.md), not a public issue.
 
 ## License
 

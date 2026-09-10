@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+title: OLIV
+message: If you use OLIV in academic work, please cite it.
+type: software
+authors:
+  - family-names: Sriwattanachote
+    given-names: Chayapat
+repository-code: https://github.com/chayapats/oliv
+url: https://chayapats.github.io/oliv/
+license: MIT
+version: 0.1.11
+date-released: "2026-08-10"
+abstract: >-
+  Fully-local Thai + English push-to-talk dictation for macOS.
+  Offline speech-to-text that restores English tech terms from
+  Thai STT. Apple Silicon, MIT.
+keywords:
+  - speech-to-text
+  - dictation
+  - Thai
+  - macOS
+  - whisper
+  - offline
+  - mlx
