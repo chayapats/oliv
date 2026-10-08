@@ -68,6 +68,18 @@ final class ModelState: ObservableObject {
     /// True once every required repo has materialized weights.
     var allPresent: Bool { !repos.isEmpty && repos.allSatisfy { $0.present } }
 
+    func arePresent(_ required: [String]) -> Bool {
+        required.allSatisfy { repo in
+            repos.first(where: { $0.repo == repo })?.present ?? Self.diskInfo(repo).present
+        }
+    }
+
+    func info(for repo: String) -> RepoInfo {
+        if let info = repos.first(where: { $0.repo == repo }) { return info }
+        let (present, bytes) = Self.diskInfo(repo)
+        return RepoInfo(repo: repo, present: present, bytes: bytes)
+    }
+
     /// The directory the sidecar reads/writes models under (for the UI's
     /// "storage path" + Reveal-in-Finder).
     var storagePath: String { SidecarClient.modelsHome() }

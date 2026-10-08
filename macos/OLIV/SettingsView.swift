@@ -141,14 +141,18 @@ private struct GeneralSettingsView: View {
 
             Divider()
 
-            Picker("STT engine", selection: $settings.engineID) {
-                // Gated: the cloud engine only appears while the fallback toggle
-                // is on AND a key is present (see OLIVSettings.availableEngines).
+            Picker("Dictation engine", selection: $settings.engineID) {
+                // Remote engines appear only after opt-in and configuration
+                // (see OLIVSettings.availableEngines).
                 ForEach(settings.availableEngines) { engine in
                     Text(engine.displayName + (needsDownload(engine) ? "  (not downloaded)" : ""))
                         .tag(engine.id)
                 }
             }
+            let execution = DictationExecution(engineID: settings.engineID)
+            Label(execution.label, systemImage: execution.systemImage)
+                .font(.caption).foregroundStyle(.secondary)
+            Text(execution.detail).font(.caption).foregroundStyle(.secondary)
             Text("Takes effect on the next utterance — no restart.")
                 .font(.caption).foregroundStyle(.secondary)
             // Ready-before-dictate: an engine whose weights aren't on disk would
@@ -203,10 +207,14 @@ private struct GeneralSettingsView: View {
             SecureField("Groq API key", text: $settings.groqAPIKey)
                 .textFieldStyle(.roundedBorder)
                 .disabled(!settings.groqCloudEnabled)
-            Text("Audio leaves your Mac only when the Groq engine is selected as "
-                 + "the STT engine above. Every other engine runs entirely on-device. "
+            Text("Audio is sent to Groq only when the Groq engine is selected as "
+                 + "the dictation engine above. Local engines run entirely on-device. "
                  + "The key is stored in your macOS Keychain.")
                 .font(.caption).foregroundStyle(.secondary)
+
+            Divider()
+
+            OLIVAPISettingsSection()
 
             Divider()
 
@@ -266,6 +274,64 @@ private struct GeneralSettingsView: View {
                 + "Move OLIV to /Applications and try again."
         }
         launchEnabled = LaunchAtLogin.isEnabled
+    }
+}
+
+private struct OLIVAPISettingsSection: View {
+    @EnvironmentObject private var settings: OLIVSettings
+    @State private var checking = false
+    @State private var connectionStatus: String?
+
+    var body: some View {
+        Text("OLIV API").font(.headline)
+        Toggle("Enable OLIV API engine (sends audio to the API)", isOn: $settings.olivAPIEnabled)
+        TextField("API base URL", text: $settings.olivAPIURL)
+            .textFieldStyle(.roundedBorder).disabled(!settings.olivAPIEnabled)
+        SecureField("Individual API key", text: $settings.olivAPIKey)
+            .textFieldStyle(.roundedBorder).disabled(!settings.olivAPIEnabled)
+        Stepper("Request timeout: \(settings.olivAPITimeout) seconds",
+                value: $settings.olivAPITimeout, in: 10...180, step: 10)
+            .disabled(!settings.olivAPIEnabled)
+        Text("After entering a key with dictate access, select OLIV API above. "
+             + "It transcribes and cleans up on the server; no local models are needed. "
+             + "Recordings are limited to 2 minutes. The key stays in your macOS Keychain.")
+            .font(.caption).foregroundStyle(.secondary)
+        if settings.olivAPIConfiguration != nil && !settings.usesOLIVAPI {
+            Text("OLIV API is enabled but not selected. Choose OLIV API (remote) in Dictation engine to use it.")
+                .font(.caption).foregroundStyle(.orange)
+        }
+        if let error = settings.olivAPIConfigurationError {
+            Text(error).font(.caption).foregroundStyle(.orange)
+        }
+        HStack {
+            Button("Check connection") { checkConnection() }
+                .disabled(checking || settings.olivAPIConfiguration == nil)
+            if checking { ProgressView().controlSize(.small) }
+        }
+        if let status = connectionStatus {
+            Text(status).font(.caption).foregroundStyle(.secondary)
+        }
+        Text("Failed API requests are not resent automatically. Rate limits may require a wait. "
+             + "This version does not save failed recordings for retry.")
+            .font(.caption).foregroundStyle(.secondary)
+            .onChange(of: settings.olivAPIConfiguration) { connectionStatus = nil }
+    }
+
+    private func checkConnection() {
+        guard let configuration = settings.olivAPIConfiguration else { return }
+        checking = true
+        connectionStatus = nil
+        Task { @MainActor in
+            let status: String
+            do {
+                try await OLIVAPIClient(configuration: configuration).health()
+                status = "API reachable. This checks the connection only, not your key or model readiness."
+            } catch {
+                status = (error as? OLIVAPIError)?.errorDescription ?? "Could not check the API connection."
+            }
+            if settings.olivAPIConfiguration == configuration { connectionStatus = status }
+            checking = false
+        }
     }
 }
 
@@ -346,7 +412,9 @@ private struct SpeakerBleedControls: View {
         Text("Subtracts what your Mac is playing from what the mic hears, so music "
              + "and video don't end up in your transcript. Applies when the mic "
              + "above is also your system input device; skipped with Bluetooth "
-             + "audio, which doesn't leak into the mic anyway.")
+             + "audio, which doesn't leak into the mic anyway. If unavailable "
+             + "on an audio route, OLIV remembers that and uses the regular mic "
+             + "to start faster. Turn this off and on to try echo cancellation again.")
             .font(.caption).foregroundStyle(.secondary)
 
         Toggle("Lower other audio while dictating", isOn: $settings.duckOtherAudio)
@@ -506,10 +574,17 @@ private struct CleanupSettingsView: View {
             Divider()
 
             Toggle("Spoken formatting commands", isOn: $settings.formatCommands)
+                .disabled(settings.usesOLIVAPI)
             Text("Say “ขึ้นบรรทัดใหม่ / new line”, “ย่อหน้าใหม่ / new paragraph”, or "
                  + "“bullet point” to insert a line break. Off by default — a command "
                  + "phrase can also be real text.")
                 .font(.caption).foregroundStyle(.secondary)
+
+            if settings.usesOLIVAPI {
+                Text("Spoken formatting commands are not supported by OLIV API yet. "
+                     + "Your setting is kept for local engines.")
+                    .font(.caption).foregroundStyle(.orange)
+            }
 
             Divider()
 

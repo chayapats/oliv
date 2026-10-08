@@ -1,11 +1,11 @@
-// KeychainStore (W3-T4) — the secure home for the opt-in Groq cloud API key.
+// KeychainStore — the secure home for opt-in Groq and OLIV API keys.
 //
 // The cloud fallback tier is strictly opt-in (audio leaves the Mac only when
 // the user turns it on AND provides a key), so the key is a genuine secret: it
 // belongs in the macOS Keychain, NOT in UserDefaults / oliv.toml alongside the
 // non-secret knobs. This is a deliberately tiny generic-password wrapper over the
 // Security framework (no third-party Swift deps — the project rule), stored under
-// service "com.oliv.app" / account "groq-api-key".
+// service "com.oliv.app", with a separate account for each provider.
 //
 // Testability: everything goes through the `KeychainStoring` protocol so the
 // settings store / tests inject `InMemoryKeychain` and never touch the real login
@@ -23,7 +23,7 @@ protocol KeychainStoring {
 }
 
 extension KeychainStoring {
-    /// Convenience for the single secret this app stores today.
+    /// Convenience for the Groq sidecar's key.
     func groqAPIKey() -> String? { string(forAccount: KeychainStore.groqAccount) }
     func setGroqAPIKey(_ value: String?) { set(value, forAccount: KeychainStore.groqAccount) }
 }
@@ -35,6 +35,7 @@ extension KeychainStoring {
 final class KeychainStore: KeychainStoring {
     static let service = "com.oliv.app"
     static let groqAccount = "groq-api-key"
+    static let olivAPIAccount = "oliv-api-key"
 
     static let shared = KeychainStore()
 

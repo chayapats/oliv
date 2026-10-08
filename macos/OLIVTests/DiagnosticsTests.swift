@@ -8,6 +8,20 @@ import XCTest
 @testable import OLIV
 
 final class DiagnosticsTests: XCTestCase {
+    func testAPIDiagnosticsDescribeRemoteReadinessWithoutCredentials() {
+        let report = Diagnostics.report(
+            appVersion: "dev", build: "1", macOSVersion: "test",
+            engineID: OLIVAPIClient.engineID, hotkeyID: "right_option",
+            cleanupEnabled: true, removeFillers: true, formatCommands: false,
+            thaiFormat: true, echoCancellation: true, duckOtherAudio: true,
+            cloudFallbackEnabled: false, microphone: .granted, inputMonitoring: .granted,
+            accessibility: .granted, models: [], storagePath: "/models", lastDictation: nil,
+            olivAPIEnabled: true)
+        XCTAssertTrue(report.contains("OLIV API: on"))
+        XCTAssertTrue(report.contains("Local models: not required for OLIV API"))
+        XCTAssertFalse(report.contains("Authorization"))
+        XCTAssertFalse(report.contains("https://"))
+    }
     /// Fixed inputs → the exact report, pinning layout + every field. Absent
     /// repos keep sizeText locale-independent ("Not downloaded").
     func testReportFullLayout() {
@@ -78,8 +92,11 @@ final class DiagnosticsTests: XCTestCase {
             cloudFallbackEnabled: false,
             microphone: .denied, inputMonitoring: .denied, accessibility: .denied,
             models: [], storagePath: "/p",
-            lastDictation: LastDictationStats(chars: 38, sttSeconds: 0.9, cleanupSeconds: 0.5))
+            lastDictation: LastDictationStats(chars: 38, sttSeconds: 0.9, cleanupSeconds: 0.5,
+                                             microphoneStartupSeconds: 0.083, captureBackend: "hal"))
         XCTAssertTrue(report.contains("Last dictation: 1.4s · 38 chars"))
+        XCTAssertTrue(report.contains("Last microphone startup: 83ms"))
+        XCTAssertTrue(report.contains("Last capture backend: hal"))
         XCTAssertTrue(report.contains("Cleanup: off"))
         XCTAssertTrue(report.contains("Format commands: on"))
         XCTAssertTrue(report.contains("Thai format: off"))

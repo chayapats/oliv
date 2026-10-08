@@ -5,12 +5,15 @@ import SwiftUI
 struct MenuContentView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var coordinator: AppDelegate
+    @EnvironmentObject private var settings: OLIVSettings
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         // Status line: reflects DictationStatus live (the icon shows it too,
         // but the text names it for clarity).
         Text("OLIV — \(appState.status.label)")
+        let execution = DictationExecution(engineID: appState.activeEngineID ?? settings.engineID)
+        Label("Engine: \(execution.label)", systemImage: execution.systemImage)
         if let stats = appState.lastDictation {
             Text(stats.menuLine)
                 .font(.caption).foregroundStyle(.secondary)

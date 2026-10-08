@@ -24,6 +24,7 @@ struct OLIVApp: App {
             MenuContentView()
                 .environmentObject(appDelegate.appState)
                 .environmentObject(appDelegate)
+                .environmentObject(appDelegate.settings)
         } label: {
             // The menu-bar label is the app's only always-visible surface
             // (LSUIElement = no Dock icon): the icon doubles as the recording-

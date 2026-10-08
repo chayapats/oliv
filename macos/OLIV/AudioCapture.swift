@@ -109,6 +109,8 @@ final class AudioCapture {
 
     /// Stats for one start()/stop() cycle (subset of app.audio.CaptureStats).
     struct CaptureStats: Equatable {
+        /// Hotkey press to the first live audio frame, including queue/open time.
+        var startupSeconds: TimeInterval? = nil
         var durationSeconds: Double = 0
         var sampleCount: Int = 0
         var sampleRate: Double = AudioCapture.targetSampleRate
@@ -165,6 +167,7 @@ final class AudioCapture {
 
     enum CaptureError: Error, CustomStringConvertible {
         case alreadyRunning
+        case startCancelled
         case converterUnavailable
         case noInputDevice
         case unitUnavailable(OSStatus)
@@ -186,6 +189,8 @@ final class AudioCapture {
             switch self {
             case .alreadyRunning:
                 return "AudioCapture already started — call stop() before starting again"
+            case .startCancelled:
+                return "the hotkey was released before the microphone was ready"
             case .converterUnavailable:
                 return "could not build the 16 kHz mono AVAudioConverter from the hardware format"
             case .noInputDevice:
@@ -288,7 +293,12 @@ final class AudioCapture {
         // Toggling it is the user's explicit "try again" gesture — it must clear
         // a demotion an earlier failure left behind, or the setting would sit
         // there ON while every capture quietly ran without it.
-        didSet { if echoCancellation != oldValue { voiceProcessingDistrusted = false } }
+        didSet {
+            if echoCancellation != oldValue {
+                voiceProcessingDistrusted = false
+                voiceFailures.reset()
+            }
+        }
     }
 
     /// "Lower other audio while dictating" (Settings › General, default ON).
@@ -303,14 +313,26 @@ final class AudioCapture {
     /// The voice unit OPENED and then delivered nothing — a failure the open-time
     /// fallback cannot see, because by then it has already succeeded. One such
     /// capture is a lost utterance; a second would be a pattern, so the next
-    /// press goes straight to the HAL unit and stays there for this run. Reset
-    /// only by relaunching (or by the user toggling echo cancellation off and on,
-    /// which is the explicit "try again" gesture).
+    /// press goes straight to the HAL unit. Failed routes are also remembered
+    /// across launches; a different route/OS or toggling echo cancellation
+    /// off and on gives the voice unit another attempt.
     ///
     /// Not `private`, so the reset is actually TESTABLE: a test that can only see
     /// the public toggle cannot tell a working reset from a deleted one, and it
     /// passed for exactly that reason before this was widened.
     var voiceProcessingDistrusted = false
+    private let voiceFailures: VoiceProcessingFailures
+    private var voiceRoute: String?
+
+    private func distrustVoiceProcessing() {
+        voiceProcessingDistrusted = true
+        if let route = voiceRoute { voiceFailures.remember(route) }
+    }
+
+    func retryVoiceProcessing() {
+        voiceProcessingDistrusted = false
+        voiceFailures.reset()
+    }
 
     private let ducker: OutputDucker
     /// True while `ducker` holds the output down for THIS capture, so the
@@ -321,6 +343,7 @@ final class AudioCapture {
     /// the teardown wedges), so the two must not share one.
     private let duckLock = NSLock()
     private var didDuck = false
+    private var preventDucking = false
 
     private let lifecycleLock = NSLock()
     /// The live capture, +1-retained because its pointer is the render callback's
@@ -332,6 +355,7 @@ final class AudioCapture {
     private let bufferLock = NSLock()
     private var samples: [Float] = []
     private var capReported = false   // guarded by bufferLock; reset per start()
+    private var captureLimit = AudioCapture.maxCaptureSamples // frozen at start, guarded by bufferLock
     private var overflowReported = false   // guarded by bufferLock; reset per start()
     /// The hotkey is down and frames are landing in the utterance. Guarded by
     /// bufferLock.
@@ -340,6 +364,8 @@ final class AudioCapture {
     /// opened (or the liveWaitTimeout backstop fired). Guarded by bufferLock.
     private var deviceLive = false
     private var openedAt: TimeInterval = 0   // systemUptime; guarded by bufferLock
+    private var pressedAt: TimeInterval = 0
+    private var firstLiveAt: TimeInterval?
     /// Bumped once per start(). A CaptureSession is stamped with the generation it
     /// was opened for, and frames from any OTHER generation are discarded — this is
     /// what makes an abandoned (wedged) unit's still-running IOProc harmless. See
@@ -377,8 +403,10 @@ final class AudioCapture {
 
     /// `ducker` is injected so the output-volume side is substitutable in tests
     /// and in the headless probe; the app builds the real one.
-    init(ducker: OutputDucker = OutputDucker()) {
+    init(ducker: OutputDucker = OutputDucker(),
+         voiceFailures: VoiceProcessingFailures = VoiceProcessingFailures()) {
         self.ducker = ducker
+        self.voiceFailures = voiceFailures
     }
 
     /// The hotkey is down and frames are landing in the utterance.
@@ -393,6 +421,11 @@ final class AudioCapture {
     var isDeviceLive: Bool {
         bufferLock.lock(); defer { bufferLock.unlock() }
         return deviceLive
+    }
+
+    var startupSeconds: TimeInterval? {
+        bufferLock.lock(); defer { bufferLock.unlock() }
+        return firstLiveAt.map { max(0, $0 - pressedAt) }
     }
 
     // MARK: The capture session (one per open — the refCon the callback gets)
@@ -434,16 +467,18 @@ final class AudioCapture {
         /// (AudioCapture → sessionRef → owner) is broken by release() on the clean
         /// teardown path and leaked on the wedge path, by design.
         let owner: AudioCapture
+        let shouldCapture: () -> Bool
 
         init(unit: AudioUnit, generation: UInt64, renderBuffer: AVAudioPCMBuffer,
              convertBuffer: AVAudioPCMBuffer, converter: AVAudioConverter,
-             owner: AudioCapture) {
+             owner: AudioCapture, shouldCapture: @escaping () -> Bool) {
             self.unit = unit
             self.generation = generation
             self.renderBuffer = renderBuffer
             self.convertBuffer = convertBuffer
             self.converter = converter
             self.owner = owner
+            self.shouldCapture = shouldCapture
         }
 
         /// The realtime input callback. Renders into ITS OWN unit and ITS OWN
@@ -518,7 +553,7 @@ final class AudioCapture {
     /// Logging while holding it would stall the render thread on its very first
     /// callbacks (NSLog takes locks and does I/O), and dropped opening frames are
     /// the exact bug this branch exists to end.
-    private func openUnitLocked(generation: UInt64) throws -> String {
+    private func openUnitLocked(generation: UInt64, shouldContinue: @escaping () -> Bool) throws -> String {
         if sessionRef != nil { return "" }
 
         // 1. Which mic? Re-resolved per press, so unplugging or switching a device
@@ -537,6 +572,13 @@ final class AudioCapture {
         //    device it won't drive, a HAL in a bad mood), and "no dictation at
         //    all" is a far worse outcome than "dictation without AEC" — so a
         //    failure DEMOTES the capture instead of failing it.
+        let route = VoiceProcessingFailures.route(
+            inputUID: AudioDevices.deviceUID(deviceID),
+            outputUID: AudioDevices.deviceUID(AudioDevices.systemDefaultOutputID()))
+        if voiceRoute != route {
+            voiceRoute = route
+            voiceProcessingDistrusted = voiceFailures.contains(route)
+        }
         let wantsVoiceProcessing = AudioCapture.shouldUseVoiceProcessing(
             enabled: echoCancellation,
             isSystemDefaultInput: deviceID == AudioDevices.systemDefaultInputID(),
@@ -546,8 +588,12 @@ final class AudioCapture {
             ? [.voiceProcessing, .hal]
             : [.hal]
         var notes: [String] = []
+        if wantsVoiceProcessing && voiceProcessingDistrusted {
+            notes.append("OLIV AudioCapture: using HAL for a previously failed echo-cancellation route")
+        }
         var target = deviceID
         while true {
+            guard shouldContinue() else { throw CaptureError.startCancelled }
             let backend = attempts.removeFirst()
             do {
                 // Re-read the generation per attempt: `retire` bumps it when it
@@ -557,9 +603,11 @@ final class AudioCapture {
                 let generation = self.generation
                 bufferLock.unlock()
                 let opened = try openUnitLocked(
-                    generation: generation, deviceID: target, backend: backend)
+                    generation: generation, deviceID: target, backend: backend,
+                    shouldContinue: shouldContinue)
                 return (notes + [opened]).joined(separator: "\n")
             } catch {
+                if case CaptureError.startCancelled = error { throw error }
                 guard !attempts.isEmpty else { throw error }
                 // A voice unit that will not OPEN is broken on THIS machine, not
                 // unlucky: the -10875 a configuration it dislikes returns will
@@ -569,7 +617,7 @@ final class AudioCapture {
                 // every time the user speaks, which is the cost trade 3 prices at
                 // exactly once.
                 if AudioCapture.shouldDistrustAfterFailedOpen(backend: backend, error: error) {
-                    voiceProcessingDistrusted = true
+                    distrustVoiceProcessing()
                 }
                 // RE-RESOLVE THE MIC FOR THE FALLBACK, against the machine as it
                 // is NOW. The commonest reason to be here is the route check
@@ -638,7 +686,8 @@ final class AudioCapture {
     /// Open ONE backend. Throws on any failure — the caller decides whether that
     /// means "try the next backend" or "this capture is lost".
     private func openUnitLocked(
-        generation: UInt64, deviceID: AudioDeviceID, backend: Backend
+        generation: UInt64, deviceID: AudioDeviceID, backend: Backend,
+        shouldContinue: @escaping () -> Bool
     ) throws -> String {
         var description = AudioComponentDescription(
             componentType: kAudioUnitType_Output,
@@ -806,7 +855,8 @@ final class AudioCapture {
         //    clean path and deliberately leaks it on the wedge path.
         let session = CaptureSession(
             unit: unit, generation: generation, renderBuffer: render,
-            convertBuffer: convert, converter: converter, owner: self)
+            convertBuffer: convert, converter: converter, owner: self,
+            shouldCapture: shouldContinue)
         let ref = Unmanaged.passRetained(session)
 
         var callback = AURenderCallbackStruct(
@@ -823,6 +873,10 @@ final class AudioCapture {
             throw fail(.unitUnavailable(status))
         }
 
+        guard shouldContinue() else {
+            ref.release()
+            throw fail(.startCancelled)
+        }
         status = AudioUnitInitialize(unit)
         guard status == noErr else {
             ref.release()
@@ -831,6 +885,13 @@ final class AudioCapture {
 
         if backend == .voiceProcessing {
             AudioCapture.configureVoiceProcessing(unit, duckOthers: duckOtherAudio)
+        }
+
+        // Initialization can block inside macOS. A release during that call must
+        // not start a microphone after the user has stopped holding the key.
+        guard shouldContinue() else {
+            ref.release()
+            throw fail(.startCancelled)
         }
 
         // Lower the speakers for the length of the hold — the half of the
@@ -859,15 +920,22 @@ final class AudioCapture {
         // user's volume down.
         if duckOtherAudio && backend == .hal {
             duckLock.lock()
-            didDuck = true
+            if !preventDucking && shouldContinue() {
+                didDuck = true
+                ducker.duck()
+            }
             duckLock.unlock()
-            ducker.duck()
         }
 
         // PUBLISH BEFORE START. Once AudioOutputUnitStart returns the IOProc may
         // already be running; it finds everything it needs through refCon, so there
         // is no window in which a frame arrives with nowhere to go.
         self.sessionRef = ref
+        guard shouldContinue() else {
+            unduck()
+            retire(ref, unit: unit, reason: "the hotkey was released", started: false)
+            throw CaptureError.startCancelled
+        }
         status = AudioOutputUnitStart(unit)
         guard status == noErr else {
             // Volume FIRST: the teardown below is bounded but can still take up
@@ -913,9 +981,11 @@ final class AudioCapture {
         // 60–76 ms after open (measured), and frames are already accumulating
         // while we wait, so nothing spoken in that window is lost. Only the HUD
         // learns about it late, and only in the failure case.
-        if backend == .voiceProcessing, !waitForFirstFrame(timeout: AudioCapture.voiceLivenessTimeout) {
+        if backend == .voiceProcessing,
+           !waitForFirstFrame(timeout: AudioCapture.voiceLivenessTimeout, shouldContinue: shouldContinue) {
             retire(ref, unit: unit, reason: "it started but delivered no audio")
-            voiceProcessingDistrusted = true
+            guard shouldContinue() else { throw CaptureError.startCancelled }
+            distrustVoiceProcessing()
             throw CaptureError.unitStartFailed(kAudioUnitErr_FailedInitialization)
         }
 
@@ -978,9 +1048,10 @@ final class AudioCapture {
     /// same `deviceLive` flag the HUD's warming state uses, so "live" means
     /// exactly what it means everywhere else in this file: a real, non-zero frame
     /// arrived.
-    private func waitForFirstFrame(timeout: TimeInterval) -> Bool {
+    private func waitForFirstFrame(timeout: TimeInterval, shouldContinue: () -> Bool) -> Bool {
         let deadline = ProcessInfo.processInfo.systemUptime + timeout
         while ProcessInfo.processInfo.systemUptime < deadline {
+            guard shouldContinue() else { return false }
             if isDeviceLive { return true }
             Thread.sleep(forTimeInterval: 0.005)
         }
@@ -1011,6 +1082,7 @@ final class AudioCapture {
     /// real hardware to fail — see the tests' note on that seam).
     static func shouldDistrustAfterFailedOpen(backend: Backend, error: Error) -> Bool {
         guard backend == .voiceProcessing else { return false }
+        if case CaptureError.startCancelled = error { return false }
         return (error as? CaptureError)?.isTransientRouteChange != true
     }
 
@@ -1122,7 +1194,13 @@ final class AudioCapture {
     /// Frames arriving before the device is LIVE (a Bluetooth link still coming
     /// up emits exact zeros) are dropped, not recorded — see appendConverted.
     /// `isDeviceLive` tells the caller when it is honest to say "recording".
-    func start() throws {
+    func start(maxSeconds: TimeInterval = AudioCapture.maxCaptureSeconds,
+               pressedAt: TimeInterval = ProcessInfo.processInfo.systemUptime,
+               shouldContinue: @escaping () -> Bool = { true }) throws {
+        guard shouldContinue() else { throw CaptureError.startCancelled }
+        duckLock.lock()
+        if shouldContinue() { preventDucking = false }
+        duckLock.unlock()
         bufferLock.lock()
         if isCapturing {
             bufferLock.unlock()
@@ -1138,13 +1216,16 @@ final class AudioCapture {
         // if the unit fails to open.
         capReported = false
         overflowReported = false
+        self.pressedAt = pressedAt
+        firstLiveAt = nil
         samples = []
-        // Reserve the whole 10-minute ceiling ONCE, here, off the render thread.
-        // 38 MB of address space (pages materialise only as you actually speak) buys
+        // Reserve the selected provider's ceiling ONCE, off the render thread.
+        // Up to 38 MB (pages materialise only as you actually speak) buys
         // a hard guarantee that samples.append() in the callback never reallocates —
         // which is the difference between "the render thread does not allocate" being
         // a comment and being true.
-        samples.reserveCapacity(AudioCapture.maxCaptureSamples)
+        captureLimit = Self.sampleLimit(seconds: maxSeconds)
+        samples.reserveCapacity(captureLimit)
         isCapturing = true
         // Stale-generation frames (an abandoned wedged unit's IOProc, still running)
         // are dropped from here on — see CaptureSession.
@@ -1158,7 +1239,7 @@ final class AudioCapture {
         lifecycleLock.lock()
         let opened: String
         do {
-            opened = try openUnitLocked(generation: generation)
+            opened = try openUnitLocked(generation: generation, shouldContinue: shouldContinue)
         } catch {
             lifecycleLock.unlock()
             bufferLock.lock()
@@ -1220,6 +1301,7 @@ final class AudioCapture {
         )
         stats.deviceLive = wasLive
         stats.backend = activeBackend
+        stats.startupSeconds = startupSeconds
         self.stats = stats
 
         // A voice-processing capture that came back with NOTHING — no live
@@ -1232,7 +1314,7 @@ final class AudioCapture {
         if AudioCapture.shouldDistrustVoiceProcessing(
             backend: activeBackend, deviceLive: wasLive, sampleCount: captured.count)
         {
-            voiceProcessingDistrusted = true
+            distrustVoiceProcessing()
             NSLog("OLIV AudioCapture: the voice-processing unit started but delivered no audio "
                 + "— falling back to the plain HAL capture for the rest of this run")
         }
@@ -1303,6 +1385,15 @@ final class AudioCapture {
 
     // MARK: Internals
 
+    /// Does not take lifecycleLock; quit must restore volume even if an open is
+    /// still inside a slow system call on the capture worker.
+    func restoreOutputImmediately() {
+        duckLock.lock()
+        preventDucking = true
+        duckLock.unlock()
+        unduck(immediate: true)
+    }
+
     /// Convert one rendered slice to 16 kHz mono and append it. Runs on the render
     /// thread: it allocates nothing (both buffers come from the session, `samples`
     /// reserved its ceiling in start()) and it logs nothing inline — the three
@@ -1336,7 +1427,8 @@ final class AudioCapture {
         // IOProc is still running and still calling us, but it belongs to a capture
         // that is over. Its frames are not this utterance's frames.
         guard AudioCapture.acceptsFrames(
-            sessionGeneration: session.generation, currentGeneration: generation)
+            sessionGeneration: session.generation, currentGeneration: generation),
+              session.shouldCapture()
         else {
             bufferLock.unlock()
             return
@@ -1366,15 +1458,19 @@ final class AudioCapture {
         }
 
         var reportCap = false
+        if (wentLive || forcedLive) && firstLiveAt == nil {
+            firstLiveAt = ProcessInfo.processInfo.systemUptime
+        }
         if isCapturing {
             let budget = AudioCapture.appendBudget(
-                current: samples.count, incoming: frames, limit: AudioCapture.maxCaptureSamples)
+                current: samples.count, incoming: frames, limit: captureLimit)
             if budget > 0 {
                 samples.append(contentsOf: UnsafeBufferPointer(start: pointer, count: budget))
             }
             reportCap = budget < frames && !capReported
             if reportCap { capReported = true }
         }
+        let limitSeconds = captureLimit / Int(Self.targetSampleRate)
         bufferLock.unlock()
 
         // OFF THE RENDER THREAD. NSLog takes locks and does I/O; calling it inline
@@ -1393,7 +1489,7 @@ final class AudioCapture {
             }
             if reportCap {
                 NSLog("OLIV AudioCapture: capture hit the "
-                    + "\(Int(AudioCapture.maxCaptureSeconds))s ceiling — dropping further "
+                    + "\(limitSeconds)s ceiling — dropping further "
                     + "audio for this capture (missed release / stuck hotkey?)")
             }
         }
@@ -1404,6 +1500,11 @@ final class AudioCapture {
     /// still carries a noise floor (~0.002 measured on the built-in mic).
     static func bufferHasSignal(_ samples: [Float]) -> Bool {
         samples.withUnsafeBufferPointer { bufferHasSignal($0) }
+    }
+
+    static func sampleLimit(seconds: TimeInterval) -> Int {
+        guard seconds.isFinite, seconds > 0 else { return maxCaptureSamples }
+        return max(1, Int(min(seconds, maxCaptureSeconds) * targetSampleRate))
     }
 
     static func bufferHasSignal(_ samples: UnsafeBufferPointer<Float>) -> Bool {
@@ -1504,6 +1605,7 @@ final class AudioCapture {
     /// it to `onLevel` on the main queue. Runs on the render thread — lean: the
     /// RMS is computed ONLY when the throttle says it's time, then one hop to main.
     fileprivate func emitLevel(from session: CaptureSession) {
+        guard session.shouldCapture() else { return }
         // Nothing to meter until the device is awake: while a Bluetooth link comes
         // up the buffers are exact zeros, the HUD is showing "getting the mic
         // ready", and `update(level:)` drops anything that isn't the recording

@@ -32,6 +32,9 @@ final class OLIVSettings: ObservableObject {
         static let cleanupEnabled = "oliv.cleanupEnabled" // global cleanup switch
         static let verbatimApps = "oliv.verbatimApps"     // [String] lowercased bundle ids
         static let groqEnabled = "oliv.groqCloudEnabled"  // opt-in cloud fallback toggle
+        static let apiEnabled = "oliv.api.enabled"
+        static let apiURL = "oliv.api.url"
+        static let apiTimeout = "oliv.api.timeout"
         static let replacements = "oliv.replacements"     // [String:String] spoken -> replacement
         static let removeFillers = "oliv.removeFillers"   // W4-T1 filler-word toggle
         static let showRecordingIndicator = "oliv.showRecordingIndicator" // W4-T2 HUD toggle
@@ -67,19 +70,21 @@ final class OLIVSettings: ObservableObject {
         static let mlxLarge = Engine(id: "mlx-large-v3", displayName: "English-heavy — Whisper large-v3 MLX",
                                      repo: "mlx-community/whisper-large-v3-mlx")
         static let groq = Engine(id: "groq-large-v3", displayName: "Groq large-v3 (cloud)", repo: nil)
+        static let olivAPI = Engine(id: OLIVAPIClient.engineID, displayName: "OLIV API (remote)", repo: nil)
         /// The always-available LOCAL engines; `typhoon-turbo-mlx` is the shipped
         /// default (the benchmarked STT — half Pathumma's size, better on unseen jargon).
         static let local: [Engine] = [typhoon, pathumma, mlxLarge]
-        static let all: [Engine] = [typhoon, pathumma, mlxLarge, groq]
+        static let all: [Engine] = [typhoon, pathumma, mlxLarge, groq, olivAPI]
     }
 
-    /// The engines shown in the picker for a given cloud-fallback state: the
-    /// local pair always, plus the cloud engine ONLY when the opt-in toggle is on
-    /// AND a key is present (cloud strictly opt-in). Pure + static so the picker
+    /// Local engines are always offered; remote engines require explicit opt-in
+    /// and configuration. Pure + static so the picker
     /// gating is unit-testable without a live store.
-    static func availableEngines(groqEnabled: Bool, groqKeyPresent: Bool) -> [Engine] {
+    static func availableEngines(groqEnabled: Bool, groqKeyPresent: Bool,
+                                 apiEnabled: Bool = false, apiConfigured: Bool = false) -> [Engine] {
         var list = Engine.local
         if groqEnabled && groqKeyPresent { list.append(.groq) }
+        if apiEnabled && apiConfigured { list.append(.olivAPI) }
         return list
     }
 
@@ -247,6 +252,44 @@ final class OLIVSettings: ObservableObject {
     /// new values into the live DictationController.
     var onChange: (() -> Void)?
 
+    @Published var olivAPIEnabled: Bool {
+        didSet { defaults.set(olivAPIEnabled, forKey: Key.apiEnabled); reconcileEngineSelection(); onChange?() }
+    }
+    @Published var olivAPIURL: String {
+        didSet { defaults.set(olivAPIURL, forKey: Key.apiURL); reconcileEngineSelection(); onChange?() }
+    }
+    @Published var olivAPITimeout: Int {
+        didSet { defaults.set(olivAPITimeout, forKey: Key.apiTimeout); reconcileEngineSelection(); onChange?() }
+    }
+    @Published var olivAPIKey: String {
+        didSet { keychain.set(olivAPIKey, forAccount: KeychainStore.olivAPIAccount); reconcileEngineSelection(); onChange?() }
+    }
+
+    var usesOLIVAPI: Bool { engineID == Engine.olivAPI.id }
+
+    var olivAPIConfiguration: OLIVAPIConfiguration? {
+        guard olivAPIEnabled else { return nil }
+        return try? OLIVAPIConfiguration(url: olivAPIURL, apiKey: olivAPIKey, timeout: TimeInterval(olivAPITimeout))
+    }
+
+    var olivAPIConfigurationError: String? {
+        guard olivAPIEnabled else { return nil }
+        do {
+            _ = try OLIVAPIConfiguration(url: olivAPIURL, apiKey: olivAPIKey, timeout: TimeInterval(olivAPITimeout))
+            return nil
+        } catch let error as OLIVAPIError { return error.errorDescription }
+        catch { return "Check the API settings." }
+    }
+
+    /// Remote dictation has no local model prerequisites. Groq still uses local cleanup.
+    var requiredModelRepos: [String] {
+        if usesOLIVAPI { return [] }
+        var repos: [String] = []
+        if let repo = Engine.all.first(where: { $0.id == engineID })?.repo { repos.append(repo) }
+        if cleanupEnabled { repos.append(RequiredModels.cleanup) }
+        return repos
+    }
+
     init(defaults: UserDefaults = .standard, keychain: KeychainStoring = KeychainStore.shared) {
         self.defaults = defaults
         self.keychain = keychain
@@ -286,6 +329,11 @@ final class OLIVSettings: ObservableObject {
         verbatimApps = Set(stored.map { $0.lowercased() })
         groqCloudEnabled = defaults.object(forKey: Key.groqEnabled) as? Bool ?? false
         groqAPIKey = keychain.groqAPIKey() ?? ""
+        olivAPIEnabled = defaults.object(forKey: Key.apiEnabled) as? Bool ?? false
+        olivAPIURL = defaults.string(forKey: Key.apiURL) ?? OLIVAPIConfiguration.defaultURL
+        let apiTimeout = defaults.object(forKey: Key.apiTimeout) as? Int ?? 120
+        olivAPITimeout = (10...180).contains(apiTimeout) ? apiTimeout : 120
+        olivAPIKey = keychain.string(forAccount: KeychainStore.olivAPIAccount) ?? ""
         // Defend the picker invariant on load: if a persisted engineID is no
         // longer offered (e.g. a stored groq selection whose key/toggle is now
         // gone), fall back to the local default. onChange is still nil here, so
@@ -340,7 +388,8 @@ final class OLIVSettings: ObservableObject {
     /// key changes because both are @Published).
     var availableEngines: [Engine] {
         Self.availableEngines(groqEnabled: groqCloudEnabled,
-                              groqKeyPresent: !groqAPIKey.isEmpty)
+                              groqKeyPresent: !groqAPIKey.isEmpty,
+                              apiEnabled: olivAPIEnabled, apiConfigured: olivAPIConfiguration != nil)
     }
 
     /// The GROQ_API_KEY to hand the sidecar's spawn env, or nil when the cloud

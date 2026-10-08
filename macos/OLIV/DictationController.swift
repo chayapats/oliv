@@ -4,7 +4,7 @@
 // This is the Swift analogue of app/audio.py's DictationSession + the
 // app/dictation.py DictationApp failure philosophy: any stage failing must
 // NEVER crash the app or lose text — log and return to idle. The heavy work
-// (bounded stop → transcribe → paste) runs OFF the main thread so the hotkey
+// (open → bounded stop → transcribe → paste) runs OFF the main thread so the hotkey
 // tap thread and the UI are never blocked; only AppState transitions touch the
 // main actor.
 //
@@ -25,6 +25,9 @@ import Foundation
 final class DictationController {
     private let appState: AppState
     private let audio: AudioCapture
+    private let captureWorker: CaptureWorker
+    private var captureRequest: CaptureStartRequest?
+    private var processingTask: Task<Void, Never>?
     private let injector: TextInjector
     private var hotkey: HotkeyMonitor?
     /// Separate tap for "undo last dictation" (momentary press → Cmd+Z). Nil
@@ -46,6 +49,8 @@ final class DictationController {
 
     /// STT engine id handed to the sidecar (its DEFAULT_ENGINE).
     var sttEngine: String = SidecarClient.defaultEngine
+    var olivAPIConfiguration: OLIVAPIConfiguration?
+    private var recordingEngine: String?
 
     /// Cleanup global on/off (menu/Settings default on). The Wave-2 per-app
     /// override lives in `verbatimApps`; `resolveCleanup` folds the two together
@@ -109,22 +114,19 @@ final class DictationController {
     var showHUD: Bool = true
 
     /// The mic to dictate from (a `MicSelection` sentinel or a device UID).
-    /// Forwarded to AudioCapture, which re-resolves it on every press — so
+    /// Snapshotted onto the capture worker, which re-resolves it on every press — so
     /// switching or unplugging a mic between dictations just works.
-    var micDevice: String = MicSelection.builtIn {
-        didSet { audio.deviceSelection = micDevice }
-    }
+    var micDevice: String = MicSelection.builtIn
 
     /// 0.1.10 speaker-bleed pair (Settings › General, both default ON): cancel
     /// the echo of what the Mac is playing, and lower it while the key is held.
-    /// Forwarded straight through — AudioCapture reads them when it opens the
+    /// Snapshotted at press — AudioCapture reads them when it opens the
     /// mic, so a flip takes effect on the next press and never mid-utterance.
+    private var retryVoiceProcessing = false
     var echoCancellation: Bool = true {
-        didSet { audio.echoCancellation = echoCancellation }
+        didSet { if echoCancellation != oldValue { retryVoiceProcessing = true } }
     }
-    var duckOtherAudio: Bool = true {
-        didSet { audio.duckOtherAudio = duckOtherAudio }
-    }
+    var duckOtherAudio: Bool = true
 
     /// 0.1.5: record pasted transcripts into AppState's in-memory history
     /// (Settings › General, default ON). Seeded + live-applied like every other
@@ -149,11 +151,13 @@ final class DictationController {
 
     init(
         appState: AppState,
-        audio: AudioCapture = AudioCapture(),
-        injector: TextInjector = TextInjector()
+        audio: AudioCapture = AudioCapture(voiceFailures: VoiceProcessingFailures(defaults: .standard)),
+        injector: TextInjector = TextInjector(),
+        captureWorker: CaptureWorker? = nil
     ) {
         self.appState = appState
         self.audio = audio
+        self.captureWorker = captureWorker ?? CaptureWorker(audio: audio)
         self.injector = injector
 
         // W4-T2: stream the tap's live input levels into the HUD waveform.
@@ -342,7 +346,9 @@ final class DictationController {
         log: (String) -> Void = { NSLog("%@", $0) }
     ) -> DictationResult? {
         do {
-            return try dictate(engine, cleanup)
+            var result = try dictate(engine, cleanup)
+            result.engineID = engine
+            return result
         } catch {
             // Only the cloud engine gets a second try on the local default; any
             // other engine (or an already-local engine) is dropped as before.
@@ -352,7 +358,9 @@ final class DictationController {
             }
             log("OLIV: Groq cloud dictate failed (\(error)) — falling back to local \(localEngine), retrying once")
             do {
-                return try dictate(localEngine, cleanup)
+                var result = try dictate(localEngine, cleanup)
+                result.engineID = localEngine
+                return result
             } catch {
                 log("OLIV: local fallback dictate also failed (\(error)) — utterance dropped, returning to idle")
                 return nil
@@ -365,7 +373,7 @@ final class DictationController {
     /// on a background queue and the app stays responsive. A failed warm is
     /// non-fatal — STT/cleanup just load lazily on the first dictate. Idempotent.
     private func warmSidecarIfNeeded() {
-        guard let sidecar = sidecar, !didWarmSidecar else { return }
+        guard sttEngine != OLIVAPIClient.engineID, let sidecar = sidecar, !didWarmSidecar else { return }
         didWarmSidecar = true
         let engine = sttEngine
         let cleanup = cleanupEnabled
@@ -409,6 +417,12 @@ final class DictationController {
     /// synchronously instead of faded, because a fade does not survive process
     /// exit and the user would get their music back only at the next launch.
     func stop(immediate: Bool = false) {
+        warmingGeneration &+= 1
+        processingTask?.cancel()
+        processingTask = nil
+        let request = captureRequest
+        captureRequest = nil
+        request?.cancel()
         hotkey?.stop()
         hotkey = nil
         undoHotkey?.stop()
@@ -417,13 +431,15 @@ final class DictationController {
             appState.status = .idle
         }
         hud?.hide()
+        recordingEngine = nil
+        appState.activeEngineID = nil
         // no hotkey ⇒ nothing can dictate ⇒ don't hold the mic (or the volume)
-        audio.shutdown(immediate: immediate)
+        captureWorker.shutdown(request: request, immediate: immediate)
     }
 
     // MARK: Transitions (main actor)
 
-    private func handlePress() {
+    func handlePress() {
         // Respect the master toggle — off means the hotkey is ignored entirely.
         guard appState.dictationEnabled else { return }
         // Ignore a press we can't cleanly start from (mid-processing / already
@@ -436,22 +452,36 @@ final class DictationController {
         }
 
         appState.status = .recording
+        recordingEngine = sttEngine
+        appState.activeEngineID = sttEngine
+        hud?.setEngine(sttEngine)
         warmingGeneration &+= 1   // retires any warming-poll left over from a prior press
-        do {
-            try audio.start()
-            guard showHUD else { return }
-            // A Bluetooth mic can need 0.5–3 s before it delivers a single real
-            // frame. Showing the recording pill during that window is a lie — the
-            // user speaks, nothing is captured, and nothing is typed. Say we're
-            // getting the mic ready instead, and only claim to be recording once
-            // the device actually is.
-            if audio.isDeviceLive {
-                hud?.show(phase: .recording)
-            } else {
-                hud?.show(phase: .warming)
-                awaitDeviceLive(generation: warmingGeneration)
+        let generation = warmingGeneration
+        let request = CaptureStartRequest()
+        captureRequest = request
+        let options = CaptureOptions(device: micDevice, echoCancellation: echoCancellation,
+                                     duckOtherAudio: duckOtherAudio,
+                                     retryVoiceProcessing: retryVoiceProcessing,
+                                     maxSeconds: Self.captureSeconds(for: sttEngine))
+        retryVoiceProcessing = false
+        // Acknowledge the press before any Core Audio call. Device setup can
+        // spend seconds waiting on macOS; it must never hold up UI or release.
+        if showHUD { hud?.show(phase: .warming) }
+        captureWorker.start(options: options, request: request) { [weak self] result in
+            MainActor.assumeIsolated {
+                self?.captureDidStart(result, request: request, generation: generation)
             }
-        } catch {
+        }
+    }
+
+    private func captureDidStart(_ result: Result<Void, Error>, request: CaptureStartRequest,
+                                 generation: Int) {
+        guard captureRequest === request, generation == warmingGeneration,
+              appState.status == .recording else { return }
+        switch result {
+        case .success:
+            awaitDeviceLive(generation: generation)
+        case let .failure(error):
             // NEVER a silent no-op. This fires for real — an input device caught
             // mid-switch reports 0 Hz / 0 ch and the converter can't be built — and
             // a hotkey that does nothing, says nothing, and logs somewhere the user
@@ -459,6 +489,9 @@ final class DictationController {
             // to kill.
             NSLog("OLIV DictationController: audio start failed (\(error)) — returning to idle")
             appState.status = .idle
+            captureRequest = nil
+            recordingEngine = nil
+            appState.activeEngineID = nil
             // Ungated by showHUD, like every other failure notice here: turning the
             // recording indicator off asks not to see a waveform, not to be kept in
             // the dark about a dictation that never happened.
@@ -475,8 +508,11 @@ final class DictationController {
     /// instead of driving the new recording's HUD.
     private func awaitDeviceLive(generation: Int) {
         guard generation == warmingGeneration, appState.status == .recording else { return }
-        if audio.isDeviceLive {
+        if captureWorker.isDeviceLive {
             if showHUD { hud?.show(phase: .recording) }
+            if let seconds = captureWorker.startupSeconds {
+                NSLog("OLIV microphone ready: startup=%.0fms", seconds * 1000)
+            }
             return
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
@@ -484,21 +520,39 @@ final class DictationController {
         }
     }
 
-    private func handleRelease() {
+    func handleRelease() {
         // Only act on a release that ends an active recording. A balancing
         // release fired by stop() while already idle/processing is a no-op.
         guard appState.status == .recording else { return }
+        guard let request = captureRequest else { return }
+        request.cancel()
+        captureRequest = nil
+        if !request.didStart && !request.failedToStart {
+            // A quick tap cancels setup immediately. Cleanup remains serialized
+            // behind the system call, but the UI can accept the next press now.
+            captureWorker.cancelOpening(request: request)
+            appState.status = .idle
+            appState.activeEngineID = nil
+            recordingEngine = nil
+            hud?.hide()
+            return
+        }
         appState.status = .processing
         // Switch the SAME pill to the calm processing animation (no re-fade).
         if showHUD { hud?.show(phase: .processing) }
 
-        let audio = self.audio
+        let captureWorker = self.captureWorker
+        let generation = warmingGeneration
         let injector = self.injector
         let hud = self.hud
         let transcriber = self.transcriber
         let appState = self.appState
-        let sidecar = self.sidecar
-        let engine = self.sttEngine
+        // Freeze the engine at press, so changing settings during a hold cannot
+        // route a 10-minute local recording into the 2-minute remote provider.
+        let engine = recordingEngine ?? self.sttEngine
+        recordingEngine = nil
+        let provider = Self.provider(engine: engine, sidecar: sidecar, apiConfiguration: olivAPIConfiguration)
+        let captureSeconds = Self.captureSeconds(for: engine)
         let removeFillers = self.removeFillers
         let replacements = self.replacements
         let vocabulary = self.vocabulary
@@ -512,6 +566,10 @@ final class DictationController {
             globalEnabled: cleanupEnabled,
             verbatimApps: verbatimApps,
             frontmostBundleID: frontmostBundleID())
+        let options = DictationOptions(cleanup: cleanup, removeFillers: removeFillers,
+                                       replacements: replacements, vocabulary: vocabulary,
+                                       formatCommands: formatCommands && engine != OLIVAPIClient.engineID,
+                                       thaiFormat: Self.effectiveThaiFormat(setting: thaiFormat, cleanup: cleanup))
 
         // Off-main worker: bounded stop → transcribe → paste. Any failure here
         // is swallowed + logged; we always return to idle so the app can't get
@@ -522,13 +580,15 @@ final class DictationController {
         // vanishing silently — the whole point of the reliability pass.
         // `self` is captured weakly ONLY to re-read historyEnabled at record
         // time (see below); everything else stays a release-time local.
-        Task.detached { [weak self] in
-            let samples = audio.stop()
+        processingTask = Task.detached(priority: .userInitiated) { [weak self] in
+            let captured = await captureWorker.stop(request: request)
+            guard !Task.isCancelled else { return }
+            let samples = captured.samples
             // The capture ceiling truncated this utterance: the transcript still
             // pastes, but the user must be TOLD the tail was cut (never silent).
-            let capped = audio.stats?.capped ?? false
+            let capped = captured.stats?.capped ?? false
             // Did the mic ever wake up during this hold? See CaptureStats.deviceLive.
-            let deviceLive = audio.stats?.deviceLive ?? false
+            let deviceLive = captured.stats?.deviceLive ?? false
             let outcome: ReleaseOutcome
             // Menu "Last:" line — set on the sidecar path only (the transcriber
             // seam has no timings to report).
@@ -536,57 +596,48 @@ final class DictationController {
             // What actually went to the pasteboard — recorded into the menu
             // history below only when the utterance landed (never on failure).
             var pastedText: String?
+            var failureNotice: String?
 
             if samples.isEmpty {
                 // "Held the key without speaking" and "spoke into a mic that never
                 // woke up" both land here with zero samples — but only one of them
                 // is the user's doing. Collapsing them into a silent no-op is
                 // exactly what made the Bluetooth dead-mic bug invisible.
-                outcome = deviceLive ? .nothingToDo : .micNotReady
-            } else if let sidecar = sidecar {
-                // W3-T3: STT + cleanup via the sidecar; paste `final`. A cleanup
-                // failure degrades server-side to final==raw (still success).
-                // W3-T4: a failed dictate on the opt-in Groq CLOUD engine retries
-                // ONCE on the local default before giving up (dictateWithFallback
-                // logs the fallback); any other engine's failure returns nil —
-                // the utterance is dropped (raw transcript lives inside the
-                // sidecar, nothing to fall back to). nil now surfaces to the user.
-                let result = DictationController.dictateWithFallback(
-                    engine: engine, cleanup: cleanup,
-                    dictate: { eng, cl in
-                        try sidecar.dictate(samples: samples, engine: eng, cleanup: cl,
-                                            removeFillers: removeFillers,
-                                            replacements: replacements,
-                                            vocabulary: vocabulary,
-                                            formatCommands: formatCommands,
-                                            // D3: gate on the SAME effective-cleanup
-                                            // bool the closure receives — verbatim /
-                                            // cleanup-off dictation never sends the flag.
-                                            thaiFormat: DictationController.effectiveThaiFormat(
-                                                setting: thaiFormat, cleanup: cl))
-                    })
-                if let result = result {
-                    if let err = result.cleanupError {
-                        NSLog("OLIV: cleanup degraded to raw (\(err)) — pasting raw transcript")
+                outcome = deviceLive || captured.cancelledBeforeStart ? .nothingToDo : .micNotReady
+            } else if let provider = provider {
+                do {
+                    let result = try await provider.dictate(samples: samples, options: options)
+                    guard !Task.isCancelled else { return }
+                    if result.cleanupError != nil {
+                        // Remote error strings may contain private text. Log only
+                        // the fact of degradation and use the provider's final.
+                        NSLog("OLIV: cleanup degraded — using the available transcript")
                     }
-                    // No stats/history for an empty transcript (silent hold /
-                    // no-speech gate): "Last: 0.9s · 0 chars" would advertise
-                    // a dictate that produced nothing. The paste call itself
-                    // keeps its long-standing unconditional shape.
-                    if !result.final.isEmpty {
-                        stats = LastDictationStats(chars: result.final.count,
+                    let text = result.textToPaste
+                    if !text.isEmpty {
+                        stats = LastDictationStats(chars: text.count,
                                                    sttSeconds: result.tSTT,
-                                                   cleanupSeconds: result.tCleanup)
-                        pastedText = result.final
+                                                   cleanupSeconds: result.tCleanup,
+                                                   engineID: result.engineID,
+                                                   microphoneStartupSeconds: captured.stats?.startupSeconds,
+                                                   captureBackend: captured.stats?.backend.rawValue)
+                        pastedText = text
                     }
-                    outcome = DictationController.paste(result.final, with: injector)
-                } else {
+                    outcome = text.isEmpty ? .nothingToDo : DictationController.paste(text, with: injector)
+                } catch {
+                    failureNotice = (error as? OLIVAPIError)?.errorDescription
                     outcome = .transcribeFailed
                 }
+            } else if engine == OLIVAPIClient.engineID {
+                // Opt-in/key can be cleared during recording. Never silently
+                // upload with an old key or switch this utterance to a sidecar.
+                failureNotice = "OLIV API is disabled or incomplete — check Settings"
+                outcome = .transcribeFailed
             } else if let transcriber = transcriber {
                 // W3-T2 fallback seam (tests / no sidecar): nil is "no-op", not a
                 // user-facing failure.
                 let text = await transcriber(samples)
+                guard !Task.isCancelled else { return }
                 if let text = text, !text.isEmpty {
                     pastedText = text
                     outcome = DictationController.paste(text, with: injector)
@@ -602,9 +653,13 @@ final class DictationController {
             // is itself a var — rebind it to a let for the same reason.
             let frozenStats = stats
             let frozenPastedText = pastedText
+            let frozenFailureNotice = failureNotice
             let controller = self
             await MainActor.run {
+                guard controller?.warmingGeneration == generation else { return }
+                controller?.processingTask = nil
                 appState.status = .idle
+                appState.activeEngineID = nil
                 if let stats = frozenStats { appState.lastDictation = stats }
                 // History records only text that LANDED (pasted, or on the
                 // clipboard awaiting ⌘V) and only while the toggle is on; a
@@ -626,8 +681,11 @@ final class DictationController {
                 switch outcome {
                 case .pastedOK, .nothingToDo:
                     if capped {
-                        hud?.notice("Hit the 10-minute recording limit — the end was cut off",
+                        hud?.notice("Hit the \(Int(captureSeconds / 60))-minute recording limit — the end was cut off",
                                     systemImage: "exclamationmark.triangle.fill")
+                    } else if let actual = frozenStats?.engineID, actual != engine {
+                        hud?.notice("Used \(DictationExecution(engineID: actual).label) fallback",
+                                    systemImage: "desktopcomputer")
                     } else {
                         hud?.hide()   // quick fade on completion
                     }
@@ -635,7 +693,7 @@ final class DictationController {
                     hud?.notice("The mic wasn’t ready — try again",
                                 systemImage: "mic.slash.fill")
                 case .transcribeFailed:
-                    hud?.notice("Couldn’t transcribe — try again",
+                    hud?.notice(frozenFailureNotice ?? "Couldn’t transcribe — try again",
                                 systemImage: "exclamationmark.triangle.fill")
                 case .pasteNeedsManual:
                     hud?.notice("Text is on the clipboard — press ⌘V",
@@ -643,6 +701,18 @@ final class DictationController {
                 }
             }
         }
+    }
+
+    nonisolated static func captureSeconds(for engine: String) -> TimeInterval {
+        engine == OLIVAPIClient.engineID ? OLIVAPIClient.maxCaptureSeconds : AudioCapture.maxCaptureSeconds
+    }
+
+    nonisolated static func provider(engine: String, sidecar: SidecarClient?,
+                                     apiConfiguration: OLIVAPIConfiguration?) -> DictationProviding? {
+        if engine == OLIVAPIClient.engineID {
+            return apiConfiguration.map { OLIVAPIClient(configuration: $0) }
+        }
+        return sidecar.map { SidecarDictationProvider(client: $0, engine: engine) }
     }
 
     /// Paste `text` and classify the result for the end-of-utterance HUD notice

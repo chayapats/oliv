@@ -2,8 +2,8 @@
 
 ไทยหรืออังกฤษก็ได้ — เปิด issue หรือ pull request เป็นภาษาไทยได้เลย
 
-OLIV is a fully-local Thai + English push-to-talk dictation app for macOS
-(Apple Silicon). Bug reports, dictation-quality fixes, docs, and small UI
+OLIV is a Thai + English push-to-talk dictation app for macOS (Apple Silicon),
+local by default with opt-in remote engines. Bug reports, dictation-quality fixes, docs, and small UI
 patches are the most useful contributions. Please read the
 [Code of Conduct](CODE_OF_CONDUCT.md) first.
 

@@ -54,6 +54,8 @@ enum MicProbe {
         let aec = !args.contains("--no-aec")
         let duck = !args.contains("--no-duck")
         let outPath = value("--out")
+        let reportPath = value("--report")
+        let repeats = max(1, min(10, Int(value("--repeat") ?? "") ?? 1))
 
         // Same launch recovery the app does: a previous probe killed while it had
         // the volume ducked must not leave this machine quiet, and a probe that
@@ -61,7 +63,9 @@ enum MicProbe {
         // otherwise never reach the per-duck sweep either.
         OutputDucker.restoreOrphaned()
 
-        let capture = AudioCapture()
+        let failures = VoiceProcessingFailures(defaults:
+            args.contains("--remember-voice-failures") ? .standard : nil)
+        let capture = AudioCapture(voiceFailures: failures)
         // EVERY return below leaves through here, and it restores the output
         // volume SYNCHRONOUSLY. `stop()` only starts a 120 ms fade on a private
         // queue, so any early exit after it — an unwritable --out path is the easy
@@ -83,26 +87,49 @@ enum MicProbe {
             FileHandle.standardError.write(Data(message.utf8))
             return 2
         }
-        do {
-            try capture.start()
-        } catch {
-            FileHandle.standardError.write(Data("FAIL: capture start: \(error)\n".utf8))
-            return 1
-        }
-        print("  recording… (play the music you want to test against)")
-        Thread.sleep(forTimeInterval: seconds)
-        let samples = capture.stop()
-        guard let stats = capture.stats else { return 1 }
-
-        print(String(format: "  backend=%@ live=%@ samples=%d duration=%.2fs peak=%.4f rms=%.5f",
-                     stats.backend.rawValue, stats.deviceLive ? "yes" : "no",
-                     stats.sampleCount, stats.durationSeconds, stats.peak, stats.rms))
-        if let outPath = outPath {
+        var reports: [[String: Any]] = []
+        for round in 1...repeats {
+            let startAt = ProcessInfo.processInfo.systemUptime
             do {
-                try write(samples: samples, to: outPath)
-                print("  wrote \(outPath)")
+                try capture.start()
             } catch {
-                FileHandle.standardError.write(Data("FAIL: could not write \(outPath): \(error)\n".utf8))
+                FileHandle.standardError.write(Data("FAIL: capture start: \(error)\n".utf8))
+                return 1
+            }
+            let openSeconds = ProcessInfo.processInfo.systemUptime - startAt
+            print("  recording… (play the music you want to test against)")
+            Thread.sleep(forTimeInterval: seconds)
+            let stopAt = ProcessInfo.processInfo.systemUptime
+            let samples = capture.stop()
+            let stopSeconds = ProcessInfo.processInfo.systemUptime - stopAt
+            guard let stats = capture.stats else { return 1 }
+
+            print(String(format: "  backend=%@ live=%@ samples=%d duration=%.2fs peak=%.4f rms=%.5f",
+                         stats.backend.rawValue, stats.deviceLive ? "yes" : "no",
+                         stats.sampleCount, stats.durationSeconds, stats.peak, stats.rms))
+            print(String(format: "  open=%.0fms first-live=%.0fms stop=%.0fms",
+                         openSeconds * 1000, (stats.startupSeconds ?? 0) * 1000, stopSeconds * 1000))
+            reports.append(["round": round, "backend": stats.backend.rawValue,
+                            "device_live": stats.deviceLive, "sample_count": stats.sampleCount,
+                            "open_seconds": openSeconds,
+                            "startup_seconds": stats.startupSeconds as Any? ?? NSNull(),
+                            "stop_seconds": stopSeconds])
+            if let outPath = outPath {
+                do {
+                    try write(samples: samples, to: outPath)
+                    print("  wrote \(outPath)")
+                } catch {
+                    FileHandle.standardError.write(Data("FAIL: could not write \(outPath): \(error)\n".utf8))
+                    return 1
+                }
+            }
+        }
+        if let reportPath = reportPath {
+            do {
+                let data = try JSONSerialization.data(withJSONObject: reports, options: [.prettyPrinted, .sortedKeys])
+                try data.write(to: URL(fileURLWithPath: reportPath), options: .atomic)
+            } catch {
+                FileHandle.standardError.write(Data("FAIL: could not write timing report\n".utf8))
                 return 1
             }
         }

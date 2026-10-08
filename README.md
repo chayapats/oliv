@@ -9,10 +9,10 @@
 [![Platform](https://img.shields.io/badge/platform-macOS%2014%2B%20Apple%20Silicon-111111)](#requirements)
 [![Release](https://img.shields.io/github/v/release/chayapats/oliv?color=57761f)](https://github.com/chayapats/oliv/releases/latest)
 
-**Fully-local Thai + English push-to-talk dictation for macOS.**
-Open-source voice typing: hold a key, speak Thai mixed with English, and OLIV types into the frontmost app. Speech-to-text runs on your Apple Silicon Mac — nothing uploaded.
+**Thai + English push-to-talk dictation for macOS, local by default.**
+Open-source voice typing: hold a key, speak Thai mixed with English, and OLIV types into the frontmost app. Speech-to-text runs on your Apple Silicon Mac by default. Optional remote engines upload audio only when enabled and selected.
 
-> 🇹🇭 **ย่อ:** พิมพ์ด้วยเสียง ไทยปนอังกฤษ บน Mac ทำงานในเครื่องทั้งหมด ไม่ส่งเสียงขึ้น cloud
+> 🇹🇭 **ย่อ:** พิมพ์ด้วยเสียง ไทยปนอังกฤษ บน Mac ค่าเริ่มต้นทำงานในเครื่อง; remote engines ส่งเสียงเมื่อเปิดและเลือกใช้งานเท่านั้น
 > STT ไทยมักเขียนคำอังกฤษเป็นตัวไทยเพราะเสียงคล้าย (`ดีพลอย`, `เกรดเวย์`) — OLIV คืนมันกลับเป็น `deploy`, `gateway`
 > **[อ่าน README ภาษาไทยฉบับเต็ม →](README.th.md)**
 
@@ -56,10 +56,11 @@ Meaning-match (LaBSE semantic similarity, a clip counts at ≥ 0.80 — **this i
 ## Requirements
 
 - **Apple Silicon** Mac (M1 or newer), macOS
-- One-time model download **≈ 5 GB**, pulled from Hugging Face on first run:
+- For local engines, one-time model download **≈ 5 GB**, pulled from Hugging Face on first run:
   - STT ~1.5 GB — [`chayapats/typhoon-whisper-turbo-mlx`](https://huggingface.co/chayapats/typhoon-whisper-turbo-mlx) (our MLX conversion of SCB 10X's Typhoon)
   - Cleanup ~3.3 GB — [`mlx-community/gemma-4-e2b-it-4bit`](https://huggingface.co/mlx-community/gemma-4-e2b-it-4bit)
 - Fully offline after that · ~1.1–1.3 s per phrase
+- OLIV API mode needs a connection and an individual API key instead of local models.
 
 ## Install
 
@@ -72,16 +73,24 @@ Meaning-match (LaBSE semantic similarity, a clip counts at ≥ 0.80 — **this i
 More than the defaults suggest — everything lives in the menu-bar olive icon and **Settings…** (⌘,).
 
 **The menu**
+- **Engine location** — `On-device · Typhoon`, `Cloud · OLIV API`, or `Cloud · Groq` in the menu and recording indicator. Enabling a remote engine makes it available; select it in General to use it.
 - **Recent…** — your last 10 dictations; click one to copy it back (⌘V to paste). In memory only: quitting clears it, and a Settings toggle turns it off (clearing immediately).
-- **Last-dictation line** — `Last: 1.4s · 38 chars` after each utterance, so you know it worked and how fast.
+- **Last-dictation line** — shows the engine actually used, duration and character count, including local fallback when Groq fails.
 - **Copy Diagnostics** — one-click plain-text support report (app/OS versions, engine, toggles, permissions, model status). Never includes transcripts or your API key.
 
 **General**
+- Microphone setup runs in the background with an immediate getting-ready
+  indicator. Release before it is ready to cancel. If echo cancellation fails,
+  OLIV remembers that audio route across launches and uses the regular microphone
+  with your audio-lowering setting. Toggle **Cancel speaker echo** off and on to
+  retry; a device or macOS change also allows another attempt. **Copy Diagnostics**
+  includes the last microphone startup time and actual capture backend.
 - **Push-to-talk key** — default is Right ⌥ Option; record any key you like, applied live.
 - **STT engine** — Thai-first Typhoon turbo (default), Pathumma (legacy), or English-heavy Whisper large-v3. Missing engine weights download in place with a progress bar.
 - **Recording indicator** — the floating waveform pill; can be hidden.
 - **Launch at login**, recent-transcripts toggle.
-- **Cloud fallback (opt-in, OFF by default)** — a Groq large-v3 cloud engine appears only after you enable it *and* add an API key. Audio leaves your Mac only while that engine is selected; every other engine is fully local.
+- **Cloud fallback (opt-in, OFF by default)** — a Groq large-v3 cloud engine appears only after you enable it *and* add an API key. Audio is sent to Groq only while that engine is selected.
+- **OLIV API (opt-in, OFF by default)** — in General, enable OLIV API, set the base URL (default `https://oliv.redcomp.tech`) and an individual key with `dictate` access, then select **OLIV API (remote)** as the dictation engine. Transcription and cleanup run on the server; no local model downloads are required. Keys are stored separately in macOS Keychain. The connection check is unauthenticated liveness only. Recordings are limited to two minutes, requests are not resent automatically, and 429/503 responses can require a cooldown. This engine does not yet support spoken formatting commands or saving failed audio for retry. Local/Groq settings are kept when switching engines.
 
 **Cleanup**
 - Global cleanup on/off; **filler-word removal** (อืม/เอ่อ/um…, on by default); **spoken formatting commands** ("new line / ขึ้นบรรทัดใหม่", "new paragraph / ย่อหน้าใหม่", "bullet point" — off by default, since a command phrase can be real content).

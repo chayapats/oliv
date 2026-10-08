@@ -35,7 +35,7 @@ import SwiftUI
 /// state: a brief, auto-hiding message (icon + text from the model) shown when an
 /// utterance failed or the paste couldn't be synthesized — so a drop is never
 /// silent.
-/// `warming` is the Bluetooth-mic state: the hotkey is down but the input device
+/// `warming` is the microphone setup state: the hotkey is down but the input device
 /// has not delivered a single non-zero frame yet (an AirPods HFP link takes
 /// 0.5–3 s to come up, emitting digital zeros meanwhile). Recording has NOT
 /// started — showing the recording pill here is what made a whole utterance
@@ -61,6 +61,8 @@ final class RecordingHUDController {
     /// Above menu-bar extras / status items; high enough to composite over
     /// native-fullscreen terminal hosts (iTerm2 + herdr). Still below screen-saver.
     private static let panelLevel: NSWindow.Level = .popUpMenu
+
+    func setEngine(_ engineID: String) { model.engineID = engineID }
 
     /// Show (or re-purpose) the pill in `phase`. Idempotent: an already-visible
     /// pill just switches phase (no re-fade); recording resets the waveform.
@@ -234,6 +236,7 @@ final class HUDModel: ObservableObject {
     static let barCount = 27
 
     @Published var phase: HUDPhase = .recording
+    @Published var engineID: String?
     @Published var reduceMotion = false
     @Published var level: Float = 0
     @Published var history: [Float] = Array(repeating: 0, count: HUDModel.barCount)
@@ -288,7 +291,17 @@ struct RecordingHUDView: View {
                         .strokeBorder(Color.primary.opacity(0.08))
                 )
                 .shadow(color: .black.opacity(0.22), radius: 8, y: 2)
-            content.padding(.horizontal, 16)
+            VStack(spacing: 4) {
+                if model.phase != .notice, let engineID = model.engineID {
+                    let execution = DictationExecution(engineID: engineID)
+                    Label(execution.label, systemImage: execution.systemImage)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                content
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
         }
         .frame(width: 220, height: 56)
         // Busy-press acknowledgement: a quick scale pulse when the user presses

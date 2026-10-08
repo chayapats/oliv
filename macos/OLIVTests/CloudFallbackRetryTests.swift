@@ -36,6 +36,7 @@ final class CloudFallbackRetryTests: XCTestCase {
             log: { logs.append($0) })
 
         XCTAssertEqual(out?.final, local, "returns the local retry's transcript")
+        XCTAssertEqual(out?.engineID, local, "last-result location must describe the fallback that ran")
         XCTAssertEqual(attempts, [cloud, local], "cloud attempted first, then local once")
         XCTAssertTrue(logs.contains { $0.contains("falling back to local") },
                       "the fallback is logged")
@@ -51,6 +52,7 @@ final class CloudFallbackRetryTests: XCTestCase {
             log: { logs.append($0) })
 
         XCTAssertEqual(out?.final, cloud)
+        XCTAssertEqual(out?.engineID, cloud)
         XCTAssertEqual(attempts, [cloud], "no retry on success")
         XCTAssertTrue(logs.isEmpty)
     }

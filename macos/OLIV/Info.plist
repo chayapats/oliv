@@ -23,7 +23,7 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>OLIV records your voice only while you hold the push-to-talk key, and transcribes it entirely on this Mac.</string>
+	<string>OLIV records your voice only while you hold the push-to-talk key, and transcribes it locally or through the remote engine you select.</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>

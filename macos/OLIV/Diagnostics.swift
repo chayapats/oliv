@@ -20,7 +20,8 @@ enum Diagnostics {
         microphone: PermissionStatus, inputMonitoring: PermissionStatus,
         accessibility: PermissionStatus,
         models: [RepoInfo], storagePath: String,
-        lastDictation: LastDictationStats?
+        lastDictation: LastDictationStats?,
+        olivAPIEnabled: Bool = false
     ) -> String {
         var lines: [String] = [
             "OLIV Diagnostics",
@@ -44,7 +45,20 @@ enum Diagnostics {
             "Models (storage: \(storagePath)):",
         ]
         lines += models.map { "- \($0.displayName) [\($0.repo)]: \($0.sizeText)" }
+        if olivAPIEnabled || engineID == OLIVAPIClient.engineID {
+            lines.append("OLIV API: \(onOff(olivAPIEnabled))")
+        }
+        if engineID == OLIVAPIClient.engineID { lines.append("Local models: not required for OLIV API") }
         lines.append("Last dictation: \(lastDictation?.summary ?? "none")")
+        if let engineID = lastDictation?.engineID {
+            lines.append("Last dictation engine: \(engineID)")
+        }
+        if let seconds = lastDictation?.microphoneStartupSeconds {
+            lines.append(String(format: "Last microphone startup: %.0fms", seconds * 1000))
+        }
+        if let backend = lastDictation?.captureBackend {
+            lines.append("Last capture backend: \(backend)")
+        }
         return lines.joined(separator: "\n")
     }
 

@@ -13,6 +13,7 @@ import SwiftUI
 struct OnboardingView: View {
     @ObservedObject var permissions: PermissionsModel
     @ObservedObject var models: ModelState
+    @ObservedObject var settings: OLIVSettings
     var onDone: () -> Void
 
     private let poll = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
@@ -57,7 +58,7 @@ struct OnboardingView: View {
 
     private var footer: some View {
         HStack {
-            if permissions.allGranted && models.allPresent {
+            if permissions.allGranted && models.arePresent(settings.requiredModelRepos) {
                 Label("You're all set", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
             } else {
@@ -118,9 +119,17 @@ struct OnboardingView: View {
 
     private var modelsStep: some View {
         VStack(alignment: .leading, spacing: 12) {
-            stepTitle(2, "Models", done: models.allPresent)
+            stepTitle(2, settings.usesOLIVAPI ? "OLIV API" : "Models",
+                      done: models.arePresent(settings.requiredModelRepos))
 
-            ForEach(models.repos) { info in
+            if settings.usesOLIVAPI {
+                Label("OLIV API selected — no local models needed", systemImage: "network")
+                Text("Audio is sent to your configured API for transcription and cleanup. "
+                     + "Manage the URL and key, or check the connection, in Settings › General.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+
+            ForEach(settings.requiredModelRepos.map { models.info(for: $0) }) { info in
                 HStack(spacing: 12) {
                     statusIcon(info.present)
                     VStack(alignment: .leading, spacing: 2) {
@@ -138,15 +147,15 @@ struct OnboardingView: View {
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.06)))
             }
 
-            if models.isDownloading {
+            if models.isDownloading && !settings.requiredModelRepos.isEmpty {
                 ProgressView(value: overallProgress) {
                     Text("Downloading models… \(Int(overallProgress * 100))%")
                         .font(.caption)
                 }
                 .progressViewStyle(.linear)
-            } else if !models.allPresent {
+            } else if !models.arePresent(settings.requiredModelRepos) {
                 Button {
-                    models.download()
+                    models.download(settings.requiredModelRepos)
                 } label: {
                     Label("Download models", systemImage: "square.and.arrow.down")
                 }
@@ -156,17 +165,19 @@ struct OnboardingView: View {
                 Text(err).font(.caption).foregroundStyle(.red)
             }
 
-            Text("Stored at: \(models.storagePath)")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .textSelection(.enabled)
+            if !settings.requiredModelRepos.isEmpty {
+                Text("Stored at: \(models.storagePath)")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .textSelection(.enabled)
+            }
         }
     }
 
     /// Overall download progress = mean of per-repo percent across the required
     /// repos (a repo with no line yet counts as 0). Coarse, matches the sidecar.
     private var overallProgress: Double {
-        let repos = models.repos.map(\.repo)
+        let repos = settings.requiredModelRepos
         guard !repos.isEmpty else { return 0 }
         let sum = repos.reduce(0) { $0 + (models.progressByRepo[$1] ?? 0) }
         return Double(sum) / Double(repos.count * 100)

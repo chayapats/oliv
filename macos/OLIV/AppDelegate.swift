@@ -64,6 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         controller.hotkeyChords = settings.activeChords
         controller.undoHotkeyChord = settings.undoHotkeyChord
         controller.sttEngine = settings.engineID
+        controller.olivAPIConfiguration = settings.olivAPIConfiguration
         controller.cleanupEnabled = settings.cleanupEnabled
         controller.verbatimApps = settings.verbatimApps
         controller.removeFillers = settings.removeFillers
@@ -105,6 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     /// change restarts the tap immediately.
     private func applyLiveSettings() {
         controller.sttEngine = settings.engineID
+        controller.olivAPIConfiguration = settings.olivAPIConfiguration
         controller.cleanupEnabled = settings.cleanupEnabled
         controller.verbatimApps = settings.verbatimApps
         controller.removeFillers = settings.removeFillers
@@ -136,7 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         permissions.refresh()
         models.recheck()
         controller.start()   // idempotent; a no-op if the tap is already live
-        needsAttention = !(permissions.allGranted && models.allPresent)
+        needsAttention = !(permissions.allGranted && models.arePresent(settings.requiredModelRepos))
     }
 
     /// Menu "Recent…" item click: copy that transcript back to the clipboard.
@@ -185,7 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             hotkeyID: settings.activeChords.map(\.displayName).joined(separator: " | "),
             cleanupEnabled: settings.cleanupEnabled,
             removeFillers: settings.removeFillers,
-            formatCommands: settings.formatCommands,
+            formatCommands: settings.formatCommands && !settings.usesOLIVAPI,
             thaiFormat: settings.thaiFormat,
             echoCancellation: settings.echoCancellation,
             duckOtherAudio: settings.duckOtherAudio,
@@ -199,7 +201,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             accessibility: permissions.accessibility,
             models: repoInfos,
             storagePath: models.storagePath,
-            lastDictation: appState.lastDictation)
+            lastDictation: appState.lastDictation,
+            olivAPIEnabled: settings.olivAPIConfiguration != nil)
         copyToClipboard(report, notice: "Diagnostics copied")
     }
 
@@ -210,6 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             onboarding = OnboardingWindowController(
                 permissions: permissions,
                 models: models,
+                settings: settings,
                 onClose: { [weak self] in self?.refreshReadiness() })
         }
         onboarding?.show()
@@ -225,11 +229,13 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     private(set) var window: NSWindow?
     private let permissions: PermissionsModel
     private let models: ModelState
+    private let settings: OLIVSettings
     private let onClose: () -> Void
 
-    init(permissions: PermissionsModel, models: ModelState, onClose: @escaping () -> Void) {
+    init(permissions: PermissionsModel, models: ModelState, settings: OLIVSettings, onClose: @escaping () -> Void) {
         self.permissions = permissions
         self.models = models
+        self.settings = settings
         self.onClose = onClose
         super.init()
     }
@@ -239,6 +245,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
             let root = OnboardingView(
                 permissions: permissions,
                 models: models,
+                settings: settings,
                 onDone: { [weak self] in self?.window?.close() })
             let hosting = NSHostingController(rootView: root)
             let win = NSWindow(contentViewController: hosting)

@@ -54,7 +54,7 @@ targets:
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSMicrophoneUsageDescription: >-
           OLIV records your voice only while you hold the push-to-talk key,
-          and transcribes it entirely on this Mac.
+          and transcribes it locally or through the remote engine you select.
         # --- Sparkle auto-update (W5-T1) ---------------------------------- #
         # The appcast lives on the main public repo's releases --
         # the dev repo stays private; Sparkle only needs public assets.

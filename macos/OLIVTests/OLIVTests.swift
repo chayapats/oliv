@@ -22,8 +22,12 @@ final class OnboardingWindowLifecycleTests: XCTestCase {
     // keeps OnboardingView alive, and its 1 s permission/model poll would keep
     // firing forever behind a closed window. show() after close rebuilds fresh.
     func testCloseReleasesWindowAndShowRebuilds() {
+        let suite = "oliv.onboarding.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = OLIVSettings(defaults: defaults, keychain: InMemoryKeychain())
         let controller = OnboardingWindowController(
-            permissions: PermissionsModel(), models: ModelState(), onClose: {})
+            permissions: PermissionsModel(), models: ModelState(), settings: settings, onClose: {})
         controller.show()
         guard let first = controller.window else {
             return XCTFail("show() must create the window")

@@ -33,13 +33,58 @@ enum DictationStatus: Equatable {
     }
 }
 
+/// User-visible execution location; unknown engines never imply local privacy.
+enum DictationExecution: Equatable {
+    case onDevice(String), olivAPI, groq, unknown
+
+    init(engineID: String) {
+        switch engineID {
+        case "typhoon-turbo-mlx": self = .onDevice("Typhoon")
+        case "pathumma-mlx": self = .onDevice("Pathumma")
+        case "mlx-large-v3": self = .onDevice("Whisper")
+        case OLIVAPIClient.engineID: self = .olivAPI
+        case SidecarClient.cloudEngine: self = .groq
+        default: self = .unknown
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .onDevice(let name): return "On-device · \(name)"
+        case .olivAPI: return "Cloud · OLIV API"
+        case .groq: return "Cloud · Groq"
+        case .unknown: return "Unknown engine"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .onDevice: return "desktopcomputer"
+        case .olivAPI, .groq: return "cloud"
+        case .unknown: return "questionmark.circle"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .onDevice: return "Audio stays on this Mac."
+        case .olivAPI: return "Audio is sent to OLIV API for transcription and cleanup."
+        case .groq: return "Audio is sent to Groq for transcription. Cleanup, when enabled, runs on this Mac."
+        case .unknown: return "Check the selected dictation engine."
+        }
+    }
+}
+
 /// One successful dictate's headline numbers, shown as a secondary line in the
 /// menu ("how long did that take / how much text landed"). Set by the release
-/// worker on the sidecar path only — the test-seam transcriber has no timings.
+/// worker on the provider path — the test-seam transcriber has no timings.
 struct LastDictationStats: Equatable {
     let chars: Int
     let sttSeconds: Double
     let cleanupSeconds: Double
+    var engineID: String? = nil
+    var microphoneStartupSeconds: Double? = nil
+    var captureBackend: String? = nil
 
     /// "1.4s · 38 chars" — total time (stt + cleanup) to one decimal. Shared
     /// by the menu line and the diagnostics report.
@@ -48,12 +93,17 @@ struct LastDictationStats: Equatable {
     }
 
     /// The menu's secondary line: "Last: 1.4s · 38 chars".
-    var menuLine: String { "Last: \(summary)" }
+    var menuLine: String {
+        let execution = engineID.map { "\(DictationExecution(engineID: $0).label) · " } ?? ""
+        return "Last: \(execution)\(summary)"
+    }
 }
 
 @MainActor
 final class AppState: ObservableObject {
     @Published var status: DictationStatus = .idle
+    /// Frozen at press, so settings edits cannot relabel an active utterance.
+    @Published var activeEngineID: String?
 
     /// Master on/off for the push-to-talk listener (menu toggle). Off means
     /// the hotkey is ignored entirely; it does NOT quit the app.

@@ -6,6 +6,19 @@ the matching `## [X.Y.Z]` section (falling back to `## [Unreleased]`) into the
 Sparkle appcast's release notes, so keep entries short and end-user readable.
 
 ## [Unreleased]
+- **Push-to-talk responds immediately.** Microphone setup runs in the background
+  while the indicator shows that it is getting ready. Releasing during setup
+  cancels that recording. Failed echo-cancellation routes are remembered across
+  launches, avoiding repeated slow setup; toggle Cancel speaker echo off and on
+  to retry. Changing devices or macOS also gives echo cancellation a fresh attempt.
+- **Know where dictation runs.** The menu, recording indicator and Settings
+  show On-device or Cloud with the engine name. The last result shows the
+  engine actually used, including Groq's fallback to local transcription.
+- **OLIV API engine (opt-in).** Use your own API URL and individual key for
+  server transcription and cleanup without downloading local models. Keys live
+  in macOS Keychain. Recordings are capped at two minutes; rate limits show a
+  wait notice and requests are never automatically resent. Spoken formatting
+  commands and saved-audio retry are not available with this engine yet.
 
 ## [0.1.11] — 2026-08-10
 - **Tech jargon comes back as real English more reliably.** Dense Thai
