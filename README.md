@@ -104,13 +104,14 @@ More than the defaults suggest — everything lives in the menu-bar olive icon a
 
 ## Reproduce the benchmark
 
-The eval harness drives the **real shipping code path** (not a re-implementation):
+The developer harness runs the shipped Rust + native MLX pipeline by default.
+Use `--runtime reference` to compare with the previous Python implementation.
+Python is only needed for benchmark tooling, and is absent from the app and its build.
 
 ```bash
 # fresh benchmark of the shipped config over all sets:
-# (model repos default to the shipped ones; point OLIV_TYPHOON_MLX_REPO at a
-#  local path or another HF repo only if you want to swap the STT weights)
-HF_HUB_DISABLE_XET=1 \
+bash scripts/build_native.sh
+HF_HUB_OFFLINE=1 \
   sidecar/.venv/bin/python benchmark/eval_cleanup.py \
     --manifest data/manifest_all.jsonl --engine typhoon-turbo-mlx --out benchmark/eval_results/ship_main.json
 sidecar/.venv/bin/python benchmark/semantic_score.py     # LaBSE meaning over eval_results/*.json
@@ -122,13 +123,14 @@ Manifests: `benchmark/data/manifest_{all,holdout,d2}.jsonl` (264 clips; audio no
 
 ## Build from source
 
+The app runtime is Python-free: Rust text/API processing and native MLX inference.
 Apple Silicon Mac, macOS 14+. Full notes in [CONTRIBUTING.md](CONTRIBUTING.md).
+Architecture and measured validation: [native runtime migration](docs/native-runtime-migration.md).
 
 ```bash
 brew install xcodegen
-python3.11 -m venv sidecar/.venv
-sidecar/.venv/bin/pip install -r sidecar/requirements.lock
-( cd macos && xcodegen generate )
+# Install the stable Rust toolchain from https://rustup.rs
+xcodebuild -downloadComponent MetalToolchain
 bash scripts/build_app.sh    # -> build/OLIV.app
 ```
 

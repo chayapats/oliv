@@ -1,13 +1,12 @@
-// SidecarClient (W3-T3) — the app-side half of the STT+cleanup venv bridge.
+// SidecarClient (W3-T3) — the app-side half of the native STT+cleanup bridge.
 //
 // Wave-3 architecture: this Swift app owns all macOS integration and delegates
-// BOTH heavy pipeline stages (STT + cleanup) to one bundled Python sidecar
-// (sidecar/sidecar_server.py) spoken to over a line-oriented JSON stdio
-// protocol. This is the Swift twin of app/cleanup.py's CleanupClient: same
+// BOTH heavy pipeline stages (STT + cleanup) to a Rust worker + native MLX helper
+// spoken to over a line-oriented JSON stdio protocol. It retains the same
 // spawn-lazily / bounded-read / kill-and-respawn-on-trouble discipline, ported
 // to Foundation Process + a reader Thread + an NSCondition line queue.
 //
-// Protocol (see sidecar/sidecar_server.py's module docstring — it IS the spec):
+// Protocol (implemented in rust/crates/oliv-sidecar):
 //   {"cmd":"ping"}                                   -> {"ok",pid}
 //   {"cmd":"warm","engine","cleanup"}                -> {"ok",t_stt_load,t_cleanup_load}
 //   {"cmd":"dictate","engine","cleanup","pcm_b64"}   -> {"ok",raw,final,t_stt,t_cleanup,...}
@@ -67,7 +66,7 @@ struct DownloadResult {
 /// it into "drop utterance gracefully" without crashing. Mirrors the reasons
 /// CleanupClient folds into `used_fallback`.
 enum SidecarError: Error, CustomStringConvertible {
-    /// The child could not be spawned (venv/script missing, exec failed).
+    /// The child could not be spawned (native executable missing, exec failed).
     case notSpawned(String)
     /// Bounded read expired or the sidecar died mid-request → killed, will
     /// respawn on the next call.
@@ -150,55 +149,47 @@ final class SidecarClient {
     }
 
     /// Dev/prod init: resolves the bundled runtime if the .app ships one, else
-    /// the dev repo venv (see `resolveLaunch()`). This is what the app and the
+    /// locally built native workers (see `resolveLaunch()`). This is what the app and the
     /// `--e2e-file` harness construct.
     convenience init(engine: String = SidecarClient.defaultEngine) {
         let launch = SidecarClient.resolveLaunch()
         self.init(command: launch.command, environment: launch.environment, engine: engine)
     }
 
-    /// How a production sidecar is launched: the python+script command, any
+    /// How a production sidecar is launched: the native worker command, any
     /// extra env, the OLIV_ROOT it resolves to, and whether it came from the
     /// packaged bundle (vs the dev repo). `bundled` is surfaced so the e2e
     /// harness can print which runtime it used.
     struct Launch {
-        let command: [String]               // [python, sidecar_server.py]
+        let command: [String]               // [oliv-sidecar]
         let environment: [String: String]?  // extra env merged over inherited
         let root: String                    // OLIV_ROOT
         let bundled: Bool
     }
 
-    /// Resolve the sidecar launch config (W3-T4 packaging). Order:
-    ///   (1) BUNDLED: if `Resources/oliv-runtime` ships inside the .app, run
-    ///       its embedded CPython on the staged source tree, with OLIV_ROOT =
-    ///       oliv-runtime/root and HF_HOME = ~/Library/Application Support/
-    ///       OLIV/models (created here) so model storage is app-owned;
-    ///   (2) DEV fallback: the repo's `sidecar/.venv` python + repo root, no env
-    ///       override (inherits the default HF cache so dev e2e reuses models).
+    /// Resolve the Rust worker and lazy native model helper. The bundled app
+    /// uses its own HF cache; development uses the standard cache. Missing native
+    /// builds fail explicitly instead of falling back to a Python interpreter.
     static func resolveLaunch() -> Launch {
         let fm = FileManager.default
         if let res = Bundle.main.resourceURL {
-            let runtime = res.appendingPathComponent("oliv-runtime")
-            let python = runtime.appendingPathComponent("python/bin/python3")
-            let root = runtime.appendingPathComponent("root")
-            let script = root.appendingPathComponent("sidecar/sidecar_server.py")
-            if fm.fileExists(atPath: python.path), fm.fileExists(atPath: script.path) {
-                let models = SidecarClient.bundledModelsDir()
+            let runtime = res.appendingPathComponent("oliv-runtime/bin")
+            let worker = runtime.appendingPathComponent("oliv-sidecar")
+            if fm.isExecutableFile(atPath: worker.path) {
+                let models = bundledModelsDir()
                 try? fm.createDirectory(atPath: models, withIntermediateDirectories: true)
-                // PYTHONDONTWRITEBYTECODE keeps the sidecar from writing __pycache__
-                // into the code-signed runtime on first import — that would break
-                // the bundle's seal (and later notarization). Imports run from .py.
-                let env = ["OLIV_ROOT": root.path,
-                           "HF_HOME": models,
-                           "PYTHONDONTWRITEBYTECODE": "1"]
-                return Launch(command: [python.path, script.path],
-                              environment: env, root: root.path, bundled: true)
+                return Launch(command: [worker.path], environment: [
+                    "HF_HOME": models,
+                    "OLIV_INFERENCE_EXECUTABLE": runtime.appendingPathComponent("oliv-inference").path,
+                    "OLIV_WHISPER_TOKENIZER": runtime.appendingPathComponent("whisper-tokenizer").path,
+                ], root: res.appendingPathComponent("oliv-runtime").path, bundled: true)
             }
         }
-        let devRoot = SidecarClient.defaultDevRoot()
-        return Launch(command: [devRoot + "/sidecar/.venv/bin/python",
-                                devRoot + "/sidecar/sidecar_server.py"],
-                      environment: nil, root: devRoot, bundled: false)
+        let root = defaultDevRoot()
+        return Launch(command: [root + "/build/native-runtime/oliv-sidecar"], environment: [
+            "OLIV_INFERENCE_EXECUTABLE": root + "/build/native-runtime/oliv-inference",
+            "OLIV_WHISPER_TOKENIZER": root + "/macos/OLIVInference/Resources/whisper-tokenizer",
+        ], root: root, bundled: false)
     }
 
     /// App-owned model store: ~/Library/Application Support/OLIV/models. Used

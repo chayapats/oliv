@@ -6,6 +6,7 @@ __pycache__/
 
 # --- Build products (recreate: scripts/build_app.sh) ---
 build/
+rust/target/
 macos/DerivedData/
 
 # --- Generated Xcode project (source of truth = macos/project.yml; xcodegen generate) ---

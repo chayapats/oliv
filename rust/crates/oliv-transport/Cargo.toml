@@ -1,0 +1,19 @@
+[package]
+name = "oliv-transport"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license = "Apache-2.0"
+
+[dependencies]
+base64 = "0.22"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+ureq = { version = "3.4", default-features = false, features = ["json", "rustls", "platform-verifier"] }
+url = "2.5"
+httpdate = "1"
+
+[dev-dependencies]
+rcgen = { version = "0.14", default-features = false, features = ["ring", "crypto"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }

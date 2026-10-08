@@ -1,9 +1,21 @@
 import XCTest
 @testable import OLIV
 
-/// Real sockets exercise URLSession redirect/TLS behavior that URLProtocol
+/// Real sockets exercise the production Rust redirect/TLS behavior that URLProtocol
 /// fixtures cannot establish. Synthetic audio and test keys only.
 final class OLIVAPILoopbackTests: XCTestCase {
+    func testNativeRequestCancellationStopsPromptly() async throws {
+        let server = try LoopbackAPIServer()
+        defer { server.close() }
+        let client = OLIVAPIClient(configuration: try OLIVAPIConfiguration(url: server.url + "/stall", apiKey: "dummy"))
+        let operation = Task { try await client.dictate(samples: [0.1], options: DictationOptions(cleanup: false)) }
+        try await Task.sleep(nanoseconds: 150_000_000)
+        let start = Date()
+        operation.cancel()
+        do { _ = try await operation.value; XCTFail("cancelled operation succeeded") }
+        catch OLIVAPIError.cancelled {}
+        XCTAssertLessThan(Date().timeIntervalSince(start), 1)
+    }
     func testAllRedirectsStopBeforeSendingKeyOrAudioToDestination() async throws {
         let server = try LoopbackAPIServer()
         defer { server.close() }
@@ -113,6 +125,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         else: self.reply(404, dict(ok=False))
     def do_POST(self):
         raw = self.rfile.read(int(self.headers.get('Content-Length', 0)))
+        if self.path == '/stall/v1/dictate':
+            import time
+            time.sleep(20)
+            return
         if self.path.startswith('/redirect/'):
             counts['redirects'] += 1
             status = int(self.path.split('/')[2])

@@ -156,7 +156,7 @@ final class ModelState: ObservableObject {
     /// nothing for a root that is itself a symlink, which made a shared/linked
     /// HF cache (repo dir symlinked into the app's models home) read as
     /// "Not downloaded" forever — present stayed false no matter how many times
-    /// the user pressed Download, because the sidecar (Python, follows links)
+    /// the user pressed Download, because the native helper (follows links)
     /// kept finishing instantly while this check kept counting 0 bytes. The
     /// per-entry symlink skip below is unrelated and stays: HF snapshots/ files
     /// are symlinks into blobs/, skipped to avoid double-counting.

@@ -19,21 +19,19 @@ patches are the most useful contributions. Please read the
 
 ```bash
 brew install xcodegen
-python3.11 -m venv sidecar/.venv
-sidecar/.venv/bin/pip install -r sidecar/requirements.lock
-
-cd macos && xcodegen generate   # macos/OLIV.xcodeproj is generated, not tracked
+# Install stable Rust with rustup: https://rustup.rs
+xcodebuild -downloadComponent MetalToolchain
+bash scripts/build_native.sh   # Rust worker + native MLX, no Python needed
 ```
 
-A **usable** `.app` (embedded Python sidecar, stable code signature so
+A **usable** `.app` (Rust + native MLX workers, stable code signature so
 permissions stick) is:
 
 ```bash
 bash scripts/build_app.sh    # -> build/OLIV.app
 ```
 
-The first run downloads a relocatable CPython and pip-installs the lockfile
-into `build/` (cached after that). `xcodebuild` Debug by itself is ad-hoc
+The first build resolves pinned Swift packages and Rust crates, cached after that. `xcodebuild` Debug by itself is ad-hoc
 signed and is the wrong binary to grant Accessibility / Input Monitoring.
 
 Release packaging (signed `.dmg` + Sparkle appcast) is `bash scripts/release.sh X.Y.Z`.
@@ -43,17 +41,16 @@ Release packaging (signed `.dmg` + Sparkle appcast) is `bash scripts/release.sh 
 Hermetic — no 5 GB model download, no microphone:
 
 ```bash
-sidecar/.venv/bin/python sidecar/test_text_passes.py
-sidecar/.venv/bin/python sidecar/test_groq_backend.py
-sidecar/.venv/bin/python benchmark/test_pipeline_spacing.py
-
-( cd macos && xcodegen generate )
+$HOME/.cargo/bin/cargo test --locked --manifest-path rust/Cargo.toml --workspace
+bash scripts/build_native.sh
+swift scripts/test_native_runtime.swift build/native-runtime
 xcodebuild -project macos/OLIV.xcodeproj -scheme OLIV \
   -destination 'platform=macOS,arch=arm64' test
 ```
 
-`sidecar/test_sidecar.py` loads the real STT + cleanup models; skip it unless
-you are changing the sidecar protocol. The full accuracy numbers on
+The `sidecar/` Python files are retained as reference/benchmark tooling and are
+not bundled. Native tests use isolated settings and synthetic audio, without
+Keychain prompts or microphone access. The full accuracy numbers on
 [the landing page](https://chayapats.github.io/oliv/) need your own audio
 corpus — see [`benchmark/README.md`](benchmark/README.md).
 
@@ -64,7 +61,7 @@ If you change Swift sources or `macos/project.yml`, regenerate with
 
 - Keep the change small and say what you ran.
 - Match the surrounding style. This repo does not use pytest; sidecar and
-  benchmark checks are plain `assert` scripts.
+  benchmark checks are plain `assert` scripts; native core tests use Cargo.
 - User-facing copy in the app is English in code with Thai in `README.th.md`
   / the landing page. Don’t silently drop the Thai docs when you change the
   English ones.
@@ -74,4 +71,5 @@ If you change Swift sources or `macos/project.yml`, regenerate with
 ## License
 
 By contributing, you agree that your contribution is licensed under the same
-[MIT License](LICENSE) as the rest of the app code.
+[MIT License](LICENSE) as the rest of the app code. The shared OLIV Linux core remains Apache-2.0;
+see the notices in `rust/` and `macos/OLIVInference/UPSTREAM.md`.

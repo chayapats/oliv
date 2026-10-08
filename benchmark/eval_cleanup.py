@@ -1,32 +1,16 @@
-"""OLIV cleanup / feature eval runner (W6-EVAL) — drives the REAL pipeline.
+"""Score the full STT → features → cleanup path against a local manifest.
 
-This scores the FULL OLIV path (STT → optional Wave-4/6 features → Gemma cleanup)
-against the manifest references, per bucket, and is the harness for the
-Gemma-E4B-vs-E2B A/B. It deliberately calls the SHIPPING sidecar handler
-(`sidecar_server._handle`) rather than re-implementing the pipeline, so what the
-eval measures is exactly what users get — no drift.
+The default drives the shipped Rust + native MLX workers. --runtime reference
+runs the previous Python implementation for comparisons. Python is only used
+by this developer harness; it is absent from the app and its build process.
+Both runtimes receive identical Float32 mono/16 kHz PCM from ffmpeg.
 
-    # baseline (shipping E4B)
-    benchmark/.venv/bin/python benchmark/eval_cleanup.py --manifest data/manifest_v2.jsonl
-    # low-RAM candidate — same command, one env var (pipeline.MODEL reads it):
-    OLIV_CLEANUP_MODEL=mlx-community/gemma-4-e2b-it-4bit \
-      benchmark/.venv/bin/python benchmark/eval_cleanup.py --manifest data/manifest_v2.jsonl
+    python benchmark/eval_cleanup.py --manifest data/manifest_all.jsonl
+    python benchmark/eval_cleanup.py --runtime reference --manifest data/manifest_all.jsonl
 
-Per bucket the feature flags mirror what a real user would have on:
-    fl  -> remove_fillers=True         (proves filler removal)
-    fm  -> format_commands=True        (proves spoken formatting commands)
-    vb  -> vocabulary=<clip.vocab>     (proves custom-vocabulary biasing)
-    others -> plain STT -> cleanup
-Run vb a second time with --no-vocab to measure B3's effect (with vs without).
-
-Reports, per bucket and overall: exact-match rate (normalised), mean WER of
-`final` vs `reference`, mean per-utterance latency (STT + cleanup), and how many
-clips were missing (not yet recorded) so nothing is silently skipped. Writes a
-JSON with per-clip rows to --out for later diffing between models.
-
-Clips that aren't recorded yet are reported as MISSING, not scored — so this can
-be run today on the 66-clip base (mx/tc engage cleanup) and re-run on the full
-~200 set once the v2 clips exist.
+Per-bucket flags mirror normal use: fl enables filler removal, fm formatting
+commands, vb vocabulary. Reports include per-clip outputs and should stay in
+ignored benchmark/eval_results/ when using private recordings.
 """
 
 from __future__ import annotations
@@ -37,6 +21,7 @@ import os
 import re
 import sys
 import time
+from contextlib import ExitStack
 from collections import defaultdict
 from pathlib import Path
 
@@ -48,8 +33,7 @@ sys.path.insert(0, str(ROOT / "sidecar"))
 sys.path.insert(0, str(ROOT / "benchmark"))
 
 import metrics  # noqa: E402
-import pipeline  # noqa: E402  (exposes MODEL, honouring OLIV_CLEANUP_MODEL)
-import sidecar_server as ss  # noqa: E402
+from native_runtime import NativeRuntime, DEFAULT_ENGINE, CLEANUP_MODEL, capture_request  # noqa: E402
 
 
 def bucket_of(cid: str) -> str:
@@ -99,7 +83,9 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--manifest", default="data/manifest_v2.jsonl")
     ap.add_argument("--audio-root", default="data")
-    ap.add_argument("--engine", default=ss.DEFAULT_ENGINE,
+    ap.add_argument("--runtime", choices=["native", "reference"], default="native")
+    ap.add_argument("--runtime-dir", default="", help="override native worker directory")
+    ap.add_argument("--engine", default=DEFAULT_ENGINE,
                     help="STT engine id (pathumma-mlx | mlx-large-v3 | groq-large-v3)")
     ap.add_argument("--no-cleanup", action="store_true",
                     help="PURE STT baseline: cleanup + features off, final == raw")
@@ -109,6 +95,22 @@ def main() -> int:
     ap.add_argument("--label", default="", help="human label for this config (report legend)")
     ap.add_argument("--out", default="")
     args = ap.parse_args()
+    cleanup_on = not args.no_cleanup
+    with ExitStack() as stack:
+        if args.runtime == "native":
+            runtime = stack.enter_context(NativeRuntime(Path(args.runtime_dir).resolve() if args.runtime_dir else None))
+            invoke = runtime.request
+            cleanup_model = CLEANUP_MODEL
+        else:
+            import pipeline
+            import sidecar_server as ss
+            invoke = lambda body: ss._handle(capture_request(body))
+            cleanup_model = pipeline.MODEL
+        invoke({"cmd": "warm", "engine": args.engine, "cleanup": cleanup_on})
+        return evaluate(args, invoke, cleanup_model)
+
+
+def evaluate(args, invoke, cleanup_model) -> int:
     cleanup_on = not args.no_cleanup
 
     manifest = Path(args.manifest)
@@ -123,13 +125,11 @@ def main() -> int:
     label = args.label or f"{args.engine}{'' if cleanup_on else ' (pure)'}"
 
     print(f"label         : {label}")
+    print(f"runtime       : {args.runtime}")
     print(f"STT engine    : {args.engine}")
-    print(f"cleanup       : {'OFF (pure STT)' if not cleanup_on else pipeline.MODEL}")
+    print(f"cleanup       : {'OFF (pure STT)' if not cleanup_on else cleanup_model}")
     print(f"manifest      : {manifest}  ({len(rows)} clips)")
     print(f"vb vocabulary : {'OFF (B3 baseline)' if args.no_vocab else 'ON'}\n")
-
-    # Warm the chosen STT engine once (cleanup loads lazily on first clean).
-    ss._get_backend(args.engine)
 
     per_bucket_seen: dict[str, int] = defaultdict(int)
     results: list[dict] = []
@@ -147,9 +147,11 @@ def main() -> int:
         per_bucket_seen[b] += 1
 
         t0 = time.perf_counter()
-        rep = ss._handle(build_request(r, engine=args.engine,
+        rep = invoke(build_request(r, engine=args.engine,
                                        use_vocab=not args.no_vocab, cleanup=cleanup_on))
         dt = time.perf_counter() - t0
+        if not rep.get("ok"):
+            raise RuntimeError(f"Dictation failed for clip {r['id']}")
 
         final = rep.get("final", "")
         ref = r["reference"]
@@ -159,12 +161,15 @@ def main() -> int:
             "id": r["id"], "bucket": b, "difficulty": r.get("difficulty"),
             "reference": ref, "raw": rep.get("raw", ""), "final": final,
             "exact": exact, "wer": round(sc.wer_newmm, 4),
+            "cer": round(sc.cer, 4),
             "kw_recall": None if sc.keyword_recall is None else round(sc.keyword_recall, 3),
             "llm_ran": rep.get("llm_ran"), "guardrail": rep.get("guardrail_flag"),
             "fillers_removed": rep.get("fillers_removed"),
             "format_commands_fired": rep.get("format_commands_fired"),
             "replacements_fired": rep.get("replacements_fired"),
             "latency_s": round(dt, 3),
+            "t_stt": rep.get("t_stt"), "t_cleanup": rep.get("t_cleanup"),
+            "cleanup_error": rep.get("cleanup_error"),
         }
         results.append(row)
         mark = "OK " if exact else "…  "
@@ -207,7 +212,8 @@ def main() -> int:
             }
         out.write_text(json.dumps(
             {"label": label, "engine": args.engine,
-             "cleanup_model": None if not cleanup_on else pipeline.MODEL,
+             "cleanup_model": None if not cleanup_on else cleanup_model,
+             "runtime": args.runtime,
              "manifest": str(manifest), "no_vocab": args.no_vocab,
              "overall": overall, "aggregate": agg, "clips": results, "missing": missing},
             ensure_ascii=False, indent=2), encoding="utf-8")

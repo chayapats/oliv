@@ -16,7 +16,7 @@
 //             → idle
 //
 // The `transcriber` hook defaults to nil so W3-T2 is complete and testable
-// without STT; W3-T3 plugs the Python sidecar in here.
+// without STT; the native sidecar supplies STT and cleanup.
 
 import AppKit
 import Foundation

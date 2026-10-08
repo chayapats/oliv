@@ -18,7 +18,7 @@ options:
     macOS: "14.0"
   createIntermediateGroups: true
 
-# Sparkle auto-update (W5-T1). The ONLY third-party dependency in the app.
+# Sparkle stays in the UI; MLX dependencies are confined to the lazy helper.
 # Resolved by xcodebuild via SPM at build time (needs network the first time,
 # then cached in DerivedData). Pinned exact so the embedded Sparkle.framework
 # matches the bin/ tools (generate_keys / sign_update / generate_appcast) that
@@ -28,7 +28,46 @@ packages:
     url: https://github.com/sparkle-project/Sparkle
     exactVersion: 2.9.4
 
+  MLXSwift:
+    url: https://github.com/ml-explore/mlx-swift
+    exactVersion: 0.32.3
+  MLXSwiftLM:
+    url: https://github.com/ml-explore/mlx-swift-lm
+    revision: 3615fe461c7c8c5ff90c40c70ca30e8b46399727
+  Transformers:
+    url: https://github.com/huggingface/swift-transformers
+    exactVersion: 1.1.6
+  HuggingFace:
+    url: https://github.com/huggingface/swift-huggingface
+    exactVersion: 0.8.1
+
 targets:
+  OLIVInference:
+    type: tool
+    platform: macOS
+    sources:
+      - path: OLIVInference
+        excludes: [Resources, UPSTREAM.md, LICENSE-mlx-audio-swift, LICENSE-mlx-whisper]
+    dependencies:
+      - package: MLXSwift
+        products: [MLX, MLXNN, MLXFast, MLXRandom]
+      - package: MLXSwiftLM
+        products: [MLXLLM, MLXLMCommon]
+      - package: Transformers
+        product: Tokenizers
+      - package: HuggingFace
+        product: HuggingFace
+    settings:
+      base:
+        ARCHS: arm64
+        LD_RUNPATH_SEARCH_PATHS: "@executable_path/../../../Frameworks @executable_path"
+        OTHER_LDFLAGS: "$(inherited) $(SRCROOT)/../build/native-libs/liboliv_tokenizer.a"
+        SWIFT_OBJC_BRIDGING_HEADER: "$(SRCROOT)/OLIVInference/Tokenizer/oliv_tokenizer.h"
+        PRODUCT_NAME: oliv-inference
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        SWIFT_OPTIMIZATION_LEVEL: "-O"
   OLIV:
     type: application
     platform: macOS
@@ -118,3 +157,8 @@ schemes:
         OLIVTests: [test]
     test:
       targets: [OLIVTests]
+
+  OLIVInference:
+    build:
+      targets:
+        OLIVInference: all

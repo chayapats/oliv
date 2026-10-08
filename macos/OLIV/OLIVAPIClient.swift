@@ -275,12 +275,12 @@ final class OLIVAPIClient: DictationProviding {
     static let maxRequestBytes = 8 * 1024 * 1024
     static let maxResponseBytes = 1024 * 1024
     private let configuration: OLIVAPIConfiguration
-    private let transport: OLIVAPITransport
+    private let transport: OLIVAPITransport?
     private let state: OLIVAPIRequestState
     private let now: () -> Date
 
     init(configuration: OLIVAPIConfiguration,
-         transport: OLIVAPITransport = OLIVAPIURLSessionTransport(),
+         transport: OLIVAPITransport? = nil,
          state: OLIVAPIRequestState = .shared, now: @escaping () -> Date = Date.init) {
         self.configuration = configuration
         self.transport = transport
@@ -290,10 +290,26 @@ final class OLIVAPIClient: DictationProviding {
 
     func dictate(samples: [Float], options: DictationOptions) async throws -> DictationResult {
         try Task.checkCancellation()
+        if transport == nil {
+            guard !samples.isEmpty else { throw OLIVAPIError.emptyAudio }
+            guard samples.count <= Self.maxSamples else { throw OLIVAPIError.audioTooLong }
+            try state.begin(now: now())
+            defer { state.end() }
+            var body = nativeRequest("api_dictate")
+            body["pcm_b64"] = samples.withUnsafeBytes { Data($0).base64EncodedString() }
+            body["cleanup"] = options.cleanup
+            body["remove_fillers"] = options.removeFillers
+            body["thai_format"] = options.thaiFormat && options.cleanup
+            body["vocabulary"] = options.vocabulary
+            body["replacements"] = options.replacements
+            let reply = try await RustWorkerRequest().send(body, timeout: configuration.timeout)
+            try checkNativeError(reply)
+            return try Self.parseReply(status: 200, data: JSONSerialization.data(withJSONObject: reply))
+        }
         let data = try Self.requestBody(samples: samples, options: options)
         try state.begin(now: now())
         defer { state.end() }
-        let reply = try await transport.send(request(path: "v1/dictate", body: data),
+        let reply = try await transport!.send(request(path: "v1/dictate", body: data),
                                              timeout: configuration.timeout, limit: Self.maxResponseBytes)
         let status = reply.response.statusCode
         let header = reply.response.value(forHTTPHeaderField: "Retry-After")
@@ -306,12 +322,44 @@ final class OLIVAPIClient: DictationProviding {
 
     /// Liveness only; never sends a key and never gates dictation.
     func health() async throws {
-        let reply = try await transport.send(request(path: "health", body: nil),
+        if transport == nil {
+            let reply = try await RustWorkerRequest().send(nativeRequest("api_health"), timeout: configuration.timeout)
+            try checkNativeError(reply)
+            return
+        }
+        let reply = try await transport!.send(request(path: "health", body: nil),
                                              timeout: configuration.timeout, limit: 8192)
         try Self.checkStatus(reply.response.statusCode)
         struct Health: Decodable { let ok: Bool }
         guard let value = try? JSONDecoder().decode(Health.self, from: reply.data), value.ok else {
             throw OLIVAPIError.invalidReply
+        }
+    }
+
+    private func nativeRequest(_ command: String) -> [String: Any] {
+        ["id": 1, "cmd": command, "api": [
+            "url": configuration.baseURL.absoluteString, "key": configuration.apiKey,
+            "timeout": configuration.timeout,
+            "user_agent": "oliv-macos/" + (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"),
+        ]]
+    }
+
+    private func checkNativeError(_ reply: [String: Any]) throws {
+        if let seconds = reply["retry_after"] as? Double, seconds.isFinite, seconds > 0 {
+            state.postpone(until: now().addingTimeInterval(seconds))
+        }
+        guard reply["ok"] as? Bool == true else {
+            if let status = reply["status"] as? Int { try Self.checkStatus(status) }
+            switch reply["code"] as? String {
+            case "timeout": throw OLIVAPIError.timeout
+            case "network": throw OLIVAPIError.network
+            case "redirect": throw OLIVAPIError.redirect
+            case "responseTooLarge": throw OLIVAPIError.responseTooLarge
+            case "requestTooLarge": throw OLIVAPIError.requestTooLarge
+            case "audioTooLong": throw OLIVAPIError.audioTooLong
+            case "emptyAudio": throw OLIVAPIError.emptyAudio
+            default: throw OLIVAPIError.invalidReply
+            }
         }
     }
 

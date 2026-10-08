@@ -48,8 +48,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
 
         let state = appState
         let ctrl = DictationController(appState: state)
-        // W3-T3/T4: delegate STT + cleanup to the Python sidecar (bundled runtime
-        // if the .app ships one, else the dev venv). Cheap to construct; the
+        // W3-T3/T4: delegate orchestration + text to the Rust worker (bundled runtime
+        // or locally built native workers during development). Cheap to construct; the
         // child spawns lazily on the first warm/dictate.
         ctrl.sidecar = SidecarClient()
         // W4-T2: the floating recording HUD. Constructed here (real-app path

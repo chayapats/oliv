@@ -3,8 +3,8 @@
 // Architecture: this Swift app owns ALL macOS
 // integration — menu-bar UI, the push-to-talk hotkey (W3-T2), audio capture
 // (W3-T2), paste-at-cursor (W3-T2), onboarding + settings (W3-T4) — and
-// delegates STT + cleanup to one bundled Python sidecar over stdio JSON
-// (W3-T3). The Python prototype under ../app remains the dev harness; this
+// delegates text/transport to Rust and MLX inference to a lazy native helper
+// (W3-T3). The Python prototype under ../app remains a reference harness; this
 // app is the shippable product.
 
 import SwiftUI

@@ -101,13 +101,14 @@ Pipeline: **Typhoon-turbo STT** (Whisper-turbo ที่ fine-tune สำหร�
 
 ## รัน benchmark ซ้ำเอง
 
-ตัวทดสอบวิ่งผ่าน**โค้ดจริงตัวเดียวกับที่ปล่อยให้โหลด** ไม่ใช่ของจำลอง:
+ตัวทดสอบใช้ Rust + native MLX ตัวเดียวกับแอปเป็นค่าเริ่มต้น
+เพิ่ม `--runtime reference` เพื่อเทียบกับ Python รุ่นก่อนหน้า
+Python เหลือเฉพาะเครื่องมือ benchmark ไม่ต้องใช้ตอน build หรือเปิดแอป:
 
 ```bash
 # รัน benchmark ของ config ที่ ship บนทุกชุดทดสอบ:
-# (repo ของโมเดลใช้ค่าเริ่มต้นที่ ship อยู่แล้ว — ตั้ง OLIV_TYPHOON_MLX_REPO
-#  ชี้ไป path ในเครื่องหรือ HF repo อื่น เฉพาะตอนอยากสลับ weights ของ STT)
-HF_HUB_DISABLE_XET=1 \
+bash scripts/build_native.sh
+HF_HUB_OFFLINE=1 \
   sidecar/.venv/bin/python benchmark/eval_cleanup.py \
     --manifest data/manifest_all.jsonl --engine typhoon-turbo-mlx --out benchmark/eval_results/ship_main.json
 sidecar/.venv/bin/python benchmark/semantic_score.py     # คะแนนความหมาย (LaBSE) จาก eval_results/*.json
@@ -120,13 +121,14 @@ Manifest: `benchmark/data/manifest_{all,holdout,d2}.jsonl` (264 คลิป; �
 
 ## สร้างจากซอร์ส
 
+ตัวแอปไม่มี Python ใช้ Rust สำหรับข้อความ/API และ native MLX สำหรับโมเดลบน Mac
 Mac ชิป Apple Silicon, macOS 14+ รายละเอียดอยู่ใน [CONTRIBUTING.md](CONTRIBUTING.md)
+สถาปัตยกรรมและผลตรวจ: [native runtime migration](docs/native-runtime-migration.md)
 
 ```bash
 brew install xcodegen
-python3.11 -m venv sidecar/.venv
-sidecar/.venv/bin/pip install -r sidecar/requirements.lock
-( cd macos && xcodegen generate )
+# Install the stable Rust toolchain from https://rustup.rs
+xcodebuild -downloadComponent MetalToolchain
 bash scripts/build_app.sh    # -> build/OLIV.app
 ```
 

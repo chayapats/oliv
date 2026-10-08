@@ -6,6 +6,10 @@ the matching `## [X.Y.Z]` section (falling back to `## [Unreleased]`) into the
 Sparkle appcast's release notes, so keep entries short and end-user readable.
 
 ## [Unreleased]
+- **Python-free app runtime.** Text processing and API requests use the shared
+  Rust core from OLIV Linux. On-device Whisper and Gemma run with native MLX,
+  loading existing downloaded models offline. Microphone, shortcuts and paste
+  remain native macOS features.
 - **Push-to-talk responds immediately.** Microphone setup runs in the background
   while the indicator shows that it is getting ready. Releasing during setup
   cancels that recording. Failed echo-cancellation routes are remembered across

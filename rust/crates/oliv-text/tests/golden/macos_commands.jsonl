@@ -1,0 +1,486 @@
+{"args": [""], "kwargs": {}, "out": ["", 0]}
+{"args": ["  ไทย English  "], "kwargs": {}, "out": ["  ไทย English  ", 0]}
+{"args": ["xnewliney"], "kwargs": {}, "out": ["xnewliney", 0]}
+{"args": ["ไทยnew lineไทย"], "kwargs": {}, "out": ["ไทยnew lineไทย", 0]}
+{"args": ["new line\nnew paragraph"], "kwargs": {}, "out": ["", 2]}
+{"args": ["BULLET POINT hello"], "kwargs": {}, "out": ["- hello", 1]}
+{"args": ["ขึ้นย่อหน้าใหม่"], "kwargs": {}, "out": ["", 1]}
+{"args": ["ขึ้นย่อหน้าใหม่ สอง"], "kwargs": {}, "out": ["สอง", 1]}
+{"args": ["ขึ้นย่อหน้าใหม่ two"], "kwargs": {}, "out": ["two", 1]}
+{"args": ["ขึ้นย่อหน้าใหม่ไทย"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["หนึ่ง ขึ้นย่อหน้าใหม่"], "kwargs": {}, "out": ["หนึ่ง", 1]}
+{"args": ["หนึ่ง ขึ้นย่อหน้าใหม่ สอง"], "kwargs": {}, "out": ["หนึ่ง\n\nสอง", 1]}
+{"args": ["หนึ่ง ขึ้นย่อหน้าใหม่ two"], "kwargs": {}, "out": ["หนึ่ง\n\ntwo", 1]}
+{"args": ["หนึ่ง ขึ้นย่อหน้าใหม่ไทย"], "kwargs": {}, "out": ["หนึ่ง\n\nไทย", 1]}
+{"args": ["one ขึ้นย่อหน้าใหม่"], "kwargs": {}, "out": ["one", 1]}
+{"args": ["one ขึ้นย่อหน้าใหม่ สอง"], "kwargs": {}, "out": ["one\n\nสอง", 1]}
+{"args": ["one ขึ้นย่อหน้าใหม่ two"], "kwargs": {}, "out": ["one\n\ntwo", 1]}
+{"args": ["one ขึ้นย่อหน้าใหม่ไทย"], "kwargs": {}, "out": ["one\n\nไทย", 1]}
+{"args": ["ไทยขึ้นย่อหน้าใหม่"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["ไทยขึ้นย่อหน้าใหม่ สอง"], "kwargs": {}, "out": ["ไทย\n\nสอง", 1]}
+{"args": ["ไทยขึ้นย่อหน้าใหม่ two"], "kwargs": {}, "out": ["ไทย\n\ntwo", 1]}
+{"args": ["ไทยขึ้นย่อหน้าใหม่ไทย"], "kwargs": {}, "out": ["ไทย\n\nไทย", 1]}
+{"args": ["ย่อหน้าใหม่"], "kwargs": {}, "out": ["", 1]}
+{"args": ["ย่อหน้าใหม่ สอง"], "kwargs": {}, "out": ["สอง", 1]}
+{"args": ["ย่อหน้าใหม่ two"], "kwargs": {}, "out": ["two", 1]}
+{"args": ["ย่อหน้าใหม่ไทย"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["หนึ่ง ย่อหน้าใหม่"], "kwargs": {}, "out": ["หนึ่ง", 1]}
+{"args": ["หนึ่ง ย่อหน้าใหม่ สอง"], "kwargs": {}, "out": ["หนึ่ง\n\nสอง", 1]}
+{"args": ["หนึ่ง ย่อหน้าใหม่ two"], "kwargs": {}, "out": ["หนึ่ง\n\ntwo", 1]}
+{"args": ["หนึ่ง ย่อหน้าใหม่ไทย"], "kwargs": {}, "out": ["หนึ่ง\n\nไทย", 1]}
+{"args": ["one ย่อหน้าใหม่"], "kwargs": {}, "out": ["one", 1]}
+{"args": ["one ย่อหน้าใหม่ สอง"], "kwargs": {}, "out": ["one\n\nสอง", 1]}
+{"args": ["one ย่อหน้าใหม่ two"], "kwargs": {}, "out": ["one\n\ntwo", 1]}
+{"args": ["one ย่อหน้าใหม่ไทย"], "kwargs": {}, "out": ["one\n\nไทย", 1]}
+{"args": ["ไทยย่อหน้าใหม่"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["ไทยย่อหน้าใหม่ สอง"], "kwargs": {}, "out": ["ไทย\n\nสอง", 1]}
+{"args": ["ไทยย่อหน้าใหม่ two"], "kwargs": {}, "out": ["ไทย\n\ntwo", 1]}
+{"args": ["ไทยย่อหน้าใหม่ไทย"], "kwargs": {}, "out": ["ไทย\n\nไทย", 1]}
+{"args": ["new paragraph"], "kwargs": {}, "out": ["", 1]}
+{"args": ["new paragraph สอง"], "kwargs": {}, "out": ["สอง", 1]}
+{"args": ["new paragraph two"], "kwargs": {}, "out": ["two", 1]}
+{"args": ["new paragraphไทย"], "kwargs": {}, "out": ["new paragraphไทย", 0]}
+{"args": ["หนึ่ง new paragraph"], "kwargs": {}, "out": ["หนึ่ง", 1]}
+{"args": ["หนึ่ง new paragraph สอง"], "kwargs": {}, "out": ["หนึ่ง\n\nสอง", 1]}
+{"args": ["หนึ่ง new paragraph two"], "kwargs": {}, "out": ["หนึ่ง\n\ntwo", 1]}
+{"args": ["หนึ่ง new paragraphไทย"], "kwargs": {}, "out": ["หนึ่ง new paragraphไทย", 0]}
+{"args": ["one new paragraph"], "kwargs": {}, "out": ["one", 1]}
+{"args": ["one new paragraph สอง"], "kwargs": {}, "out": ["one\n\nสอง", 1]}
+{"args": ["one new paragraph two"], "kwargs": {}, "out": ["one\n\ntwo", 1]}
+{"args": ["one new paragraphไทย"], "kwargs": {}, "out": ["one new paragraphไทย", 0]}
+{"args": ["ไทยnew paragraph"], "kwargs": {}, "out": ["ไทยnew paragraph", 0]}
+{"args": ["ไทยnew paragraph สอง"], "kwargs": {}, "out": ["ไทยnew paragraph สอง", 0]}
+{"args": ["ไทยnew paragraph two"], "kwargs": {}, "out": ["ไทยnew paragraph two", 0]}
+{"args": ["ไทยnew paragraphไทย"], "kwargs": {}, "out": ["ไทยnew paragraphไทย", 0]}
+{"args": ["ขึ้นบรรทัดใหม่"], "kwargs": {}, "out": ["", 1]}
+{"args": ["ขึ้นบรรทัดใหม่ สอง"], "kwargs": {}, "out": ["สอง", 1]}
+{"args": ["ขึ้นบรรทัดใหม่ two"], "kwargs": {}, "out": ["two", 1]}
+{"args": ["ขึ้นบรรทัดใหม่ไทย"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["หนึ่ง ขึ้นบรรทัดใหม่"], "kwargs": {}, "out": ["หนึ่ง", 1]}
+{"args": ["หนึ่ง ขึ้นบรรทัดใหม่ สอง"], "kwargs": {}, "out": ["หนึ่ง\nสอง", 1]}
+{"args": ["หนึ่ง ขึ้นบรรทัดใหม่ two"], "kwargs": {}, "out": ["หนึ่ง\ntwo", 1]}
+{"args": ["หนึ่ง ขึ้นบรรทัดใหม่ไทย"], "kwargs": {}, "out": ["หนึ่ง\nไทย", 1]}
+{"args": ["one ขึ้นบรรทัดใหม่"], "kwargs": {}, "out": ["one", 1]}
+{"args": ["one ขึ้นบรรทัดใหม่ สอง"], "kwargs": {}, "out": ["one\nสอง", 1]}
+{"args": ["one ขึ้นบรรทัดใหม่ two"], "kwargs": {}, "out": ["one\ntwo", 1]}
+{"args": ["one ขึ้นบรรทัดใหม่ไทย"], "kwargs": {}, "out": ["one\nไทย", 1]}
+{"args": ["ไทยขึ้นบรรทัดใหม่"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["ไทยขึ้นบรรทัดใหม่ สอง"], "kwargs": {}, "out": ["ไทย\nสอง", 1]}
+{"args": ["ไทยขึ้นบรรทัดใหม่ two"], "kwargs": {}, "out": ["ไทย\ntwo", 1]}
+{"args": ["ไทยขึ้นบรรทัดใหม่ไทย"], "kwargs": {}, "out": ["ไทย\nไทย", 1]}
+{"args": ["บรรทัดใหม่"], "kwargs": {}, "out": ["", 1]}
+{"args": ["บรรทัดใหม่ สอง"], "kwargs": {}, "out": ["สอง", 1]}
+{"args": ["บรรทัดใหม่ two"], "kwargs": {}, "out": ["two", 1]}
+{"args": ["บรรทัดใหม่ไทย"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["หนึ่ง บรรทัดใหม่"], "kwargs": {}, "out": ["หนึ่ง", 1]}
+{"args": ["หนึ่ง บรรทัดใหม่ สอง"], "kwargs": {}, "out": ["หนึ่ง\nสอง", 1]}
+{"args": ["หนึ่ง บรรทัดใหม่ two"], "kwargs": {}, "out": ["หนึ่ง\ntwo", 1]}
+{"args": ["หนึ่ง บรรทัดใหม่ไทย"], "kwargs": {}, "out": ["หนึ่ง\nไทย", 1]}
+{"args": ["one บรรทัดใหม่"], "kwargs": {}, "out": ["one", 1]}
+{"args": ["one บรรทัดใหม่ สอง"], "kwargs": {}, "out": ["one\nสอง", 1]}
+{"args": ["one บรรทัดใหม่ two"], "kwargs": {}, "out": ["one\ntwo", 1]}
+{"args": ["one บรรทัดใหม่ไทย"], "kwargs": {}, "out": ["one\nไทย", 1]}
+{"args": ["ไทยบรรทัดใหม่"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["ไทยบรรทัดใหม่ สอง"], "kwargs": {}, "out": ["ไทย\nสอง", 1]}
+{"args": ["ไทยบรรทัดใหม่ two"], "kwargs": {}, "out": ["ไทย\ntwo", 1]}
+{"args": ["ไทยบรรทัดใหม่ไทย"], "kwargs": {}, "out": ["ไทย\nไทย", 1]}
+{"args": ["new line"], "kwargs": {}, "out": ["", 1]}
+{"args": ["new line สอง"], "kwargs": {}, "out": ["สอง", 1]}
+{"args": ["new line two"], "kwargs": {}, "out": ["two", 1]}
+{"args": ["new lineไทย"], "kwargs": {}, "out": ["new lineไทย", 0]}
+{"args": ["หนึ่ง new line"], "kwargs": {}, "out": ["หนึ่ง", 1]}
+{"args": ["หนึ่ง new line สอง"], "kwargs": {}, "out": ["หนึ่ง\nสอง", 1]}
+{"args": ["หนึ่ง new line two"], "kwargs": {}, "out": ["หนึ่ง\ntwo", 1]}
+{"args": ["หนึ่ง new lineไทย"], "kwargs": {}, "out": ["หนึ่ง new lineไทย", 0]}
+{"args": ["one new line"], "kwargs": {}, "out": ["one", 1]}
+{"args": ["one new line สอง"], "kwargs": {}, "out": ["one\nสอง", 1]}
+{"args": ["one new line two"], "kwargs": {}, "out": ["one\ntwo", 1]}
+{"args": ["one new lineไทย"], "kwargs": {}, "out": ["one new lineไทย", 0]}
+{"args": ["ไทยnew line"], "kwargs": {}, "out": ["ไทยnew line", 0]}
+{"args": ["ไทยnew line สอง"], "kwargs": {}, "out": ["ไทยnew line สอง", 0]}
+{"args": ["ไทยnew line two"], "kwargs": {}, "out": ["ไทยnew line two", 0]}
+{"args": ["ไทยnew lineไทย"], "kwargs": {}, "out": ["ไทยnew lineไทย", 0]}
+{"args": ["newline"], "kwargs": {}, "out": ["", 1]}
+{"args": ["newline สอง"], "kwargs": {}, "out": ["สอง", 1]}
+{"args": ["newline two"], "kwargs": {}, "out": ["two", 1]}
+{"args": ["newlineไทย"], "kwargs": {}, "out": ["newlineไทย", 0]}
+{"args": ["หนึ่ง newline"], "kwargs": {}, "out": ["หนึ่ง", 1]}
+{"args": ["หนึ่ง newline สอง"], "kwargs": {}, "out": ["หนึ่ง\nสอง", 1]}
+{"args": ["หนึ่ง newline two"], "kwargs": {}, "out": ["หนึ่ง\ntwo", 1]}
+{"args": ["หนึ่ง newlineไทย"], "kwargs": {}, "out": ["หนึ่ง newlineไทย", 0]}
+{"args": ["one newline"], "kwargs": {}, "out": ["one", 1]}
+{"args": ["one newline สอง"], "kwargs": {}, "out": ["one\nสอง", 1]}
+{"args": ["one newline two"], "kwargs": {}, "out": ["one\ntwo", 1]}
+{"args": ["one newlineไทย"], "kwargs": {}, "out": ["one newlineไทย", 0]}
+{"args": ["ไทยnewline"], "kwargs": {}, "out": ["ไทยnewline", 0]}
+{"args": ["ไทยnewline สอง"], "kwargs": {}, "out": ["ไทยnewline สอง", 0]}
+{"args": ["ไทยnewline two"], "kwargs": {}, "out": ["ไทยnewline two", 0]}
+{"args": ["ไทยnewlineไทย"], "kwargs": {}, "out": ["ไทยnewlineไทย", 0]}
+{"args": ["bullet point"], "kwargs": {}, "out": ["-", 1]}
+{"args": ["bullet point สอง"], "kwargs": {}, "out": ["- สอง", 1]}
+{"args": ["bullet point two"], "kwargs": {}, "out": ["- two", 1]}
+{"args": ["bullet pointไทย"], "kwargs": {}, "out": ["bullet pointไทย", 0]}
+{"args": ["หนึ่ง bullet point"], "kwargs": {}, "out": ["หนึ่ง\n-", 1]}
+{"args": ["หนึ่ง bullet point สอง"], "kwargs": {}, "out": ["หนึ่ง\n- สอง", 1]}
+{"args": ["หนึ่ง bullet point two"], "kwargs": {}, "out": ["หนึ่ง\n- two", 1]}
+{"args": ["หนึ่ง bullet pointไทย"], "kwargs": {}, "out": ["หนึ่ง bullet pointไทย", 0]}
+{"args": ["one bullet point"], "kwargs": {}, "out": ["one\n-", 1]}
+{"args": ["one bullet point สอง"], "kwargs": {}, "out": ["one\n- สอง", 1]}
+{"args": ["one bullet point two"], "kwargs": {}, "out": ["one\n- two", 1]}
+{"args": ["one bullet pointไทย"], "kwargs": {}, "out": ["one bullet pointไทย", 0]}
+{"args": ["ไทยbullet point"], "kwargs": {}, "out": ["ไทยbullet point", 0]}
+{"args": ["ไทยbullet point สอง"], "kwargs": {}, "out": ["ไทยbullet point สอง", 0]}
+{"args": ["ไทยbullet point two"], "kwargs": {}, "out": ["ไทยbullet point two", 0]}
+{"args": ["ไทยbullet pointไทย"], "kwargs": {}, "out": ["ไทยbullet pointไทย", 0]}
+{"args": ["newparagraph"], "kwargs": {}, "out": ["", 1]}
+{"args": ["newparagraph สอง"], "kwargs": {}, "out": ["สอง", 1]}
+{"args": ["newparagraph two"], "kwargs": {}, "out": ["two", 1]}
+{"args": ["newparagraphไทย"], "kwargs": {}, "out": ["newparagraphไทย", 0]}
+{"args": ["หนึ่ง newparagraph"], "kwargs": {}, "out": ["หนึ่ง", 1]}
+{"args": ["หนึ่ง newparagraph สอง"], "kwargs": {}, "out": ["หนึ่ง\n\nสอง", 1]}
+{"args": ["หนึ่ง newparagraph two"], "kwargs": {}, "out": ["หนึ่ง\n\ntwo", 1]}
+{"args": ["หนึ่ง newparagraphไทย"], "kwargs": {}, "out": ["หนึ่ง newparagraphไทย", 0]}
+{"args": ["one newparagraph"], "kwargs": {}, "out": ["one", 1]}
+{"args": ["one newparagraph สอง"], "kwargs": {}, "out": ["one\n\nสอง", 1]}
+{"args": ["one newparagraph two"], "kwargs": {}, "out": ["one\n\ntwo", 1]}
+{"args": ["one newparagraphไทย"], "kwargs": {}, "out": ["one newparagraphไทย", 0]}
+{"args": ["ไทยnewparagraph"], "kwargs": {}, "out": ["ไทยnewparagraph", 0]}
+{"args": ["ไทยnewparagraph สอง"], "kwargs": {}, "out": ["ไทยnewparagraph สอง", 0]}
+{"args": ["ไทยnewparagraph two"], "kwargs": {}, "out": ["ไทยnewparagraph two", 0]}
+{"args": ["ไทยnewparagraphไทย"], "kwargs": {}, "out": ["ไทยnewparagraphไทย", 0]}
+{"args": ["นิวพารากราฟ"], "kwargs": {}, "out": ["", 1]}
+{"args": ["นิวพารากราฟ สอง"], "kwargs": {}, "out": ["สอง", 1]}
+{"args": ["นิวพารากราฟ two"], "kwargs": {}, "out": ["two", 1]}
+{"args": ["นิวพารากราฟไทย"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["หนึ่ง นิวพารากราฟ"], "kwargs": {}, "out": ["หนึ่ง", 1]}
+{"args": ["หนึ่ง นิวพารากราฟ สอง"], "kwargs": {}, "out": ["หนึ่ง\n\nสอง", 1]}
+{"args": ["หนึ่ง นิวพารากราฟ two"], "kwargs": {}, "out": ["หนึ่ง\n\ntwo", 1]}
+{"args": ["หนึ่ง นิวพารากราฟไทย"], "kwargs": {}, "out": ["หนึ่ง\n\nไทย", 1]}
+{"args": ["one นิวพารากราฟ"], "kwargs": {}, "out": ["one", 1]}
+{"args": ["one นิวพารากราฟ สอง"], "kwargs": {}, "out": ["one\n\nสอง", 1]}
+{"args": ["one นิวพารากราฟ two"], "kwargs": {}, "out": ["one\n\ntwo", 1]}
+{"args": ["one นิวพารากราฟไทย"], "kwargs": {}, "out": ["one\n\nไทย", 1]}
+{"args": ["ไทยนิวพารากราฟ"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["ไทยนิวพารากราฟ สอง"], "kwargs": {}, "out": ["ไทย\n\nสอง", 1]}
+{"args": ["ไทยนิวพารากราฟ two"], "kwargs": {}, "out": ["ไทย\n\ntwo", 1]}
+{"args": ["ไทยนิวพารากราฟไทย"], "kwargs": {}, "out": ["ไทย\n\nไทย", 1]}
+{"args": ["นิวไลน์"], "kwargs": {}, "out": ["", 1]}
+{"args": ["นิวไลน์ สอง"], "kwargs": {}, "out": ["สอง", 1]}
+{"args": ["นิวไลน์ two"], "kwargs": {}, "out": ["two", 1]}
+{"args": ["นิวไลน์ไทย"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["หนึ่ง นิวไลน์"], "kwargs": {}, "out": ["หนึ่ง", 1]}
+{"args": ["หนึ่ง นิวไลน์ สอง"], "kwargs": {}, "out": ["หนึ่ง\nสอง", 1]}
+{"args": ["หนึ่ง นิวไลน์ two"], "kwargs": {}, "out": ["หนึ่ง\ntwo", 1]}
+{"args": ["หนึ่ง นิวไลน์ไทย"], "kwargs": {}, "out": ["หนึ่ง\nไทย", 1]}
+{"args": ["one นิวไลน์"], "kwargs": {}, "out": ["one", 1]}
+{"args": ["one นิวไลน์ สอง"], "kwargs": {}, "out": ["one\nสอง", 1]}
+{"args": ["one นิวไลน์ two"], "kwargs": {}, "out": ["one\ntwo", 1]}
+{"args": ["one นิวไลน์ไทย"], "kwargs": {}, "out": ["one\nไทย", 1]}
+{"args": ["ไทยนิวไลน์"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["ไทยนิวไลน์ สอง"], "kwargs": {}, "out": ["ไทย\nสอง", 1]}
+{"args": ["ไทยนิวไลน์ two"], "kwargs": {}, "out": ["ไทย\ntwo", 1]}
+{"args": ["ไทยนิวไลน์ไทย"], "kwargs": {}, "out": ["ไทย\nไทย", 1]}
+{"args": ["นิวไลน"], "kwargs": {}, "out": ["นิวไลน", 0]}
+{"args": ["นิวไลน สอง"], "kwargs": {}, "out": ["นิวไลน สอง", 0]}
+{"args": ["นิวไลน two"], "kwargs": {}, "out": ["นิวไลน two", 0]}
+{"args": ["นิวไลนไทย"], "kwargs": {}, "out": ["นิวไลนไทย", 0]}
+{"args": ["หนึ่ง นิวไลน"], "kwargs": {}, "out": ["หนึ่ง นิวไลน", 0]}
+{"args": ["หนึ่ง นิวไลน สอง"], "kwargs": {}, "out": ["หนึ่ง นิวไลน สอง", 0]}
+{"args": ["หนึ่ง นิวไลน two"], "kwargs": {}, "out": ["หนึ่ง นิวไลน two", 0]}
+{"args": ["หนึ่ง นิวไลนไทย"], "kwargs": {}, "out": ["หนึ่ง นิวไลนไทย", 0]}
+{"args": ["one นิวไลน"], "kwargs": {}, "out": ["one นิวไลน", 0]}
+{"args": ["one นิวไลน สอง"], "kwargs": {}, "out": ["one นิวไลน สอง", 0]}
+{"args": ["one นิวไลน two"], "kwargs": {}, "out": ["one นิวไลน two", 0]}
+{"args": ["one นิวไลนไทย"], "kwargs": {}, "out": ["one นิวไลนไทย", 0]}
+{"args": ["ไทยนิวไลน"], "kwargs": {}, "out": ["ไทยนิวไลน", 0]}
+{"args": ["ไทยนิวไลน สอง"], "kwargs": {}, "out": ["ไทยนิวไลน สอง", 0]}
+{"args": ["ไทยนิวไลน two"], "kwargs": {}, "out": ["ไทยนิวไลน two", 0]}
+{"args": ["ไทยนิวไลนไทย"], "kwargs": {}, "out": ["ไทยนิวไลนไทย", 0]}
+{"args": ["bulletpoint"], "kwargs": {}, "out": ["-", 1]}
+{"args": ["bulletpoint สอง"], "kwargs": {}, "out": ["- สอง", 1]}
+{"args": ["bulletpoint two"], "kwargs": {}, "out": ["- two", 1]}
+{"args": ["bulletpointไทย"], "kwargs": {}, "out": ["bulletpointไทย", 0]}
+{"args": ["หนึ่ง bulletpoint"], "kwargs": {}, "out": ["หนึ่ง\n-", 1]}
+{"args": ["หนึ่ง bulletpoint สอง"], "kwargs": {}, "out": ["หนึ่ง\n- สอง", 1]}
+{"args": ["หนึ่ง bulletpoint two"], "kwargs": {}, "out": ["หนึ่ง\n- two", 1]}
+{"args": ["หนึ่ง bulletpointไทย"], "kwargs": {}, "out": ["หนึ่ง bulletpointไทย", 0]}
+{"args": ["one bulletpoint"], "kwargs": {}, "out": ["one\n-", 1]}
+{"args": ["one bulletpoint สอง"], "kwargs": {}, "out": ["one\n- สอง", 1]}
+{"args": ["one bulletpoint two"], "kwargs": {}, "out": ["one\n- two", 1]}
+{"args": ["one bulletpointไทย"], "kwargs": {}, "out": ["one bulletpointไทย", 0]}
+{"args": ["ไทยbulletpoint"], "kwargs": {}, "out": ["ไทยbulletpoint", 0]}
+{"args": ["ไทยbulletpoint สอง"], "kwargs": {}, "out": ["ไทยbulletpoint สอง", 0]}
+{"args": ["ไทยbulletpoint two"], "kwargs": {}, "out": ["ไทยbulletpoint two", 0]}
+{"args": ["ไทยbulletpointไทย"], "kwargs": {}, "out": ["ไทยbulletpointไทย", 0]}
+{"args": ["บุลเล็ตพอยท์"], "kwargs": {}, "out": ["-", 1]}
+{"args": ["บุลเล็ตพอยท์ สอง"], "kwargs": {}, "out": ["- สอง", 1]}
+{"args": ["บุลเล็ตพอยท์ two"], "kwargs": {}, "out": ["- two", 1]}
+{"args": ["บุลเล็ตพอยท์ไทย"], "kwargs": {}, "out": ["- ไทย", 1]}
+{"args": ["หนึ่ง บุลเล็ตพอยท์"], "kwargs": {}, "out": ["หนึ่ง\n-", 1]}
+{"args": ["หนึ่ง บุลเล็ตพอยท์ สอง"], "kwargs": {}, "out": ["หนึ่ง\n- สอง", 1]}
+{"args": ["หนึ่ง บุลเล็ตพอยท์ two"], "kwargs": {}, "out": ["หนึ่ง\n- two", 1]}
+{"args": ["หนึ่ง บุลเล็ตพอยท์ไทย"], "kwargs": {}, "out": ["หนึ่ง\n- ไทย", 1]}
+{"args": ["one บุลเล็ตพอยท์"], "kwargs": {}, "out": ["one\n-", 1]}
+{"args": ["one บุลเล็ตพอยท์ สอง"], "kwargs": {}, "out": ["one\n- สอง", 1]}
+{"args": ["one บุลเล็ตพอยท์ two"], "kwargs": {}, "out": ["one\n- two", 1]}
+{"args": ["one บุลเล็ตพอยท์ไทย"], "kwargs": {}, "out": ["one\n- ไทย", 1]}
+{"args": ["ไทยบุลเล็ตพอยท์"], "kwargs": {}, "out": ["ไทย\n-", 1]}
+{"args": ["ไทยบุลเล็ตพอยท์ สอง"], "kwargs": {}, "out": ["ไทย\n- สอง", 1]}
+{"args": ["ไทยบุลเล็ตพอยท์ two"], "kwargs": {}, "out": ["ไทย\n- two", 1]}
+{"args": ["ไทยบุลเล็ตพอยท์ไทย"], "kwargs": {}, "out": ["ไทย\n- ไทย", 1]}
+{"args": ["บุลเล็ตพอยต์"], "kwargs": {}, "out": ["-", 1]}
+{"args": ["บุลเล็ตพอยต์ สอง"], "kwargs": {}, "out": ["- สอง", 1]}
+{"args": ["บุลเล็ตพอยต์ two"], "kwargs": {}, "out": ["- two", 1]}
+{"args": ["บุลเล็ตพอยต์ไทย"], "kwargs": {}, "out": ["- ไทย", 1]}
+{"args": ["หนึ่ง บุลเล็ตพอยต์"], "kwargs": {}, "out": ["หนึ่ง\n-", 1]}
+{"args": ["หนึ่ง บุลเล็ตพอยต์ สอง"], "kwargs": {}, "out": ["หนึ่ง\n- สอง", 1]}
+{"args": ["หนึ่ง บุลเล็ตพอยต์ two"], "kwargs": {}, "out": ["หนึ่ง\n- two", 1]}
+{"args": ["หนึ่ง บุลเล็ตพอยต์ไทย"], "kwargs": {}, "out": ["หนึ่ง\n- ไทย", 1]}
+{"args": ["one บุลเล็ตพอยต์"], "kwargs": {}, "out": ["one\n-", 1]}
+{"args": ["one บุลเล็ตพอยต์ สอง"], "kwargs": {}, "out": ["one\n- สอง", 1]}
+{"args": ["one บุลเล็ตพอยต์ two"], "kwargs": {}, "out": ["one\n- two", 1]}
+{"args": ["one บุลเล็ตพอยต์ไทย"], "kwargs": {}, "out": ["one\n- ไทย", 1]}
+{"args": ["ไทยบุลเล็ตพอยต์"], "kwargs": {}, "out": ["ไทย\n-", 1]}
+{"args": ["ไทยบุลเล็ตพอยต์ สอง"], "kwargs": {}, "out": ["ไทย\n- สอง", 1]}
+{"args": ["ไทยบุลเล็ตพอยต์ two"], "kwargs": {}, "out": ["ไทย\n- two", 1]}
+{"args": ["ไทยบุลเล็ตพอยต์ไทย"], "kwargs": {}, "out": ["ไทย\n- ไทย", 1]}
+{"args": ["บูลเล็ตพอยต์"], "kwargs": {}, "out": ["-", 1]}
+{"args": ["บูลเล็ตพอยต์ สอง"], "kwargs": {}, "out": ["- สอง", 1]}
+{"args": ["บูลเล็ตพอยต์ two"], "kwargs": {}, "out": ["- two", 1]}
+{"args": ["บูลเล็ตพอยต์ไทย"], "kwargs": {}, "out": ["- ไทย", 1]}
+{"args": ["หนึ่ง บูลเล็ตพอยต์"], "kwargs": {}, "out": ["หนึ่ง\n-", 1]}
+{"args": ["หนึ่ง บูลเล็ตพอยต์ สอง"], "kwargs": {}, "out": ["หนึ่ง\n- สอง", 1]}
+{"args": ["หนึ่ง บูลเล็ตพอยต์ two"], "kwargs": {}, "out": ["หนึ่ง\n- two", 1]}
+{"args": ["หนึ่ง บูลเล็ตพอยต์ไทย"], "kwargs": {}, "out": ["หนึ่ง\n- ไทย", 1]}
+{"args": ["one บูลเล็ตพอยต์"], "kwargs": {}, "out": ["one\n-", 1]}
+{"args": ["one บูลเล็ตพอยต์ สอง"], "kwargs": {}, "out": ["one\n- สอง", 1]}
+{"args": ["one บูลเล็ตพอยต์ two"], "kwargs": {}, "out": ["one\n- two", 1]}
+{"args": ["one บูลเล็ตพอยต์ไทย"], "kwargs": {}, "out": ["one\n- ไทย", 1]}
+{"args": ["ไทยบูลเล็ตพอยต์"], "kwargs": {}, "out": ["ไทย\n-", 1]}
+{"args": ["ไทยบูลเล็ตพอยต์ สอง"], "kwargs": {}, "out": ["ไทย\n- สอง", 1]}
+{"args": ["ไทยบูลเล็ตพอยต์ two"], "kwargs": {}, "out": ["ไทย\n- two", 1]}
+{"args": ["ไทยบูลเล็ตพอยต์ไทย"], "kwargs": {}, "out": ["ไทย\n- ไทย", 1]}
+{"args": ["บุลเลตพอยต์"], "kwargs": {}, "out": ["-", 1]}
+{"args": ["บุลเลตพอยต์ สอง"], "kwargs": {}, "out": ["- สอง", 1]}
+{"args": ["บุลเลตพอยต์ two"], "kwargs": {}, "out": ["- two", 1]}
+{"args": ["บุลเลตพอยต์ไทย"], "kwargs": {}, "out": ["- ไทย", 1]}
+{"args": ["หนึ่ง บุลเลตพอยต์"], "kwargs": {}, "out": ["หนึ่ง\n-", 1]}
+{"args": ["หนึ่ง บุลเลตพอยต์ สอง"], "kwargs": {}, "out": ["หนึ่ง\n- สอง", 1]}
+{"args": ["หนึ่ง บุลเลตพอยต์ two"], "kwargs": {}, "out": ["หนึ่ง\n- two", 1]}
+{"args": ["หนึ่ง บุลเลตพอยต์ไทย"], "kwargs": {}, "out": ["หนึ่ง\n- ไทย", 1]}
+{"args": ["one บุลเลตพอยต์"], "kwargs": {}, "out": ["one\n-", 1]}
+{"args": ["one บุลเลตพอยต์ สอง"], "kwargs": {}, "out": ["one\n- สอง", 1]}
+{"args": ["one บุลเลตพอยต์ two"], "kwargs": {}, "out": ["one\n- two", 1]}
+{"args": ["one บุลเลตพอยต์ไทย"], "kwargs": {}, "out": ["one\n- ไทย", 1]}
+{"args": ["ไทยบุลเลตพอยต์"], "kwargs": {}, "out": ["ไทย\n-", 1]}
+{"args": ["ไทยบุลเลตพอยต์ สอง"], "kwargs": {}, "out": ["ไทย\n- สอง", 1]}
+{"args": ["ไทยบุลเลตพอยต์ two"], "kwargs": {}, "out": ["ไทย\n- two", 1]}
+{"args": ["ไทยบุลเลตพอยต์ไทย"], "kwargs": {}, "out": ["ไทย\n- ไทย", 1]}
+{"args": ["ขึ้นมาทัดใหม่"], "kwargs": {}, "out": ["", 1]}
+{"args": ["ขึ้นมาทัดใหม่ สอง"], "kwargs": {}, "out": ["สอง", 1]}
+{"args": ["ขึ้นมาทัดใหม่ two"], "kwargs": {}, "out": ["two", 1]}
+{"args": ["ขึ้นมาทัดใหม่ไทย"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["หนึ่ง ขึ้นมาทัดใหม่"], "kwargs": {}, "out": ["หนึ่ง", 1]}
+{"args": ["หนึ่ง ขึ้นมาทัดใหม่ สอง"], "kwargs": {}, "out": ["หนึ่ง\nสอง", 1]}
+{"args": ["หนึ่ง ขึ้นมาทัดใหม่ two"], "kwargs": {}, "out": ["หนึ่ง\ntwo", 1]}
+{"args": ["หนึ่ง ขึ้นมาทัดใหม่ไทย"], "kwargs": {}, "out": ["หนึ่ง\nไทย", 1]}
+{"args": ["one ขึ้นมาทัดใหม่"], "kwargs": {}, "out": ["one", 1]}
+{"args": ["one ขึ้นมาทัดใหม่ สอง"], "kwargs": {}, "out": ["one\nสอง", 1]}
+{"args": ["one ขึ้นมาทัดใหม่ two"], "kwargs": {}, "out": ["one\ntwo", 1]}
+{"args": ["one ขึ้นมาทัดใหม่ไทย"], "kwargs": {}, "out": ["one\nไทย", 1]}
+{"args": ["ไทยขึ้นมาทัดใหม่"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["ไทยขึ้นมาทัดใหม่ สอง"], "kwargs": {}, "out": ["ไทย\nสอง", 1]}
+{"args": ["ไทยขึ้นมาทัดใหม่ two"], "kwargs": {}, "out": ["ไทย\ntwo", 1]}
+{"args": ["ไทยขึ้นมาทัดใหม่ไทย"], "kwargs": {}, "out": ["ไทย\nไทย", 1]}
+{"args": ["หน่อยได้"], "kwargs": {}, "out": ["หน่อยได้", 0]}
+{"args": ["หน่อยได้ สอง"], "kwargs": {}, "out": ["หน่อยได้ สอง", 0]}
+{"args": ["หน่อยได้ two"], "kwargs": {}, "out": ["หน่อยได้ two", 0]}
+{"args": ["หน่อยได้ไทย"], "kwargs": {}, "out": ["หน่อยได้ไทย", 0]}
+{"args": ["หนึ่ง หน่อยได้"], "kwargs": {}, "out": ["หนึ่ง หน่อยได้", 0]}
+{"args": ["หนึ่ง หน่อยได้ สอง"], "kwargs": {}, "out": ["หนึ่ง หน่อยได้ สอง", 0]}
+{"args": ["หนึ่ง หน่อยได้ two"], "kwargs": {}, "out": ["หนึ่ง หน่อยได้ two", 0]}
+{"args": ["หนึ่ง หน่อยได้ไทย"], "kwargs": {}, "out": ["หนึ่ง หน่อยได้ไทย", 0]}
+{"args": ["one หน่อยได้"], "kwargs": {}, "out": ["one หน่อยได้", 0]}
+{"args": ["one หน่อยได้ สอง"], "kwargs": {}, "out": ["one หน่อยได้ สอง", 0]}
+{"args": ["one หน่อยได้ two"], "kwargs": {}, "out": ["one หน่อยได้ two", 0]}
+{"args": ["one หน่อยได้ไทย"], "kwargs": {}, "out": ["one หน่อยได้ไทย", 0]}
+{"args": ["ไทยหน่อยได้"], "kwargs": {}, "out": ["ไทยหน่อยได้", 0]}
+{"args": ["ไทยหน่อยได้ สอง"], "kwargs": {}, "out": ["ไทยหน่อยได้ สอง", 0]}
+{"args": ["ไทยหน่อยได้ two"], "kwargs": {}, "out": ["ไทยหน่อยได้ two", 0]}
+{"args": ["ไทยหน่อยได้ไทย"], "kwargs": {}, "out": ["ไทยหน่อยได้ไทย", 0]}
+{"args": ["ขั้นบรรทัดใหม่"], "kwargs": {}, "out": ["", 1]}
+{"args": ["ขั้นบรรทัดใหม่ สอง"], "kwargs": {}, "out": ["สอง", 1]}
+{"args": ["ขั้นบรรทัดใหม่ two"], "kwargs": {}, "out": ["two", 1]}
+{"args": ["ขั้นบรรทัดใหม่ไทย"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["หนึ่ง ขั้นบรรทัดใหม่"], "kwargs": {}, "out": ["หนึ่ง", 1]}
+{"args": ["หนึ่ง ขั้นบรรทัดใหม่ สอง"], "kwargs": {}, "out": ["หนึ่ง\nสอง", 1]}
+{"args": ["หนึ่ง ขั้นบรรทัดใหม่ two"], "kwargs": {}, "out": ["หนึ่ง\ntwo", 1]}
+{"args": ["หนึ่ง ขั้นบรรทัดใหม่ไทย"], "kwargs": {}, "out": ["หนึ่ง\nไทย", 1]}
+{"args": ["one ขั้นบรรทัดใหม่"], "kwargs": {}, "out": ["one", 1]}
+{"args": ["one ขั้นบรรทัดใหม่ สอง"], "kwargs": {}, "out": ["one\nสอง", 1]}
+{"args": ["one ขั้นบรรทัดใหม่ two"], "kwargs": {}, "out": ["one\ntwo", 1]}
+{"args": ["one ขั้นบรรทัดใหม่ไทย"], "kwargs": {}, "out": ["one\nไทย", 1]}
+{"args": ["ไทยขั้นบรรทัดใหม่"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["ไทยขั้นบรรทัดใหม่ สอง"], "kwargs": {}, "out": ["ไทย\nสอง", 1]}
+{"args": ["ไทยขั้นบรรทัดใหม่ two"], "kwargs": {}, "out": ["ไทย\ntwo", 1]}
+{"args": ["ไทยขั้นบรรทัดใหม่ไทย"], "kwargs": {}, "out": ["ไทย\nไทย", 1]}
+{"args": ["ขึ้นย่อหน้าไหม่"], "kwargs": {}, "out": ["", 1]}
+{"args": ["ขึ้นย่อหน้าไหม่ สอง"], "kwargs": {}, "out": ["สอง", 1]}
+{"args": ["ขึ้นย่อหน้าไหม่ two"], "kwargs": {}, "out": ["two", 1]}
+{"args": ["ขึ้นย่อหน้าไหม่ไทย"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["หนึ่ง ขึ้นย่อหน้าไหม่"], "kwargs": {}, "out": ["หนึ่ง", 1]}
+{"args": ["หนึ่ง ขึ้นย่อหน้าไหม่ สอง"], "kwargs": {}, "out": ["หนึ่ง\n\nสอง", 1]}
+{"args": ["หนึ่ง ขึ้นย่อหน้าไหม่ two"], "kwargs": {}, "out": ["หนึ่ง\n\ntwo", 1]}
+{"args": ["หนึ่ง ขึ้นย่อหน้าไหม่ไทย"], "kwargs": {}, "out": ["หนึ่ง\n\nไทย", 1]}
+{"args": ["one ขึ้นย่อหน้าไหม่"], "kwargs": {}, "out": ["one", 1]}
+{"args": ["one ขึ้นย่อหน้าไหม่ สอง"], "kwargs": {}, "out": ["one\n\nสอง", 1]}
+{"args": ["one ขึ้นย่อหน้าไหม่ two"], "kwargs": {}, "out": ["one\n\ntwo", 1]}
+{"args": ["one ขึ้นย่อหน้าไหม่ไทย"], "kwargs": {}, "out": ["one\n\nไทย", 1]}
+{"args": ["ไทยขึ้นย่อหน้าไหม่"], "kwargs": {}, "out": ["ไทย", 1]}
+{"args": ["ไทยขึ้นย่อหน้าไหม่ สอง"], "kwargs": {}, "out": ["ไทย\n\nสอง", 1]}
+{"args": ["ไทยขึ้นย่อหน้าไหม่ two"], "kwargs": {}, "out": ["ไทย\n\ntwo", 1]}
+{"args": ["ไทยขึ้นย่อหน้าไหม่ไทย"], "kwargs": {}, "out": ["ไทย\n\nไทย", 1]}
+{"args": ["newsline"], "kwargs": {}, "out": ["newsline", 0]}
+{"args": ["newsline สอง"], "kwargs": {}, "out": ["newsline สอง", 0]}
+{"args": ["newsline two"], "kwargs": {}, "out": ["newsline two", 0]}
+{"args": ["newslineไทย"], "kwargs": {}, "out": ["newslineไทย", 0]}
+{"args": ["หนึ่ง newsline"], "kwargs": {}, "out": ["หนึ่ง newsline", 0]}
+{"args": ["หนึ่ง newsline สอง"], "kwargs": {}, "out": ["หนึ่ง newsline สอง", 0]}
+{"args": ["หนึ่ง newsline two"], "kwargs": {}, "out": ["หนึ่ง newsline two", 0]}
+{"args": ["หนึ่ง newslineไทย"], "kwargs": {}, "out": ["หนึ่ง newslineไทย", 0]}
+{"args": ["one newsline"], "kwargs": {}, "out": ["one newsline", 0]}
+{"args": ["one newsline สอง"], "kwargs": {}, "out": ["one newsline สอง", 0]}
+{"args": ["one newsline two"], "kwargs": {}, "out": ["one newsline two", 0]}
+{"args": ["one newslineไทย"], "kwargs": {}, "out": ["one newslineไทย", 0]}
+{"args": ["ไทยnewsline"], "kwargs": {}, "out": ["ไทยnewsline", 0]}
+{"args": ["ไทยnewsline สอง"], "kwargs": {}, "out": ["ไทยnewsline สอง", 0]}
+{"args": ["ไทยnewsline two"], "kwargs": {}, "out": ["ไทยnewsline two", 0]}
+{"args": ["ไทยnewslineไทย"], "kwargs": {}, "out": ["ไทยnewslineไทย", 0]}
+{"args": ["new lineups"], "kwargs": {}, "out": ["new lineups", 0]}
+{"args": ["new lineups สอง"], "kwargs": {}, "out": ["new lineups สอง", 0]}
+{"args": ["new lineups two"], "kwargs": {}, "out": ["new lineups two", 0]}
+{"args": ["new lineupsไทย"], "kwargs": {}, "out": ["new lineupsไทย", 0]}
+{"args": ["หนึ่ง new lineups"], "kwargs": {}, "out": ["หนึ่ง new lineups", 0]}
+{"args": ["หนึ่ง new lineups สอง"], "kwargs": {}, "out": ["หนึ่ง new lineups สอง", 0]}
+{"args": ["หนึ่ง new lineups two"], "kwargs": {}, "out": ["หนึ่ง new lineups two", 0]}
+{"args": ["หนึ่ง new lineupsไทย"], "kwargs": {}, "out": ["หนึ่ง new lineupsไทย", 0]}
+{"args": ["one new lineups"], "kwargs": {}, "out": ["one new lineups", 0]}
+{"args": ["one new lineups สอง"], "kwargs": {}, "out": ["one new lineups สอง", 0]}
+{"args": ["one new lineups two"], "kwargs": {}, "out": ["one new lineups two", 0]}
+{"args": ["one new lineupsไทย"], "kwargs": {}, "out": ["one new lineupsไทย", 0]}
+{"args": ["ไทยnew lineups"], "kwargs": {}, "out": ["ไทยnew lineups", 0]}
+{"args": ["ไทยnew lineups สอง"], "kwargs": {}, "out": ["ไทยnew lineups สอง", 0]}
+{"args": ["ไทยnew lineups two"], "kwargs": {}, "out": ["ไทยnew lineups two", 0]}
+{"args": ["ไทยnew lineupsไทย"], "kwargs": {}, "out": ["ไทยnew lineupsไทย", 0]}
+{"args": ["renew paragraph"], "kwargs": {}, "out": ["renew paragraph", 0]}
+{"args": ["renew paragraph สอง"], "kwargs": {}, "out": ["renew paragraph สอง", 0]}
+{"args": ["renew paragraph two"], "kwargs": {}, "out": ["renew paragraph two", 0]}
+{"args": ["renew paragraphไทย"], "kwargs": {}, "out": ["renew paragraphไทย", 0]}
+{"args": ["หนึ่ง renew paragraph"], "kwargs": {}, "out": ["หนึ่ง renew paragraph", 0]}
+{"args": ["หนึ่ง renew paragraph สอง"], "kwargs": {}, "out": ["หนึ่ง renew paragraph สอง", 0]}
+{"args": ["หนึ่ง renew paragraph two"], "kwargs": {}, "out": ["หนึ่ง renew paragraph two", 0]}
+{"args": ["หนึ่ง renew paragraphไทย"], "kwargs": {}, "out": ["หนึ่ง renew paragraphไทย", 0]}
+{"args": ["one renew paragraph"], "kwargs": {}, "out": ["one renew paragraph", 0]}
+{"args": ["one renew paragraph สอง"], "kwargs": {}, "out": ["one renew paragraph สอง", 0]}
+{"args": ["one renew paragraph two"], "kwargs": {}, "out": ["one renew paragraph two", 0]}
+{"args": ["one renew paragraphไทย"], "kwargs": {}, "out": ["one renew paragraphไทย", 0]}
+{"args": ["ไทยrenew paragraph"], "kwargs": {}, "out": ["ไทยrenew paragraph", 0]}
+{"args": ["ไทยrenew paragraph สอง"], "kwargs": {}, "out": ["ไทยrenew paragraph สอง", 0]}
+{"args": ["ไทยrenew paragraph two"], "kwargs": {}, "out": ["ไทยrenew paragraph two", 0]}
+{"args": ["ไทยrenew paragraphไทย"], "kwargs": {}, "out": ["ไทยrenew paragraphไทย", 0]}
+{"args": ["ประเทศไทย"], "kwargs": {}, "out": ["ประเทศไทย", 0]}
+{"args": ["ประเทศไทย สอง"], "kwargs": {}, "out": ["ประเทศไทย สอง", 0]}
+{"args": ["ประเทศไทย two"], "kwargs": {}, "out": ["ประเทศไทย two", 0]}
+{"args": ["ประเทศไทยไทย"], "kwargs": {}, "out": ["ประเทศไทยไทย", 0]}
+{"args": ["หนึ่ง ประเทศไทย"], "kwargs": {}, "out": ["หนึ่ง ประเทศไทย", 0]}
+{"args": ["หนึ่ง ประเทศไทย สอง"], "kwargs": {}, "out": ["หนึ่ง ประเทศไทย สอง", 0]}
+{"args": ["หนึ่ง ประเทศไทย two"], "kwargs": {}, "out": ["หนึ่ง ประเทศไทย two", 0]}
+{"args": ["หนึ่ง ประเทศไทยไทย"], "kwargs": {}, "out": ["หนึ่ง ประเทศไทยไทย", 0]}
+{"args": ["one ประเทศไทย"], "kwargs": {}, "out": ["one ประเทศไทย", 0]}
+{"args": ["one ประเทศไทย สอง"], "kwargs": {}, "out": ["one ประเทศไทย สอง", 0]}
+{"args": ["one ประเทศไทย two"], "kwargs": {}, "out": ["one ประเทศไทย two", 0]}
+{"args": ["one ประเทศไทยไทย"], "kwargs": {}, "out": ["one ประเทศไทยไทย", 0]}
+{"args": ["ไทยประเทศไทย"], "kwargs": {}, "out": ["ไทยประเทศไทย", 0]}
+{"args": ["ไทยประเทศไทย สอง"], "kwargs": {}, "out": ["ไทยประเทศไทย สอง", 0]}
+{"args": ["ไทยประเทศไทย two"], "kwargs": {}, "out": ["ไทยประเทศไทย two", 0]}
+{"args": ["ไทยประเทศไทยไทย"], "kwargs": {}, "out": ["ไทยประเทศไทยไทย", 0]}
+{"args": ["ข้อความตามปกติ"], "kwargs": {}, "out": ["ข้อความตามปกติ", 0]}
+{"args": ["ข้อความตามปกติ สอง"], "kwargs": {}, "out": ["ข้อความตามปกติ สอง", 0]}
+{"args": ["ข้อความตามปกติ two"], "kwargs": {}, "out": ["ข้อความตามปกติ two", 0]}
+{"args": ["ข้อความตามปกติไทย"], "kwargs": {}, "out": ["ข้อความตามปกติไทย", 0]}
+{"args": ["หนึ่ง ข้อความตามปกติ"], "kwargs": {}, "out": ["หนึ่ง ข้อความตามปกติ", 0]}
+{"args": ["หนึ่ง ข้อความตามปกติ สอง"], "kwargs": {}, "out": ["หนึ่ง ข้อความตามปกติ สอง", 0]}
+{"args": ["หนึ่ง ข้อความตามปกติ two"], "kwargs": {}, "out": ["หนึ่ง ข้อความตามปกติ two", 0]}
+{"args": ["หนึ่ง ข้อความตามปกติไทย"], "kwargs": {}, "out": ["หนึ่ง ข้อความตามปกติไทย", 0]}
+{"args": ["one ข้อความตามปกติ"], "kwargs": {}, "out": ["one ข้อความตามปกติ", 0]}
+{"args": ["one ข้อความตามปกติ สอง"], "kwargs": {}, "out": ["one ข้อความตามปกติ สอง", 0]}
+{"args": ["one ข้อความตามปกติ two"], "kwargs": {}, "out": ["one ข้อความตามปกติ two", 0]}
+{"args": ["one ข้อความตามปกติไทย"], "kwargs": {}, "out": ["one ข้อความตามปกติไทย", 0]}
+{"args": ["ไทยข้อความตามปกติ"], "kwargs": {}, "out": ["ไทยข้อความตามปกติ", 0]}
+{"args": ["ไทยข้อความตามปกติ สอง"], "kwargs": {}, "out": ["ไทยข้อความตามปกติ สอง", 0]}
+{"args": ["ไทยข้อความตามปกติ two"], "kwargs": {}, "out": ["ไทยข้อความตามปกติ two", 0]}
+{"args": ["ไทยข้อความตามปกติไทย"], "kwargs": {}, "out": ["ไทยข้อความตามปกติไทย", 0]}
+{"args": ["เริ่ม ขึ้นย่อหน้าใหม่ กลาง newparagraph จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n\nจบ", 2]}
+{"args": ["เริ่ม ขึ้นย่อหน้าใหม่ กลาง นิวพารากราฟ จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n\nจบ", 2]}
+{"args": ["เริ่ม ขึ้นย่อหน้าใหม่ กลาง นิวไลน์ จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\nจบ", 2]}
+{"args": ["เริ่ม ขึ้นย่อหน้าใหม่ กลาง นิวไลน จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง นิวไลน จบ", 1]}
+{"args": ["เริ่ม ขึ้นย่อหน้าใหม่ กลาง bulletpoint จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม ขึ้นย่อหน้าใหม่ กลาง บุลเล็ตพอยท์ จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม ขึ้นย่อหน้าใหม่ กลาง บุลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม ขึ้นย่อหน้าใหม่ กลาง บูลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม ย่อหน้าใหม่ กลาง newparagraph จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n\nจบ", 2]}
+{"args": ["เริ่ม ย่อหน้าใหม่ กลาง นิวพารากราฟ จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n\nจบ", 2]}
+{"args": ["เริ่ม ย่อหน้าใหม่ กลาง นิวไลน์ จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\nจบ", 2]}
+{"args": ["เริ่ม ย่อหน้าใหม่ กลาง นิวไลน จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง นิวไลน จบ", 1]}
+{"args": ["เริ่ม ย่อหน้าใหม่ กลาง bulletpoint จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม ย่อหน้าใหม่ กลาง บุลเล็ตพอยท์ จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม ย่อหน้าใหม่ กลาง บุลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม ย่อหน้าใหม่ กลาง บูลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม new paragraph กลาง newparagraph จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n\nจบ", 2]}
+{"args": ["เริ่ม new paragraph กลาง นิวพารากราฟ จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n\nจบ", 2]}
+{"args": ["เริ่ม new paragraph กลาง นิวไลน์ จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\nจบ", 2]}
+{"args": ["เริ่ม new paragraph กลาง นิวไลน จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง นิวไลน จบ", 1]}
+{"args": ["เริ่ม new paragraph กลาง bulletpoint จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม new paragraph กลาง บุลเล็ตพอยท์ จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม new paragraph กลาง บุลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม new paragraph กลาง บูลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\n\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม ขึ้นบรรทัดใหม่ กลาง newparagraph จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n\nจบ", 2]}
+{"args": ["เริ่ม ขึ้นบรรทัดใหม่ กลาง นิวพารากราฟ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n\nจบ", 2]}
+{"args": ["เริ่ม ขึ้นบรรทัดใหม่ กลาง นิวไลน์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\nจบ", 2]}
+{"args": ["เริ่ม ขึ้นบรรทัดใหม่ กลาง นิวไลน จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง นิวไลน จบ", 1]}
+{"args": ["เริ่ม ขึ้นบรรทัดใหม่ กลาง bulletpoint จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม ขึ้นบรรทัดใหม่ กลาง บุลเล็ตพอยท์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม ขึ้นบรรทัดใหม่ กลาง บุลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม ขึ้นบรรทัดใหม่ กลาง บูลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม บรรทัดใหม่ กลาง newparagraph จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n\nจบ", 2]}
+{"args": ["เริ่ม บรรทัดใหม่ กลาง นิวพารากราฟ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n\nจบ", 2]}
+{"args": ["เริ่ม บรรทัดใหม่ กลาง นิวไลน์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\nจบ", 2]}
+{"args": ["เริ่ม บรรทัดใหม่ กลาง นิวไลน จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง นิวไลน จบ", 1]}
+{"args": ["เริ่ม บรรทัดใหม่ กลาง bulletpoint จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม บรรทัดใหม่ กลาง บุลเล็ตพอยท์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม บรรทัดใหม่ กลาง บุลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม บรรทัดใหม่ กลาง บูลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม new line กลาง newparagraph จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n\nจบ", 2]}
+{"args": ["เริ่ม new line กลาง นิวพารากราฟ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n\nจบ", 2]}
+{"args": ["เริ่ม new line กลาง นิวไลน์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\nจบ", 2]}
+{"args": ["เริ่ม new line กลาง นิวไลน จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง นิวไลน จบ", 1]}
+{"args": ["เริ่ม new line กลาง bulletpoint จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม new line กลาง บุลเล็ตพอยท์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม new line กลาง บุลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม new line กลาง บูลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม newline กลาง newparagraph จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n\nจบ", 2]}
+{"args": ["เริ่ม newline กลาง นิวพารากราฟ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n\nจบ", 2]}
+{"args": ["เริ่ม newline กลาง นิวไลน์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\nจบ", 2]}
+{"args": ["เริ่ม newline กลาง นิวไลน จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง นิวไลน จบ", 1]}
+{"args": ["เริ่ม newline กลาง bulletpoint จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม newline กลาง บุลเล็ตพอยท์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม newline กลาง บุลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม newline กลาง บูลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\nกลาง\n- จบ", 2]}
+{"args": ["เริ่ม bullet point กลาง newparagraph จบ"], "kwargs": {}, "out": ["เริ่ม\n- กลาง\n\nจบ", 2]}
+{"args": ["เริ่ม bullet point กลาง นิวพารากราฟ จบ"], "kwargs": {}, "out": ["เริ่ม\n- กลาง\n\nจบ", 2]}
+{"args": ["เริ่ม bullet point กลาง นิวไลน์ จบ"], "kwargs": {}, "out": ["เริ่ม\n- กลาง\nจบ", 2]}
+{"args": ["เริ่ม bullet point กลาง นิวไลน จบ"], "kwargs": {}, "out": ["เริ่ม\n- กลาง นิวไลน จบ", 1]}
+{"args": ["เริ่ม bullet point กลาง bulletpoint จบ"], "kwargs": {}, "out": ["เริ่ม\n- กลาง\n- จบ", 2]}
+{"args": ["เริ่ม bullet point กลาง บุลเล็ตพอยท์ จบ"], "kwargs": {}, "out": ["เริ่ม\n- กลาง\n- จบ", 2]}
+{"args": ["เริ่ม bullet point กลาง บุลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\n- กลาง\n- จบ", 2]}
+{"args": ["เริ่ม bullet point กลาง บูลเล็ตพอยต์ จบ"], "kwargs": {}, "out": ["เริ่ม\n- กลาง\n- จบ", 2]}

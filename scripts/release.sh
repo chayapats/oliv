@@ -227,7 +227,7 @@ fi
 
 # --------------------------------------------------------------------------- #
 # 5. Sparkle appcast. Ensure the pinned Sparkle CLI tools are present (download +
-#    extract the release tarball, cached like the CPython one), export the private
+#    extract the release tarball, cached in build/cache), export the private
 #    EdDSA key from the Keychain WITHOUT a GUI prompt (only generate_keys — the
 #    tool that created it — can read it silently; sign_update/generate_appcast
 #    would otherwise pop a Keychain dialog and hang), then sign the dmg and

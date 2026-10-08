@@ -8,11 +8,19 @@
 // showing any UI. All other launches fall through to the normal app.
 
 import AVFoundation
+import AppKit
 import Foundation
 
 @main
 enum OLIVMain {
     static func main() {
+        // A test host must not initialise real settings, Keychain credentials,
+        // hotkeys, model warm-up, Sparkle or onboarding. XCTest injects its bundle
+        // before main and drives the AppKit run loop itself.
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            NSApplication.shared.run()
+            return
+        }
         let args = CommandLine.arguments
         if let idx = args.firstIndex(of: "--e2e-file") {
             guard idx + 1 < args.count else {
@@ -176,12 +184,12 @@ enum E2ERunner {
     static func run(wavPath: String, cleanup: Bool) -> Int32 {
         print("=== OLIV Swift end-to-end file test (STT -> cleanup, NO inject) ===\n")
         // W3-T4: resolve the SAME launch config the live app uses — bundled
-        // embedded runtime if the .app ships one, else the dev repo venv. Print
+        // native bundled runtime or locally built workers. Print
         // which one so the packaged e2e can assert it ran on the bundled runtime.
         let launch = SidecarClient.resolveLaunch()
         print("  clip:    \(wavPath)")
-        print("  runtime: \(launch.bundled ? "bundled (embedded CPython)" : "dev repo (.venv)")")
-        print("  python:  \(launch.command.first ?? "?")")
+        print("  runtime: \(launch.bundled ? "bundled (Rust + native MLX)" : "dev native workers")")
+        print("  worker:  \(launch.command.first ?? "?")")
         print("  root:    \(launch.root)")
         print("  cleanup: \(cleanup ? "on" : "off")")
 
