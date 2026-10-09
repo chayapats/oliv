@@ -2,7 +2,12 @@
 
 All notable user-facing changes to OLIV. The format loosely follows
 [Keep a Changelog](https://keepachangelog.com/). `scripts/release.sh X.Y.Z` pulls
-the matching `## [X.Y.Z]` section (falling back to `## [Unreleased]`) into the
+the matching `## [X.Y.Z]` section (falling back to `## [Unreleased]
+
+- Native developer tooling: Rust benchmark and test workers, Swift/MLX LaBSE
+  scoring, and Swift/hdiutil DMG packaging. The maintained checkout no longer
+  depends on an interpreter. Legacy prototypes and training experiments are
+  retired and remain available in Git history.`) into the
 Sparkle appcast's release notes, so keep entries short and end-user readable.
 
 ## [Unreleased]

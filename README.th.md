@@ -101,23 +101,23 @@ Pipeline: **Typhoon-turbo STT** (Whisper-turbo ที่ fine-tune สำหร�
 
 ## รัน benchmark ซ้ำเอง
 
-ตัวทดสอบใช้ Rust + native MLX ตัวเดียวกับแอปเป็นค่าเริ่มต้น
-เพิ่ม `--runtime reference` เพื่อเทียบกับ Python รุ่นก่อนหน้า
-Python เหลือเฉพาะเครื่องมือ benchmark ไม่ต้องใช้ตอน build หรือเปิดแอป:
+เครื่องมือ Rust ประเมิน pipeline ตัวเดียวกับแอป คำนวณ WER/CER ภาษาไทย
+และใช้ Swift/MLX สำหรับคะแนนความหมาย LaBSE ขั้นตอน build, test, benchmark
+และสร้าง DMG ไม่ต้องใช้ Python แล้ว รายละเอียดใน [benchmark/README.md](benchmark/README.md)
 
 ```bash
-# รัน benchmark ของ config ที่ ship บนทุกชุดทดสอบ:
-bash scripts/build_native.sh
-HF_HUB_OFFLINE=1 \
-  sidecar/.venv/bin/python benchmark/eval_cleanup.py \
-    --manifest data/manifest_all.jsonl --engine typhoon-turbo-mlx --out benchmark/eval_results/ship_main.json
-sidecar/.venv/bin/python benchmark/semantic_score.py     # คะแนนความหมาย (LaBSE) จาก eval_results/*.json
-sidecar/.venv/bin/python benchmark/build_report_data.py  # + เมตริกผิวข้อความ -> report_data.json
-sidecar/.venv/bin/python benchmark/build_landing.py      # regenerate docs/index.html
+bash scripts/build_dev.sh
+HF_HUB_OFFLINE=1 build/native-tools/oliv-dev eval \
+  --manifest data/manifest_all.jsonl --engine typhoon-turbo-mlx \
+  --out benchmark/eval_results/ship_main.json
+build/native-tools/oliv-dev semantic --model-dir /path/to/cached/LaBSE/snapshot
+build/native-tools/oliv-dev report --input benchmark/eval_results/ship_main.json \
+  --out benchmark/eval_results/ship_main.html
 ```
 
-Manifest: `benchmark/data/manifest_{all,holdout,d2}.jsonl` (264 คลิป; ไฟล์เสียงไม่อยู่ใน repo)
-เมตริก: `benchmark/semantic_score.py` (LaBSE ตัดคำไทยก่อน embed เกณฑ์ผ่าน 0.80)
+ใช้เสียงของตัวเอง ไฟล์เสียงและรายงานส่วนตัวไม่อยู่ใน Git ตัวเลขบน landing page
+เป็นผลเก่าที่เก็บไว้ เครื่องมือใหม่นี้ไม่เขียนทับหน้าเว็บหรือเผยแพร่เสียงอัตโนมัติ
+LaBSE ตัดคำไทยก่อน embed ใช้เกณฑ์ cosine 0.80 และควรรันทุก config ใหม่พร้อมกันเมื่อเปลี่ยน runtime
 
 ## สร้างจากซอร์ส
 
@@ -126,7 +126,7 @@ Mac ชิป Apple Silicon, macOS 14+ รายละเอียดอยู�
 สถาปัตยกรรมและผลตรวจ: [native runtime migration](docs/native-runtime-migration.md)
 
 ```bash
-brew install xcodegen
+brew install xcodegen ripgrep
 # Install the stable Rust toolchain from https://rustup.rs
 xcodebuild -downloadComponent MetalToolchain
 bash scripts/build_app.sh    # -> build/OLIV.app

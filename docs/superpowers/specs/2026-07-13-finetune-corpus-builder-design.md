@@ -1,3 +1,5 @@
+> Historical document: paths and commands describe the implementation at the time. Current native tooling is documented in [native-developer-tools.md](../../native-developer-tools.md).
+
 # Personal finetune corpus builder — design
 
 **Date:** 2026-07-13 (revised 2026-07-14 after four rounds of cross-model review)

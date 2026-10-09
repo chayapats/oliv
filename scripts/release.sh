@@ -134,37 +134,12 @@ echo "    built app version: $BUILT_SHORT ($BUILT_BUILD)"
 [ "$BUILT_SHORT" = "$VERSION" ] || die "built app version '$BUILT_SHORT' != requested '$VERSION' (Info.plist mapping broken)."
 
 # --------------------------------------------------------------------------- #
-# 3. Build the DMG. Preferred path: dmgbuild (via uvx) — a styled, standard
-#    drag-to-install window: custom background + arrow (assets/dmg/bg.tiff,
-#    regenerate with scripts/make_dmg_background.py), OLIV.app and the
-#    /Applications symlink pinned to icon slots, volume icon = the app icon;
-#    all Finder view options written programmatically (no Finder scripting, no
-#    TCC prompts). Fallback: the original bare hdiutil staging-dir dmg (works,
-#    ugly) so a machine without uv can still cut a release.
+# 3. Build the styled DMG with native Swift metadata and hdiutil.
 # --------------------------------------------------------------------------- #
 log "3. Create + sign dist/OLIV-$VERSION.dmg"
 mkdir -p "$DIST"
 DMG="$DIST/OLIV-$VERSION.dmg"
-DMG_BG="$ROOT/assets/dmg/bg.tiff"
-DMG_ICNS="$APP/Contents/Resources/AppIcon.icns"
-# Created unconditionally (even though only the fallback path fills it): the
-# later traps reference "$STAGING", and under `set -u` an unset var would blow
-# up the EXIT trap itself.
-STAGING="$(mktemp -d)"
-trap 'rm -rf "$STAGING"' EXIT
-rm -f "$DMG"
-if command -v uvx >/dev/null && [ -f "$DMG_BG" ] && [ -f "$DMG_ICNS" ]; then
-  echo "    dmgbuild (styled installer window)..."
-  uvx dmgbuild==1.6.5 -s "$SCRIPT_DIR/dmg_settings.py" \
-    -D app="$APP" -D background="$DMG_BG" -D icon="$DMG_ICNS" \
-    "OLIV $VERSION" "$DMG" >/dev/null
-else
-  warn "dmgbuild unavailable (need uvx + assets/dmg/bg.tiff + AppIcon.icns) — plain hdiutil dmg (unstyled)."
-  cp -R "$APP" "$STAGING/OLIV.app"
-  ln -s /Applications "$STAGING/Applications"
-  hdiutil create -volname "OLIV $VERSION" -srcfolder "$STAGING" \
-    -ov -format UDZO "$DMG" >/dev/null
-fi
+bash "$SCRIPT_DIR/build_dmg.sh" "$APP" "$DMG" "OLIV $VERSION"
 [ -f "$DMG" ] || die "dmg creation produced no $DMG"
 # A dmg is a container, not executable code: sign it (no --options runtime).
 codesign --force -s "$IDENTITY" "$DMG"
@@ -259,7 +234,7 @@ GEN_APPCAST="$SPARKLE_DIR/bin/generate_appcast"
 KEYDIR="$(mktemp -d)"
 KEYFILE="$KEYDIR/ed25519.key"
 cleanup_key() { rm -rf "$KEYDIR" 2>/dev/null || true; }
-trap 'cleanup_key; rm -rf "$STAGING"' EXIT
+trap 'cleanup_key' EXIT
 if ! "$GEN_KEYS" -x "$KEYFILE" >/dev/null 2>&1 || [ ! -s "$KEYFILE" ]; then
   die "no Sparkle EdDSA signing key in the Keychain. Generate one:
        $GEN_KEYS
@@ -286,7 +261,7 @@ if [ -z "$(printf '%s' "$NOTES" | tr -d '[:space:]')" ]; then
   NOTES="$(awk '/^## \[Unreleased\]/{g=1;next} g&&/^## \[/{exit} g{print}' "$ROOT/CHANGELOG.md")"
 fi
 APPCAST_STAGE="$(mktemp -d)"
-trap 'cleanup_key; rm -rf "$STAGING" "$APPCAST_STAGE"' EXIT
+trap 'cleanup_key; rm -rf "$APPCAST_STAGE"' EXIT
 cp "$DMG" "$APPCAST_STAGE/"
 # Render the CHANGELOG bullets to a simple <ul>. awk accumulates each bullet with
 # its wrapped continuation lines and flushes on the next bullet / at EOF, so the

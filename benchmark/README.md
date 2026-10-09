@@ -1,74 +1,55 @@
-# OLIV benchmark harness
+# Native OLIV benchmarks
 
-The reproducible pipeline behind every number on
-[the landing page](https://chayapats.github.io/oliv/). Nothing on that page is
-hand-typed: results flow from these scripts into `eval_results/report_data.json`
-and from there into `docs/index.html`.
+`oliv-dev` is a Rust CLI using the shipped Rust + native MLX pipeline. Swift/MLX
+and the Rust Hugging Face tokenizer score LaBSE embeddings. No interpreter,
+virtual environment, Torch or pip packages are required.
 
-## Layout
-
-- `data/manifest_all.jsonl` (194 clips, everyday speech), `data/manifest_holdout.jsonl`
-  (40 clips, fresh words recorded **before** any tuning), `data/manifest_d2.jsonl`
-  (30 clips, confirmation) — reference texts for the 264-clip corpus. The audio is
-  the developer's own voice and is not tracked; record your own set following
-  `data/manifest.example.jsonl`.
-- `eval_cleanup.py` / `native_runtime.py` — drive the **shipped Rust + native MLX pipeline**
-  over a manifest. `run_eval_full.sh` runs the full config matrix.
-- `eval_models.py` — the same pipeline over alternative STT engines
-  (Whisper large-v3, Pathumma, the cloud rows) for the comparison table.
-- `semantic_score.py` — the "meaning match" metric: LaBSE cosine ≥ 0.80,
-  Thai word-segmented before embedding. **Not** word-for-word accuracy.
-- `metrics.py`, `engines.py`, `pipeline.py`, `dictionary.py`, `phonetic.py`,
-  `prompts.py`, `cleanup_worker.py` — the previous Python reference, used with
-  `--runtime reference` and by older model experiments.
-- `build_report_data.py` → `eval_results/report_data.json` (aggregate scores +
-  surface metrics) · `build_landing.py` → `../docs/index.html`.
-- `test_*.py` — hermetic tests (dictionary, pipeline guardrails, spacing).
-
-## Reproduce
-
-```bash
-# from the repo root:
-bash scripts/build_native.sh
-HF_HUB_OFFLINE=1 \
-  sidecar/.venv/bin/python benchmark/eval_cleanup.py \
-    --manifest data/manifest_all.jsonl --engine typhoon-turbo-mlx \
-    --out benchmark/eval_results/ship_main.json
-sidecar/.venv/bin/python benchmark/semantic_score.py     # meaning scores
-sidecar/.venv/bin/python benchmark/build_report_data.py  # -> report_data.json
-sidecar/.venv/bin/python benchmark/build_landing.py      # -> docs/index.html
+```sh
+bash scripts/build_dev.sh
+HF_HUB_OFFLINE=1 build/native-tools/oliv-dev eval \
+  --manifest data/manifest_all.jsonl --engine typhoon-turbo-mlx \
+  --out benchmark/eval_results/ship_main.json
+build/native-tools/oliv-dev score --input benchmark/eval_results/ship_main.json \
+  --out benchmark/eval_results/rescored.json
+build/native-tools/oliv-dev semantic --model-dir /path/to/LaBSE/snapshot
+build/native-tools/oliv-dev report --input benchmark/eval_results/ship_main.json \
+  --out benchmark/eval_results/ship_main.html
 ```
 
-Env: see `.env.example` — a Groq key is needed only for the cloud comparison rows.
-Deps: `requirements.txt`, ffmpeg, and a built native runtime. A previous
-`sidecar/.venv` can be reused for developer benchmarks; it is never bundled.
-Download models explicitly in OLIV's Settings before an offline native run.
-Native inference reuses `HF_HOME`, or the installed app's model cache if present.
-The published landing-page results predate the native migration; regenerate
-the entire comparison matrix before replacing them. File conversion is timed
-in `latency_s`; `t_stt` and `t_cleanup` isolate the capture-shaped runtime stages.
+Run from the repository root. Use `--help` for each command. `ffmpeg` is needed
+for file normalization. Explicitly download the dictation models with the app
+before offline runs. `--runtime-dir` can point to the installed app's
+`Contents/Resources/oliv-runtime/bin` directory. `HF_HOME` overrides the normal
+app model cache. LaBSE requires a local snapshot containing `config.json`,
+`tokenizer.json` and `model.safetensors`; the CLI never downloads it implicitly.
 
-## Wispr Flow side-by-side (fair digital loopback)
+Evaluation retains `fl` filler removal, `fm` formatting commands and `vb`
+vocabulary flags. `--no-cleanup` is pure STT, with those features disabled.
+`--no-vocab`, `--buckets` and per-bucket `--limit` support ablations. Selected
+missing audio, duplicate IDs and empty selections fail instead of silently
+changing the scored population. Console output contains counts and aggregate
+metrics; transcripts are written only to requested local JSON/HTML files.
 
-Wispr's app has no file-upload path. To compare against OLIV on the **same WAV
-bytes** without a speaker→mic handicap, play clips into [BlackHole](https://existential.audio/blackhole/)
-while Wispr's input is that virtual device, then score with `semantic_score.py`
-alongside `ship_hold.json`.
+WER uses the same Rust newmm tokenizer and NFC normalization as production;
+CER strips spaces after normalization. Semantic scoring word-segments both
+sides, truncates to 256 tokens, computes L2-normalized LaBSE pooler output and
+compares cosine against 0.80. The native metric version is recorded separately
+from historical Torch results; rebaseline the complete matrix before publishing
+a comparison. `_semantic.json` records aggregate and per-clip scores.
 
-```bash
-# from benchmark/
-.venv/bin/python wispr_loopback_eval.py setup          # checklist + device detect
-.venv/bin/python wispr_loopback_eval.py run \
-  --manifest data/manifest_holdout.jsonl \
-  --device "BlackHole 2ch" \
-  --notes "cleanup=Medium dict=empty lang=Auto"
-.venv/bin/python semantic_score.py                     # compare vs ship_hold
-```
+`latency_s` includes file conversion; `t_stt` and `t_cleanup` isolate runtime stages.
+`run_eval_full.sh` covers the three currently shipped local STT engines with pure
+and E2B cleanup configurations. Groq requires an explicit environment key and is
+excluded from the default offline sweep.
 
-Do **not** play through laptop speakers into the built-in mic for scored runs.
+Voice recordings, manifests and per-clip reports remain private and untracked.
+Record your own corpus following `data/manifest.example.jsonl`. Reports never
+copy audio into `docs/` or publish pages. Existing landing and comparison pages
+are historical artifacts; this CLI creates fresh local reports rather than
+silently replacing their published numbers.
 
-After a paired full run, build the interactive head-to-head page:
-
-```bash
-.venv/bin/python build_h2h.py   # → ../docs/oliv-vs-wispr.html
-```
+The previous app prototype, reference pipeline, Wispr automation, experimental
+model runners and personal finetuning tools are retired from the current checkout.
+Their source is preserved at Git commit `55f8da0`. Native training and automatic
+third-party app control are not provided by this evaluation CLI. Frozen public
+goldens continue to verify the text port independently of its implementation.

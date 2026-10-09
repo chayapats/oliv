@@ -12,7 +12,7 @@ Extraction removes HTTP server/config/inference adapters from the core,
 embeds corpus data within this crate, and keeps the pure LLM/STT contracts.
 Mac-specific extensions live in `commands.rs`, `audio.rs`, and `local.rs`.
 Corpus-derived upstream goldens are excluded from this public repository.
-Public fixtures are regenerated from existing public Python test literals and
-synthetic examples by `benchmark/generate_text_goldens.py`, with mocked LLM
-responses. The seeded tokenizer fuzz uses only the public PyThaiNLP corpus.
+Public fixtures are frozen from public test literals and synthetic examples
+recorded at OLIV `55f8da0`, with mocked LLM responses. The independent reference
+outputs are retained unchanged; the obsolete generator lives in Git history. The seeded tokenizer fuzz uses only the public PyThaiNLP corpus.
 Private corpus comparison results and recordings remain outside Git.

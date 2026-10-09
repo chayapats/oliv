@@ -1,14 +1,12 @@
 # Public text fixtures
 
-Regenerate the deterministic fixtures with:
+These independent reference outputs were frozen at OLIV `55f8da0` before retiring
+the previous implementation. Tests read JSONL/gzip directly with Rust; an interpreter
+is not needed. Do not regenerate expected values from the implementation under test.
 
-```sh
-sidecar/.venv/bin/python benchmark/generate_text_goldens.py
-```
-
-Inputs come exclusively from public Python test literals in this repository and
-invented examples. LLM responses are deterministic mocks. The generator never
-reads private manifests, audio, evaluation outputs or recorded generations.
+Inputs came exclusively from public test literals and invented examples. LLM replies
+are deterministic mocks. The historical generator is retained in Git history and
+never read private manifests, audio, evaluation outputs or recorded generations.
 
 `tokenize_fuzz.jsonl.gz` is the upstream seeded fuzz set from the public
 PyThaiNLP corpus (see `data/LICENSE-pythainlp`). `macos_commands.jsonl` contains

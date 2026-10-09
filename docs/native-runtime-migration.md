@@ -3,8 +3,8 @@
 OLIV now uses a shared Rust text/API core adapted from OLIV Linux, and native
 MLX Swift inference for Whisper and Gemma. Swift continues to own microphone,
 hotkeys, settings, Keychain and paste. Neither the app nor `build_app.sh` needs
-Python. Python remains in developer benchmarks, reference code and optional
-release tooling.
+Python. The subsequent developer-tool migration also removes Python from
+benchmarks, test fixtures and DMG packaging; see [developer tooling](native-developer-tools.md).
 
 ## Architecture and compatibility
 
@@ -80,21 +80,16 @@ ships dependency notices. No JIT entitlement is needed by the native helpers.
 ## Reproduce
 
 ```sh
-bash scripts/build_native.sh
-$HOME/.cargo/bin/cargo test --locked --manifest-path rust/Cargo.toml --workspace
-swift scripts/test_native_runtime.swift build/native-runtime
-HF_HUB_OFFLINE=1 sidecar/.venv/bin/python benchmark/eval_cleanup.py \
-  --runtime native --manifest data/manifest_all.jsonl \
+bash scripts/test.sh
+bash scripts/build_dev.sh
+HF_HUB_OFFLINE=1 build/native-tools/oliv-dev eval \
+  --manifest data/manifest_all.jsonl \
   --out benchmark/eval_results/native-main.json
-# Same samples, previous implementation:
-HF_HUB_OFFLINE=1 sidecar/.venv/bin/python benchmark/eval_cleanup.py \
-  --runtime reference --manifest data/manifest_all.jsonl \
-  --out benchmark/eval_results/reference-main.json
 ```
 
 Use your own recordings and explicitly downloaded models. `latency_s` includes
 benchmark file conversion; `t_stt` and `t_cleanup` isolate runtime stages.
-Public golden fixtures are generated solely from public test literals and
+Public golden fixtures were frozen from public test literals and
 invented examples, with mocked LLM replies. Private OLIV Linux corpus-derived
 fixtures and recorded generations are excluded from Git.
 

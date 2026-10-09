@@ -1,3 +1,5 @@
+> Historical document: paths and commands describe the implementation at the time. Current native tooling is documented in [native-developer-tools.md](../../native-developer-tools.md).
+
 # OLIV Thai-Formatting Post-Pass — Design (2026-07-17)
 
 Status: APPROVED — decisions D1–D6 resolved by the user; this spec is the implementation

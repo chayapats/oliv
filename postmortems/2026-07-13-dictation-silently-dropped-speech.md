@@ -1,3 +1,5 @@
+> Historical document: paths and commands describe the implementation at the time. Current native tooling is documented in [native-developer-tools.md](../docs/native-developer-tools.md).
+
 # Dictation silently typed nothing through AirPods
 
 **Shipped:** 0.1.7 (build 12) · **Fixed by:** `5125a6a`, `f860c01`, `58d10ea` · **Owner:** Chayapat

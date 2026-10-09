@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Assemble a self-contained Rust + native MLX app. Python is developer tooling only.
+# Assemble a self-contained Rust + native MLX app. Build and developer tooling are native.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD="$ROOT/build"
 DERIVED="${OLIV_DERIVED_DATA:-$BUILD/DerivedData}"
 APP="$BUILD/OLIV.app"
+bash "$ROOT/scripts/check_native_sources.sh"
 bash "$ROOT/scripts/build_native.sh"
 xcodebuild -project "$ROOT/macos/OLIV.xcodeproj" -scheme OLIV -configuration Release \
   -derivedDataPath "$DERIVED" build

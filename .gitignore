@@ -1,4 +1,4 @@
-# --- Python environments (recreate: uv venv + requirements/lock files) ---
+# --- Reject accidental legacy environments and bytecode ---
 .venv*/
 */.venv*/
 __pycache__/
@@ -80,3 +80,7 @@ benchmark/eval_stats.py
 benchmark/eval_v2_gen.py
 benchmark/regen_report.py
 benchmark/spike_*.py
+
+# Native Swift package build products
+**/.build/
+**/.swiftpm/

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/oliv-text", "crates/oliv-transport", "crates/oliv-sidecar", "crates/oliv-tokenizer"]
+members = ["crates/oliv-text", "crates/oliv-transport", "crates/oliv-sidecar", "crates/oliv-tokenizer", "crates/oliv-dev"]
 resolver = "3"
 
 [workspace.package]

@@ -18,7 +18,7 @@ patches are the most useful contributions. Please read the
 ## Dev setup
 
 ```bash
-brew install xcodegen
+brew install xcodegen ripgrep
 # Install stable Rust with rustup: https://rustup.rs
 xcodebuild -downloadComponent MetalToolchain
 bash scripts/build_native.sh   # Rust worker + native MLX, no Python needed
@@ -41,18 +41,14 @@ Release packaging (signed `.dmg` + Sparkle appcast) is `bash scripts/release.sh 
 Hermetic — no 5 GB model download, no microphone:
 
 ```bash
-$HOME/.cargo/bin/cargo test --locked --manifest-path rust/Cargo.toml --workspace
-bash scripts/build_native.sh
-swift scripts/test_native_runtime.swift build/native-runtime
-xcodebuild -project macos/OLIV.xcodeproj -scheme OLIV \
-  -destination 'platform=macOS,arch=arm64' test
+bash scripts/test.sh
 ```
 
-The `sidecar/` Python files are retained as reference/benchmark tooling and are
-not bundled. Native tests use isolated settings and synthetic audio, without
-Keychain prompts or microphone access. The full accuracy numbers on
-[the landing page](https://chayapats.github.io/oliv/) need your own audio
-corpus — see [`benchmark/README.md`](benchmark/README.md).
+This builds native Rust test fixtures and exercises the production IPC and HTTP/TLS
+paths. It needs no interpreter, model download, credentials or microphone access.
+Developer benchmarks and native LaBSE scoring are built with `bash scripts/build_dev.sh`;
+see [benchmark/README.md](benchmark/README.md). Historical experiments and the previous
+prototype are available in Git at `55f8da0`; they are not supported in the current checkout.
 
 If you change Swift sources or `macos/project.yml`, regenerate with
 `xcodegen generate` before building. Do not hand-edit `OLIV.xcodeproj`.
@@ -60,8 +56,7 @@ If you change Swift sources or `macos/project.yml`, regenerate with
 ## Pull requests
 
 - Keep the change small and say what you ran.
-- Match the surrounding style. This repo does not use pytest; sidecar and
-  benchmark checks are plain `assert` scripts; native core tests use Cargo.
+- Match the surrounding style. Core and developer-tool tests use Cargo; macOS tests use XCTest.
 - User-facing copy in the app is English in code with Thai in `README.th.md`
   / the landing page. Don’t silently drop the Thai docs when you change the
   English ones.

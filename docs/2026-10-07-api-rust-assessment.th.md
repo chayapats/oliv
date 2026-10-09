@@ -1,3 +1,5 @@
+> Historical document: paths and commands describe the implementation at the time. Current native tooling is documented in [native-developer-tools.md](native-developer-tools.md).
+
 # OLIV macOS: OLIV API compatibility และความคุ้มค่าของ Rust
 
 ตรวจเมื่อ 7 ตุลาคม 2026 · เป็นการประเมินก่อน implement

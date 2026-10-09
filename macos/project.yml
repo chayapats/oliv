@@ -42,6 +42,27 @@ packages:
     exactVersion: 0.8.1
 
 targets:
+  OLIVSemantic:
+    type: tool
+    platform: macOS
+    sources:
+      - path: OLIVSemantic
+      - path: OLIVInference/RustTokenizer.swift
+    dependencies:
+      - package: MLXSwift
+        products: [MLX, MLXNN]
+      - package: MLXSwiftLM
+        product: MLXEmbedders
+    settings:
+      base:
+        ARCHS: arm64
+        OTHER_LDFLAGS: "$(inherited) $(SRCROOT)/../build/native-libs/liboliv_tokenizer.a"
+        SWIFT_OBJC_BRIDGING_HEADER: "$(SRCROOT)/OLIVInference/Tokenizer/oliv_tokenizer.h"
+        PRODUCT_NAME: oliv-semantic
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        SWIFT_OPTIMIZATION_LEVEL: "-O"
   OLIVInference:
     type: tool
     platform: macOS
@@ -150,6 +171,10 @@ targets:
         GENERATE_INFOPLIST_FILE: true
 
 schemes:
+  OLIVSemantic:
+    build:
+      targets:
+        OLIVSemantic: all
   OLIV:
     build:
       targets:

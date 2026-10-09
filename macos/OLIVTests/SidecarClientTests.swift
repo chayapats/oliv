@@ -1,121 +1,14 @@
-// SidecarClient tests (W3-T3) — hermetic, NO models, NO sidecar/.venv.
-//
-// The real sidecar loads mlx-whisper + Gemma-4 (~30s warm); that end-to-end
-// proof is the Swift `--e2e-file` harness and the Python sidecar/test_sidecar.py.
-// Here we drive SidecarClient against a tiny FAKE child that just speaks the
-// line-JSON protocol, so we can exercise the robustness contract fast and
-// deterministically: happy round-trip, timeout → typed error → respawn, garbage
-// line → error + self-heal, stray/out-of-order line tolerance, ok:false without
-// killing the process, and close() leaving no orphan.
-
+// Hermetic IPC tests use a native Rust fixture; no models or credentials.
 import XCTest
 @testable import OLIV
 
 final class SidecarClientTests: XCTestCase {
-    private var scriptPath: String!
-    private var python: String!
-
-    // A fake sidecar: reads line-JSON on stdin, answers per the protocol. Extra
-    // `hang` / `garbage` / `noise` / `sttfail` commands drive the failure paths.
-    private static let fakeScript = """
-    import sys, os, json, time
-
-    def send(obj):
-        sys.stdout.write(json.dumps(obj) + "\\n")
-        sys.stdout.flush()
-
-    for line in sys.stdin:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            req = json.loads(line)
-        except Exception:
-            send({"id": None, "ok": False, "error": "bad json"})
-            continue
-        rid = req.get("id")
-        cmd = req.get("cmd")
-        if cmd == "shutdown":
-            break
-        elif cmd == "ping":
-            send({"id": rid, "ok": True, "pid": os.getpid()})
-        elif cmd == "warm":
-            # Option B wire contract. The client OMITS background_cleanup when false
-            # (byte-compat) and sends true only on the async launch warm; reflect
-            # KEY PRESENCE so the test can assert the omit-when-default idiom, and
-            # mirror the real sidecar reply shapes (cleanup_warming only async).
-            if req.get("background_cleanup"):
-                send({"id": rid, "ok": True, "engine": req.get("engine"),
-                      "t_stt_load": 2.0, "t_cleanup_load": 0.0, "cleanup_warming": True})
-            elif "background_cleanup" in req:
-                # present-but-false must NEVER happen from this client -> sentinel
-                send({"id": rid, "ok": True, "engine": req.get("engine"),
-                      "t_stt_load": -1.0, "t_cleanup_load": -1.0})
-            else:
-                # sync path, key omitted: byte-identical to the pre-Option-B reply
-                send({"id": rid, "ok": True, "engine": req.get("engine"),
-                      "t_stt_load": 0.5, "t_cleanup_load": 0.25})
-        elif cmd == "dictate":
-            # Echo the request shape back through the count fields so the test can
-            # assert payload construction: remove_fillers only when the client
-            # sends the flag (7 = sentinel), replacements_fired = the table size
-            # (0 when omitted). B3/B4: pack the vocabulary length and the
-            # format_commands flag into format_commands_fired as (len*10 + flag)
-            # so ONE field proves both were threaded (0 when both omitted).
-            rf = 7 if req.get("remove_fillers") else 0
-            repl = len(req.get("replacements") or {})
-            fmt = len(req.get("vocabulary") or []) * 10 + (1 if req.get("format_commands") else 0)
-            # thai_format is omitted-when-default; echo 5 (sentinel) only when the
-            # client sent the flag, so the test can assert payload construction.
-            tf = 5 if req.get("thai_format") else 0
-            send({"id": rid, "ok": True, "engine": req.get("engine"),
-                  "raw": "hello world", "final": "Hello world.",
-                  "t_stt": 0.012, "t_cleanup": 0.003, "llm_ran": True,
-                  "gate_reason": "dict-hit", "guardrail_flag": "ok",
-                  "cleanup_error": None,
-                  "fillers_removed": rf, "replacements_fired": repl,
-                  "format_commands_fired": fmt, "thai_format_fired": tf})
-        elif cmd == "hang":
-            time.sleep(30)
-        elif cmd == "garbage":
-            sys.stdout.write("this is not json at all\\n")
-            sys.stdout.flush()
-        elif cmd == "noise":
-            send({"id": 999999, "ok": True, "stray": True})
-            sys.stdout.write("garbage stray line\\n")
-            sys.stdout.flush()
-            send({"id": rid, "ok": True, "matched": True})
-        elif cmd == "sttfail":
-            send({"id": rid, "ok": False, "error": "STT backend exploded"})
-        elif cmd == "prog":
-            # Interim events (same id, carry "event") BEFORE the final reply —
-            # the download progress shape. The client must surface these to
-            # onEvent and keep reading for the real reply.
-            send({"id": rid, "event": "progress", "repo": "r", "pct": 10})
-            send({"id": rid, "event": "progress", "repo": "r", "pct": 90})
-            send({"id": rid, "ok": True, "done": True})
-        else:
-            send({"id": rid, "ok": False, "error": "unknown cmd"})
-    """
-
+    private var executable: String!
     override func setUpWithError() throws {
-        let candidates = ["/usr/bin/python3", "/opt/homebrew/bin/python3", "/usr/local/bin/python3"]
-        guard let py = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else {
-            throw XCTSkip("no python3 available to run the fake sidecar")
-        }
-        python = py
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("oliv_fake_sidecar_\(UUID().uuidString).py")
-        try Self.fakeScript.write(to: url, atomically: true, encoding: .utf8)
-        scriptPath = url.path
+        executable = try NativeTestSupport.executable()
     }
-
-    override func tearDownWithError() throws {
-        if let p = scriptPath { try? FileManager.default.removeItem(atPath: p) }
-    }
-
     private func makeClient() -> SidecarClient {
-        SidecarClient(command: [python, scriptPath])
+        SidecarClient(command: [executable, "sidecar"])
     }
 
     // Happy dictate round-trip: final/raw/timings/flags decode correctly.
@@ -314,7 +207,7 @@ final class SidecarClientTests: XCTestCase {
 
     // Spawn failure (bad executable path) surfaces as a typed error, never a crash.
     func testSpawnFailureIsTyped() {
-        let client = SidecarClient(command: ["/nonexistent/oliv/python", scriptPath])
+        let client = SidecarClient(command: ["/nonexistent/oliv/worker"])
         XCTAssertThrowsError(try client.ping()) { error in
             guard case SidecarError.notSpawned = error else {
                 return XCTFail("expected SidecarError.notSpawned, got \(error)")

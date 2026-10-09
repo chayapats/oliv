@@ -4,9 +4,8 @@
 
 ## How I tested
 
-- [ ] `sidecar/.venv/bin/python sidecar/test_text_passes.py`
-- [ ] `sidecar/.venv/bin/python sidecar/test_groq_backend.py`
-- [ ] Swift tests (`xcodebuild … test`) if I touched `macos/`
+- [ ] `bash scripts/test.sh` (Rust + Swift, model-free)
+- [ ] `bash scripts/build_app.sh` if I changed packaging/runtime
 
 ## Notes
 

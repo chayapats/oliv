@@ -104,22 +104,23 @@ More than the defaults suggest — everything lives in the menu-bar olive icon a
 
 ## Reproduce the benchmark
 
-The developer harness runs the shipped Rust + native MLX pipeline by default.
-Use `--runtime reference` to compare with the previous Python implementation.
-Python is only needed for benchmark tooling, and is absent from the app and its build.
+The Rust developer CLI evaluates the shipped pipeline, computes Thai WER/CER,
+and drives native Swift/MLX LaBSE scoring. Build, tests, benchmarks and DMG packaging
+need no Python. See [benchmark/README.md](benchmark/README.md).
 
 ```bash
-# fresh benchmark of the shipped config over all sets:
-bash scripts/build_native.sh
-HF_HUB_OFFLINE=1 \
-  sidecar/.venv/bin/python benchmark/eval_cleanup.py \
-    --manifest data/manifest_all.jsonl --engine typhoon-turbo-mlx --out benchmark/eval_results/ship_main.json
-sidecar/.venv/bin/python benchmark/semantic_score.py     # LaBSE meaning over eval_results/*.json
-sidecar/.venv/bin/python benchmark/build_report_data.py  # + surface metrics -> report_data.json
-sidecar/.venv/bin/python benchmark/build_landing.py      # regenerate docs/index.html
+bash scripts/build_dev.sh
+HF_HUB_OFFLINE=1 build/native-tools/oliv-dev eval \
+  --manifest data/manifest_all.jsonl --engine typhoon-turbo-mlx \
+  --out benchmark/eval_results/ship_main.json
+build/native-tools/oliv-dev semantic --model-dir /path/to/cached/LaBSE/snapshot
+build/native-tools/oliv-dev report --input benchmark/eval_results/ship_main.json \
+  --out benchmark/eval_results/ship_main.html
 ```
 
-Manifests: `benchmark/data/manifest_{all,holdout,d2}.jsonl` (264 clips; audio not tracked). Metric: `benchmark/semantic_score.py` (LaBSE, Thai word-segmented before embedding, threshold 0.80).
+Record your own corpus; audio and private reports are not tracked. Published landing-page
+numbers are historical and are not overwritten by this tool. LaBSE uses Thai word
+segmentation and a cosine threshold of 0.80; rebaseline the full matrix when changing runtimes.
 
 ## Build from source
 
@@ -128,7 +129,7 @@ Apple Silicon Mac, macOS 14+. Full notes in [CONTRIBUTING.md](CONTRIBUTING.md).
 Architecture and measured validation: [native runtime migration](docs/native-runtime-migration.md).
 
 ```bash
-brew install xcodegen
+brew install xcodegen ripgrep
 # Install the stable Rust toolchain from https://rustup.rs
 xcodebuild -downloadComponent MetalToolchain
 bash scripts/build_app.sh    # -> build/OLIV.app
