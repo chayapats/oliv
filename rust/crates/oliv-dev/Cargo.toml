@@ -1,0 +1,23 @@
+[package]
+name = "oliv-dev"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license = "MIT"
+
+[dependencies]
+oliv-text = { path = "../oliv-text" }
+serde_json = { version = "1", features = ["preserve_order"] }
+base64 = "0.22"
+clap = { version = "4.5", features = ["derive"] }
+rcgen = { version = "0.14", default-features = false, features = ["ring", "crypto"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+
+[[bin]]
+name = "oliv-dev"
+path = "src/main.rs"
+
+[[bin]]
+name = "oliv-test-worker"
+path = "src/test_worker.rs"

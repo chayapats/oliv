@@ -1,0 +1,25 @@
+.venv/
+.cache/
+.env
+results.json
+*.pyc
+__pycache__/
+# your recordings + filled-in manifest (keep local)
+data/clips/
+data/manifest.jsonl
+
+# --- PRIVATE finetune corpus (local-only; tooling *.py + README stay public) ---
+# Voice clips, train/verify jsonl, and the personal term/script corpora. Never
+# publish. Regenerate terms/script locally; record your own clips.
+finetune/dataset/
+finetune/_generated.json
+finetune/script.jsonl
+finetune/terms.jsonl
+finetune/terms_manual.txt
+finetune/TERMS_REVIEW.md
+
+# Wispr loopback captures (local voice → third-party cloud; keep off git)
+eval_results/wispr_captures/
+eval_results/wispr_holdout_*.json
+data/manifest_full.jsonl
+eval_results/wispr_full_*.json

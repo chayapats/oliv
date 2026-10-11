@@ -1,0 +1,39 @@
+# OLIV D2 confirmation manifest (2026-07-08). Purpose: confirm Gemma-E2B vs E4B
+# on FRESH, never-seen jargon after E2B was adopted as the default cleanup model.
+# Every English anchor term here is absent from manifest_all + manifest_holdout
+# (checked against the 440-token 'used' set) so this measures GENERALIZATION, not
+# fit. STT held at typhoon-turbo. Record clips/<id>.wav (16k mono ok; loader
+# resamples). Read the `reference` aloud, pronouncing the English words in English.
+# Buckets by id prefix: hx=dense code-switch, mx=mixed, vb=vocab-biased, nu=numbers,
+# lf=long-form. fm/fl intentionally omitted (spoken-formatting/filler paths are
+# orthogonal to the E2B-vs-E4B de-transliteration question).
+{"id": "hx201", "path": "clips/hx201.wav", "bucket": "hx", "reference": "ตอนนี้เราใช้ Envoy เป็น sidecar proxy หน้า service แต่ละตัว", "keywords": ["Envoy"]}
+{"id": "hx202", "path": "clips/hx202.wav", "bucket": "hx", "reference": "migrate ข้อมูลจาก MongoDB ไป CockroachDB เพื่อรองรับ horizontal scaling", "keywords": ["MongoDB", "CockroachDB"]}
+{"id": "hx203", "path": "clips/hx203.wav", "bucket": "hx", "reference": "ตั้ง alert บน PagerDuty แล้วส่ง metric เข้า New Relic ด้วย", "keywords": ["PagerDuty", "New Relic"]}
+{"id": "hx204", "path": "clips/hx204.wav", "bucket": "hx", "reference": "deploy ผ่าน Jenkins pipeline แล้วใช้ Helm chart จัดการ deployment บน GKE", "keywords": ["Jenkins", "Helm", "GKE"]}
+{"id": "hx205", "path": "clips/hx205.wav", "bucket": "hx", "reference": "เขียน service ใหม่เป็น Golang แล้ว expose ผ่าน GraphQL แทน REST เดิม", "keywords": ["Golang", "GraphQL"]}
+{"id": "hx206", "path": "clips/hx206.wav", "bucket": "hx", "reference": "เก็บ vector ไว้ใน Pinecone แล้วต่อกับ LangChain ทำ RAG", "keywords": ["Pinecone", "LangChain", "RAG"]}
+{"id": "hx207", "path": "clips/hx207.wav", "bucket": "hx", "reference": "รัน inference ด้วย vLLM บน A100 จะได้ throughput สูงขึ้น", "keywords": ["vLLM", "A100"]}
+{"id": "hx208", "path": "clips/hx208.wav", "bucket": "hx", "reference": "เปลี่ยนมาใช้ NATS เป็น message bus แทน queue เดิมเพราะ latency ต่ำกว่า", "keywords": ["NATS"]}
+{"id": "hx209", "path": "clips/hx209.wav", "bucket": "hx", "reference": "provision infra ด้วย Pulumi แทน Terraform เพราะเขียนเป็น TypeScript ได้", "keywords": ["Pulumi", "TypeScript"]}
+{"id": "hx210", "path": "clips/hx210.wav", "bucket": "hx", "reference": "เก็บ time-series ไว้ใน ClickHouse แล้ว visualize ผ่าน Superset", "keywords": ["ClickHouse", "Superset"]}
+{"id": "hx211", "path": "clips/hx211.wav", "bucket": "hx", "reference": "ตั้ง rate limit ที่ Traefik ingress ก่อนเข้า backend", "keywords": ["Traefik"]}
+{"id": "hx212", "path": "clips/hx212.wav", "bucket": "hx", "reference": "ทำ mTLS ระหว่าง service ด้วย Linkerd แทนการจัดการ cert เอง", "keywords": ["Linkerd", "mTLS"]}
+{"id": "mx201", "path": "clips/mx201.wav", "bucket": "mx", "reference": "ช่วย sync ไฟล์ขึ้น Dropbox แล้วแชร์ลิงก์ให้ทีมหน่อย", "keywords": ["Dropbox"]}
+{"id": "mx202", "path": "clips/mx202.wav", "bucket": "mx", "reference": "เดี๋ยวเปิด ticket ใน Linear แล้ว assign ให้ทีม frontend", "keywords": ["Linear"]}
+{"id": "mx203", "path": "clips/mx203.wav", "bucket": "mx", "reference": "ประชุมย้ายไปคุยใน Google Meet นะ เดี๋ยวส่ง invite ทาง Outlook", "keywords": ["Google Meet", "Outlook"]}
+{"id": "mx204", "path": "clips/mx204.wav", "bucket": "mx", "reference": "ทำ mockup ใน Figma เสร็จแล้ว เดี๋ยว handoff ให้ dev", "keywords": ["Figma"]}
+{"id": "mx205", "path": "clips/mx205.wav", "bucket": "mx", "reference": "จด note ไว้ใน Notion แล้ว tag หัวข้อ retro ของ sprint นี้", "keywords": ["Notion"]}
+{"id": "mx206", "path": "clips/mx206.wav", "bucket": "mx", "reference": "จ่าย payment รอบนี้ผ่าน PromptPay หรือ TrueMoney ก็ได้", "keywords": ["PromptPay", "TrueMoney"]}
+{"id": "mx207", "path": "clips/mx207.wav", "bucket": "mx", "reference": "สั่งข้าวผ่าน LINE MAN เดี๋ยวหารกันทีหลังนะ", "keywords": ["LINE MAN"]}
+{"id": "mx208", "path": "clips/mx208.wav", "bucket": "mx", "reference": "อัพโหลดไฟล์ขึ้น Cloudflare R2 แล้วตั้ง cache ให้หน่อย", "keywords": ["Cloudflare R2"]}
+{"id": "vb201", "path": "clips/vb201.wav", "bucket": "vb", "reference": "ใช้ Debezium ทำ change data capture จาก database", "keywords": ["Debezium"], "vocab": ["Debezium"]}
+{"id": "vb202", "path": "clips/vb202.wav", "bucket": "vb", "reference": "deploy โมเดลด้วย BentoML แล้ว serve เป็น API", "keywords": ["BentoML"], "vocab": ["BentoML"]}
+{"id": "vb203", "path": "clips/vb203.wav", "bucket": "vb", "reference": "จัดการ feature flag ผ่าน LaunchDarkly", "keywords": ["LaunchDarkly"], "vocab": ["LaunchDarkly"]}
+{"id": "vb204", "path": "clips/vb204.wav", "bucket": "vb", "reference": "เก็บ object ไว้ใน MinIO แทน S3", "keywords": ["MinIO"], "vocab": ["MinIO"]}
+{"id": "vb205", "path": "clips/vb205.wav", "bucket": "vb", "reference": "ใช้ Temporal จัดการ workflow ที่รันนาน", "keywords": ["Temporal"], "vocab": ["Temporal"]}
+{"id": "vb206", "path": "clips/vb206.wav", "bucket": "vb", "reference": "ระบบ auth ใช้ Keycloak เป็น identity provider", "keywords": ["Keycloak"], "vocab": ["Keycloak"]}
+{"id": "nu201", "path": "clips/nu201.wav", "bucket": "nu", "reference": "scale pod จาก 3 ตัวเป็น 12 ตัวตอน traffic พีค แล้วลดกลับตอน off-peak", "keywords": ["off-peak"]}
+{"id": "nu202", "path": "clips/nu202.wav", "bucket": "nu", "reference": "budget infra เดือนนี้อยู่ที่ 45000 บาท เกินมาประมาณ 12 เปอร์เซ็นต์", "keywords": []}
+{"id": "lf201", "path": "clips/lf201.wav", "bucket": "lf", "reference": "เมื่อคืน database ล่มเพราะ connection pool เต็ม เราเลยเพิ่ม replica แล้วเปิด auto-scaling ไว้ ตอนนี้ระบบกลับมา stable แล้ว กำลังเขียน postmortem อยู่", "keywords": ["postmortem", "auto-scaling"]}
+{"id": "lf202", "path": "clips/lf202.wav", "bucket": "lf", "reference": "สรุปที่คุยกับลูกค้าวันนี้นะ เขาอยากได้ dashboard ที่ดึงข้อมูล real-time จาก sensor ทุกตัว แล้ว export เป็น report รายเดือน เดี๋ยวเราไปประเมิน effort แล้วค่อยกลับมาอัพเดท", "keywords": ["real-time", "sensor"]}
