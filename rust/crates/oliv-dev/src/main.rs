@@ -1,4 +1,5 @@
 //! Native developer benchmarks. Private transcripts go only to explicit files.
+mod contextasr;
 mod metrics;
 mod worker;
 use base64::Engine;
@@ -8,7 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use worker::Worker;
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+pub(crate) type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Parser)]
 #[command(about = "OLIV native evaluation and reports (no interpreter)")]
@@ -35,6 +36,11 @@ enum Task {
         model_dir: PathBuf,
         #[arg(long, default_value = "build/native-tools")]
         tools_dir: PathBuf,
+    },
+    /// Thai ContextASR Bench (contextual biasing) through the shipped pipeline.
+    Contextasr {
+        #[command(subcommand)]
+        task: contextasr::Task,
     },
     /// Write a private HTML report; never exports recordings or publishes pages.
     Report {
@@ -66,6 +72,13 @@ struct Eval {
     label: String,
     #[arg(long, default_value = "benchmark/eval_results/native.json")]
     out: PathBuf,
+    /// Cleanup without the LLM (dictionary + vocabulary only).
+    #[arg(long)]
+    no_llm: bool,
+    /// Reuse each clip's `raw` transcript from an earlier results file instead
+    /// of decoding again (cleanup-only re-runs; latency then excludes STT).
+    #[arg(long)]
+    replay: Option<PathBuf>,
 }
 fn read_json(path: &Path) -> Result<Value> {
     Ok(serde_json::from_slice(&std::fs::read(path)?)?)
@@ -184,6 +197,15 @@ fn evaluate(args: Eval) -> Result<()> {
     if rows.is_empty() {
         return Err("No selected manifest rows; evaluation stopped".into());
     }
+    let replay: BTreeMap<String, Value> = match &args.replay {
+        Some(path) => read_json(path)?["clips"]
+            .as_array()
+            .ok_or("Replay file has no clips")?
+            .iter()
+            .filter_map(|c| Some((c["id"].as_str()?.to_owned(), c["raw"].clone())))
+            .collect(),
+        None => BTreeMap::new(),
+    };
     let mut runtime = Worker::new(&args.runtime_dir, "oliv-sidecar", &[])?;
     runtime.request(
         json!({"cmd":"warm","engine":args.engine,"cleanup":!args.no_cleanup}),
@@ -195,6 +217,17 @@ fn evaluate(args: Eval) -> Result<()> {
         let pcm = captured_pcm(Path::new(row["_audio"].as_str().unwrap()))?;
         let mut request = json!({"cmd":"dictate","engine":args.engine,"cleanup":!args.no_cleanup,
             "pcm_b64":base64::engine::general_purpose::STANDARD.encode(&pcm)});
+        if args.no_llm {
+            request["cleanup_llm"] = false.into();
+        }
+        if args.replay.is_some() {
+            let id = row["id"].as_str().unwrap();
+            request["stt_text"] = replay
+                .get(id)
+                .filter(|raw| raw.is_string())
+                .ok_or_else(|| format!("Replay file has no transcript for {id}"))?
+                .clone();
+        }
         if !args.no_cleanup {
             match row["bucket"].as_str().unwrap() {
                 "fl" => request["remove_fillers"] = true.into(),
@@ -244,7 +277,9 @@ fn evaluate(args: Eval) -> Result<()> {
         args.label
     };
     let report = json!({"label":label,"runtime":"native","engine":args.engine,"cleanup_model":if args.no_cleanup {Value::Null}else{json!("mlx-community/gemma-4-e2b-it-4bit")},
-        "manifest":manifest,"no_vocab":args.no_vocab,"metric_version":"newmm_nfc_v1","overall":summarize(&clips),"aggregate":aggregate(&clips),"clips":clips,"missing":[]});
+        "manifest":manifest,"runtime_dir":args.runtime_dir,"no_vocab":args.no_vocab,"no_llm":args.no_llm,
+        "latency_scope":if args.replay.is_some(){"cleanup replay; excludes ASR"}else{"end-to-end native pipeline; includes audio conversion"},
+        "stt":{"replay":args.replay},"metric_version":"newmm_nfc_v1","overall":summarize(&clips),"aggregate":aggregate(&clips),"clips":clips,"missing":[]});
     write_json(&args.out, &report)?;
     println!(
         "{} clips; WER {:.4}, CER {:.4}; wrote {}",
@@ -388,5 +423,6 @@ fn main() -> Result<()> {
             tools_dir,
         } => semantic(&results, &model_dir, &tools_dir),
         Task::Report { input, out } => html_report(&input, &out),
+        Task::Contextasr { task } => contextasr::main(task),
     }
 }

@@ -1,13 +1,15 @@
 //! `pipeline.clean_ex`: dictionary -> vocab -> gate -> LLM -> guardrail ->
-//! Thai spacing -> canonical casing.
+//! listed-term protection -> Thai spacing -> canonical casing.
 
 use serde::Serialize;
 
 use crate::dictionary::{apply_canonical_casing, apply_dictionary, apply_table};
 use crate::gate::gate;
-use crate::guardrail::guardrail;
+use crate::guardrail::{RESTRICTED_FLAG, guardrail, protect_listed_terms};
 use crate::llm::{Llm, Prompt, Request};
-use crate::phonetic::{correct_with_vocab, vocab_hint};
+use crate::phonetic::{
+    correct_with_latin_names, correct_with_thai_vocab, correct_with_vocab, vocab_hint,
+};
 use crate::spacing::normalize_thai_spacing;
 
 /// Per-stage trace of one cleanup (Oliv's `CleanResult` minus timings).
@@ -45,6 +47,14 @@ pub fn clean_ex(text: &str, vocab: &[String], prompt: Prompt, llm: &dyn Llm) -> 
             .iter()
             .filter(|(src, dst)| src.to_lowercase() != dst.to_lowercase())
             .count();
+        // Thai-script terms re-spell Thai spans, and listed Latin names replace
+        // their Thai spelling. Neither proves garbled code-switching, so they add
+        // no gate hit and never wake the LLM by themselves.
+        for correct in [correct_with_thai_vocab, correct_with_latin_names] {
+            let (t, n, _) = correct(&dict_text, vocab);
+            dict_text = t;
+            vocab_fired += n;
+        }
         hints = vocab_hint(&dict_text, vocab);
     }
 
@@ -71,7 +81,14 @@ pub fn clean_ex(text: &str, vocab: &[String], prompt: Prompt, llm: &dyn Llm) -> 
             Ok(g) => {
                 let (f, flag) = guardrail(&dict_text, &g);
                 llm_raw_gen = Some(g);
-                (f, flag.to_string())
+                if flag == "ok" {
+                    match protect_listed_terms(&dict_text, &f, vocab) {
+                        (f, 0) => (f, flag.to_string()),
+                        (f, _) => (f, RESTRICTED_FLAG.to_string()),
+                    }
+                } else {
+                    (f, flag.to_string())
+                }
             }
             Err(e) => {
                 llm_error = Some(e.to_string());

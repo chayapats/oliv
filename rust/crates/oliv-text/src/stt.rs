@@ -28,6 +28,13 @@ pub trait Stt {
 /// took the vb bucket from 23/24 down to 18/24.
 pub const SEED_PROMPT: bool = false;
 
+/// Whether `engine` decodes with a vocabulary initial prompt. Typhoon does not
+/// (see [`SEED_PROMPT`]), so its transcript is independent of the vocabulary.
+/// Other shipped Whisper engines retain vocabulary and formatting hints.
+pub fn uses_initial_prompt(engine: &str) -> bool {
+    engine != "typhoon-turbo-mlx"
+}
+
 /// `_REDECODE_MIN_LOGPROB` / `_REDECODE_MARGIN` of the sidecar.
 const REDECODE_MIN_LOGPROB: f64 = -0.30;
 const REDECODE_MARGIN: f64 = 0.02;

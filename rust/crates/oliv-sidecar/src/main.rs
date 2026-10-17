@@ -111,6 +111,14 @@ impl Stt for ModelStt<'_> {
         })
     }
 }
+/// Evaluation-only `cleanup_llm: false`: behaves as an unavailable cleanup model,
+/// so the reply is the deterministic dictionary + vocabulary result.
+struct DisabledLlm;
+impl Llm for DisabledLlm {
+    fn generate(&self, _request: &Request) -> Result<String, LlmError> {
+        Err(LlmError("Cleanup model disabled by request".into()))
+    }
+}
 struct FixedLlm<'a>(&'a Value);
 impl Llm for FixedLlm<'_> {
     fn generate(&self, request: &Request) -> Result<String, LlmError> {
@@ -257,24 +265,19 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
             }
             let duration = samples.as_ref().map(|s| s.len() as f64 / 16000.0);
             let opts = local_options(request)?;
-            let initial_prompt = if engine == "typhoon-turbo-mlx" {
-                None
-            } else {
-                commands::initial_prompt(
-                    request["initial_prompt"].as_str(),
-                    &opts.vocabulary,
-                    request["format_commands"] == true,
-                )
-            };
+            let initial_prompt = stt_initial_prompt(request, engine, &opts.vocabulary);
             let stt = ModelStt {
                 inference,
                 request,
                 engine,
             };
             let start = Instant::now();
-            let (raw, redecoded) = if let Some(language) =
-                request["language"].as_str().filter(|s| !s.is_empty())
-            {
+            // Evaluation replay of an earlier decode of this same audio. The app
+            // never sends it; silence and duration gates still use the PCM.
+            let replay = request.get("stt_text").and_then(Value::as_str);
+            let (raw, redecoded) = if let Some(text) = replay {
+                (text.to_string(), false)
+            } else if let Some(language) = request["language"].as_str().filter(|s| !s.is_empty()) {
                 (
                     stt.transcribe(&[], initial_prompt.as_deref(), Some(language))?
                         .text,
@@ -285,12 +288,17 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
             };
             let t_stt = start.elapsed().as_secs_f64();
             let start = Instant::now();
+            let cleanup_llm: &dyn Llm = if request["cleanup_llm"] == false {
+                &DisabledLlm
+            } else {
+                &llm
+            };
             let out = local::clean(
                 &raw,
                 duration,
                 &opts,
                 request["format_commands"] == true,
-                &llm,
+                cleanup_llm,
             );
             if out.outcome.no_speech {
                 return Ok(no_speech(&out.outcome.gate_reason, t_stt));
@@ -300,6 +308,7 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
             reply["raw"] = json!(raw);
             reply["engine"] = json!(engine);
             reply["stt_redecoded"] = json!(redecoded);
+            reply["stt_replayed"] = json!(replay.is_some());
             reply["t_stt"] = json!(t_stt);
             reply["t_cleanup"] = json!(start.elapsed().as_secs_f64());
             reply["t_llm"] = json!(llm.seconds.get());
@@ -307,6 +316,18 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
         }
         _ => Err("invalidCommand".into()),
     }
+}
+
+/// Whisper initial prompt using the same engine policy as the app.
+fn stt_initial_prompt(request: &Value, engine: &str, vocabulary: &[String]) -> Option<String> {
+    if !oliv_pipeline::stt::uses_initial_prompt(engine) {
+        return None;
+    }
+    commands::initial_prompt(
+        request["initial_prompt"].as_str(),
+        vocabulary,
+        request["format_commands"] == true,
+    )
 }
 
 fn main() {
@@ -353,5 +374,29 @@ fn main() {
         if emit(&reply).is_err() || once {
             break;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn initial_prompt_follows_the_shipped_engine_policy() {
+        let vocab = vec!["Kafka".to_string(), "คลองเตย".to_string()];
+        let plain = json!({"cmd": "dictate"});
+        assert_eq!(
+            stt_initial_prompt(&plain, "typhoon-turbo-mlx", &vocab),
+            None
+        );
+        assert_eq!(
+            stt_initial_prompt(&plain, "pathumma-mlx", &vocab).as_deref(),
+            Some("Kafka, คลองเตย")
+        );
+        assert_eq!(
+            stt_initial_prompt(&plain, "mlx-large-v3", &vocab).as_deref(),
+            Some("Kafka, คลองเตย")
+        );
+        assert_eq!(stt_initial_prompt(&plain, "pathumma-mlx", &[]), None);
     }
 }

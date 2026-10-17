@@ -215,3 +215,128 @@ pub fn guardrail(dict_text: &str, generation: &str) -> (String, &'static str) {
     }
     (c, "ok")
 }
+
+/// Flag for a generation that passed the guardrail but rewrote a listed term.
+pub const RESTRICTED_FLAG: &str = "ok-termKept";
+
+/// Revert any edit the cleanup model made to a listed Thai-script vocabulary
+/// term present in `dict_text`: the user's list states the spelling they want
+/// (ยูทูบ stays ยูทูบ, a re-spelled name stays as listed). Every other edit is
+/// kept: on Thai ContextASR Bench, reverting the model's Thai-only edits as
+/// well raised CER on ordinary speech, because its deletions mostly remove
+/// repeated or hallucinated ASR text. Returns the text and the edits reverted.
+pub fn protect_listed_terms(dict_text: &str, cand: &str, vocab: &[String]) -> (String, usize) {
+    let a: Vec<char> = dict_text.chars().collect();
+    let mut protected = vec![false; a.len()];
+    for term in vocab.iter().map(|t| strip(t)).filter(|t| has_thai(t)) {
+        let t: Vec<char> = term.chars().collect();
+        if t.is_empty() || t.len() > a.len() {
+            continue;
+        }
+        for i in 0..=a.len() - t.len() {
+            if a[i..i + t.len()] == t[..] {
+                protected[i..i + t.len()].iter_mut().for_each(|p| *p = true);
+            }
+        }
+    }
+    if !protected.contains(&true) {
+        return (cand.to_string(), 0);
+    }
+    let b: Vec<char> = cand.chars().collect();
+    let (n, m) = (a.len(), b.len());
+    let w = m + 1;
+    let mut dp = vec![0u32; (n + 1) * w];
+    for (j, cell) in dp.iter_mut().take(w).enumerate() {
+        *cell = j as u32;
+    }
+    for i in 1..=n {
+        dp[i * w] = i as u32;
+        for j in 1..=m {
+            let sub = dp[(i - 1) * w + j - 1] + u32::from(a[i - 1] != b[j - 1]);
+            dp[i * w + j] = sub.min(dp[(i - 1) * w + j] + 1).min(dp[i * w + j - 1] + 1);
+        }
+    }
+    // Backtrace into (dict index, cand index) steps; None marks a gap.
+    let mut steps: Vec<(Option<usize>, Option<usize>)> = Vec::with_capacity(n.max(m));
+    let (mut i, mut j) = (n, m);
+    while i > 0 || j > 0 {
+        if i > 0
+            && j > 0
+            && dp[i * w + j] == dp[(i - 1) * w + j - 1] + u32::from(a[i - 1] != b[j - 1])
+        {
+            steps.push((Some(i - 1), Some(j - 1)));
+            i -= 1;
+            j -= 1;
+        } else if i > 0 && dp[i * w + j] == dp[(i - 1) * w + j] + 1 {
+            steps.push((Some(i - 1), None));
+            i -= 1;
+        } else {
+            steps.push((None, Some(j - 1)));
+            j -= 1;
+        }
+    }
+    steps.reverse();
+    // Runs of (equal, dict indices, cand indices); edits split by one or two
+    // coincidentally equal letters form one edit.
+    let mut runs: Vec<(bool, Vec<usize>, Vec<usize>)> = Vec::new();
+    for (x, y) in steps {
+        let equal = matches!((x, y), (Some(x), Some(y)) if a[x] == b[y]);
+        let absorb = !equal
+            && runs.len() >= 2
+            && runs[runs.len() - 1].0
+            && runs[runs.len() - 1].1.len() <= 2;
+        if absorb {
+            let (_, ea, eb) = runs.pop().unwrap();
+            let last = runs.last_mut().unwrap();
+            last.1.extend(ea);
+            last.2.extend(eb);
+        }
+        match runs.last_mut() {
+            Some(run) if run.0 == equal => {
+                run.1.extend(x);
+                run.2.extend(y);
+            }
+            _ => runs.push((equal, x.into_iter().collect(), y.into_iter().collect())),
+        }
+    }
+    let mut out = String::with_capacity(cand.len().max(dict_text.len()));
+    let mut reverted = 0;
+    for (equal, ga, gb) in runs {
+        if !equal && ga.iter().any(|&k| protected[k]) {
+            out.extend(ga.iter().map(|&k| a[k]));
+            reverted += 1;
+        } else {
+            out.extend(gb.iter().map(|&k| b[k]));
+        }
+    }
+    (out, reverted)
+}
+
+#[cfg(test)]
+mod protect_tests {
+    use super::protect_listed_terms;
+    fn r(dict: &str, cand: &str, vocab: &[&str]) -> (String, usize) {
+        let vocab: Vec<String> = vocab.iter().map(|s| s.to_string()).collect();
+        protect_listed_terms(dict, cand, &vocab)
+    }
+    #[test]
+    fn listed_thai_terms_keep_their_spelling() {
+        let (t, n) = r("เปิดยูทูบดู log", "เปิด YouTube ดู log", &["ยูทูบ"]);
+        assert_eq!((t.as_str(), n), ("เปิดยูทูบดู log", 1));
+        let (t, n) = r("คุณธีรศิลป์ยิงเข้า", "คุณทีรศิลป์ยิงเข้า", &["ธีรศิลป์", "Grafana"]);
+        assert_eq!((t.as_str(), n), ("คุณธีรศิลป์ยิงเข้า", 1));
+    }
+    #[test]
+    fn other_edits_are_kept() {
+        // Restorations, spelling repairs and deletions away from listed terms.
+        let cand = "restart server แล้วไปเมลเบิร์น";
+        assert_eq!(r("รีสตาร์ทเซิร์ฟเวอร์แล้วไปเมลเบิ้ลครับ", cand, &["ยูทูบ"]).0, cand);
+        let (t, n) = r(
+            "เปิดยูทูบแล้ว restart เซิร์ฟเวอร์",
+            "เปิดยูทูบแล้ว restart server",
+            &["ยูทูบ"],
+        );
+        assert_eq!((t.as_str(), n), ("เปิดยูทูบแล้ว restart server", 0));
+        assert_eq!(r("เปิดยูทูบดู", "เปิด YouTube ดู", &[]).0, "เปิด YouTube ดู");
+    }
+}

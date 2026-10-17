@@ -5,6 +5,14 @@
 - A failed forced-English second decode preserves the first transcription.
 - Request options are validated before processing.
 - Rust Unicode tables may recognize characters newer than Python's tables.
+- Vocabulary (measured on Thai ContextASR Bench, see `benchmark/contextasr.md`):
+  Thai-script terms re-spell near-identical Thai spans; listed Latin names
+  replace Thai spans with an identical royin skeleton; the Latin path skips
+  terms with Thai or non-ASCII letters and 3-letter skeletons, and acronyms
+  never replace real Thai words unless those spell the letters. The frozen
+  vocabulary goldens (one 5-term Latin list) are unaffected.
+- An LLM edit that touches a listed Thai-script vocabulary term is reverted
+  (`guardrail_flag` `ok-termKept`).
 
 Mac formatting commands and audio gates are implemented in `commands.rs`,
 `audio.rs` and `local.rs`. Typhoon avoids an STT initial prompt, while other

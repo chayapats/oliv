@@ -5,6 +5,19 @@ use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{self, Receiver};
 use std::time::Duration;
 
+fn rejection_code(reply: &Value) -> &str {
+    reply["code"]
+        .as_str()
+        .filter(|code| {
+            !code.is_empty()
+                && code.len() <= 64
+                && code
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
+        })
+        .unwrap_or("unspecified")
+}
+
 pub struct Worker {
     child: Child,
     input: Option<ChildStdin>,
@@ -99,16 +112,40 @@ impl Worker {
                 continue;
             }
             if reply["ok"] != true {
-                return Err("Native worker rejected request (enable local inference diagnostics for details)".into());
+                return Err(format!(
+                    "Native worker rejected request (code: {}; enable local inference diagnostics for details)",
+                    rejection_code(&reply)
+                ));
             }
             return Ok(reply);
         }
     }
 }
+
 impl Drop for Worker {
     fn drop(&mut self) {
         self.input.take();
         let _ = self.child.kill();
         let _ = self.child.wait();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn worker_failure_reports_code_without_private_detail() {
+        let reply = json!({"ok":false,"code":"stt_timeout","detail":"private transcript"});
+        assert_eq!(rejection_code(&reply), "stt_timeout");
+        assert_eq!(
+            rejection_code(&json!({"ok":false,"detail":"private transcript"})),
+            "unspecified"
+        );
+        assert_eq!(
+            rejection_code(&json!({"code":"/private/audio path.wav"})),
+            "unspecified"
+        );
     }
 }

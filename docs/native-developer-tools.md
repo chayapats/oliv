@@ -30,6 +30,18 @@ Build tools with `bash scripts/build_dev.sh`, run model-free tests with
 `bash scripts/build_dmg.sh build/OLIV.app dist/OLIV-local.dmg 'OLIV local'`.
 For benchmark details see [../benchmark/README.md](../benchmark/README.md).
 
+Tests do not need downloaded models. To keep model-state UI tests from scanning
+an existing model cache (for example, one on an external disk), use a separate
+empty cache for the test runner:
+
+```sh
+mkdir -p build/test-models
+HF_HOME="$PWD/build/test-models" TEST_RUNNER_HF_HOME="$PWD/build/test-models" \
+  bash scripts/test.sh
+```
+
+The cache override applies only to that command and its test processes.
+
 ## Verification on 2026-10-09
 
 - 259 XCTest cases passed with native Rust socket/IPC fixtures, with no skipped

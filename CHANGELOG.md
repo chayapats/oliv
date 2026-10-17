@@ -6,6 +6,16 @@ the matching `## [X.Y.Z]` section (falling back to `## [Unreleased]`) into the
 Sparkle appcast's release notes, so keep entries short and end-user readable.
 
 ## [Unreleased]
+- **Custom Vocabulary understands Thai spellings.** Names and terms written in
+  Thai in your vocabulary now correct near-miss spellings (บางแคร์ → บางแค,
+  พงศ์ → พงษ์), names you list in English replace their Thai spelling
+  (คลองเตย → Khlong Toei), and cleanup no longer rewrites a listed Thai term
+  into English. On a public Thai benchmark, listed names were recognized 63% of
+  the time instead of 46%.
+- **Fewer wrong vocabulary substitutions with long lists.** All-caps entries
+  (tickers, brands) no longer replace everyday Thai words, and entries that mix
+  Thai and English or use accented letters no longer match fragments of other
+  words. Dictation without a vocabulary is unchanged.
 
 ## [0.2.0] — 2026-10-11
 - **A 5× smaller download, and no Python inside.** Text processing and API

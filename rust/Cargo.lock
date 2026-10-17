@@ -941,11 +941,15 @@ name = "oliv-dev"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "caseless",
  "clap",
+ "flate2",
  "oliv-text",
  "rcgen",
+ "ring",
  "rustls",
  "serde_json",
+ "unicode-normalization",
 ]
 
 [[package]]

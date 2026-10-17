@@ -25,7 +25,10 @@ app model cache. LaBSE requires a local snapshot containing `config.json`,
 
 Evaluation retains `fl` filler removal, `fm` formatting commands and `vb`
 vocabulary flags. `--no-cleanup` is pure STT, with those features disabled.
-`--no-vocab`, `--buckets` and per-bucket `--limit` support ablations. Selected
+`--no-llm` evaluates dictionary and vocabulary cleanup without generation.
+`--no-vocab`, `--buckets` and per-bucket `--limit` support ablations.
+`--replay PATH` reuses raw transcripts from a previous result file for cleanup
+comparisons; its latency excludes ASR and is labelled accordingly. Selected
 missing audio, duplicate IDs and empty selections fail instead of silently
 changing the scored population. Console output contains counts and aggregate
 metrics; transcripts are written only to requested local JSON/HTML files.
@@ -41,6 +44,10 @@ a comparison. `_semantic.json` records aggregate and per-clip scores.
 `run_eval_full.sh` covers the three currently shipped local STT engines with pure
 and E2B cleanup configurations. Groq requires an explicit environment key and is
 excluded from the default offline sweep.
+
+`oliv-dev contextasr` runs the public Thai ContextASR Bench (contextual biasing
+with mixed Thai/Latin vocabulary lists) through the same sidecar; see
+[contextasr.md](contextasr.md) for setup, metrics, scorer parity and results.
 
 Voice recordings, manifests and per-clip reports remain private and untracked.
 Record your own corpus following `data/manifest.example.jsonl`. Reports never
