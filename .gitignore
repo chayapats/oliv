@@ -42,8 +42,8 @@ benchmark/oliv_eval_report.html
 benchmark/eval_results/_semantic.json
 # The finetune forgetting probe is DERIVED from manifest_all (private) + manifest_holdout
 # (public), so it inherits the stricter posture: 59 of its 69 rows quote private reference
-# sentences. The GENERATOR (finetune/probe.py) is committed and regenerates it in one command;
-# the artifact is not. Do not "fix" this by committing it.
+# sentences. Keep this historical artifact private even though its generator
+# has been retired.
 benchmark/data/manifest_ft_probe.jsonl
 
 # --- Internal speaker-2 collection tooling (local-only, not for publication):
