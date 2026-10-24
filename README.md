@@ -53,7 +53,7 @@ Then you fix every word by hand. OLIV turns the English words back into English,
 
 1. **Speak.** Hold the push-to-talk key (Right ⌥ by default). A small waveform pill shows that OLIV is listening.
 2. **Transcribe.** Typhoon Whisper Turbo runs on the GPU with [MLX](https://github.com/ml-explore/mlx).
-3. **Fix known words.** A Rust core applies a dictionary, sound-alike matching, number and `ๆ` formatting, your replacements and your vocabulary.
+3. **Fix known words.** A Rust core applies a built-in dictionary, sound-alike matching, number and `ๆ` formatting, and your personal Dictionary.
 4. **Restore English.** A small on-device language model ([Gemma E2B](https://huggingface.co/mlx-community/gemma-4-e2b-it-4bit)) changes Thai-spelled jargon back to English and leaves everything else as you said it.
 5. **Paste.** The text appears at your cursor with ⌘V. Per-app verbatim mode skips cleanup for terminals and password managers.
 
@@ -96,8 +96,7 @@ OLIV 0.2.0 removes Python from the app. Text processing and API requests use a s
 | **Push-to-talk** | Primary and optional secondary shortcut, presets or any key you record. A separate shortcut undoes the last paste. |
 | **Speech engines** | Typhoon Whisper Turbo (default, Thai + English), Pathumma, or Whisper large-v3 for mostly-English dictation. Each downloads in Settings with a progress bar. |
 | **Text cleanup** | Restores English words, removes fillers (อืม, เอ่อ, um), formats numbers and `ๆ`, and supports spoken commands such as "ขึ้นบรรทัดใหม่" or "new paragraph" (off by default). |
-| **Replacements** | Map a spoken phrase to exact text, for example "อีเมลของผม" → `me@example.com`. |
-| **Vocabulary** | Names, acronyms and jargon that guide recognition itself. |
+| **Dictionary** | Your names, acronyms and jargon guide recognition; add a correction to turn what you say into exact text ("อีเมลของผม" → `me@example.com`). Star the words that matter most, import/export CSV, and with the OLIV API it syncs to your other devices. |
 | **Verbatim apps** | Paste the raw transcript, without cleanup, in apps you choose. |
 | **Audio** | Pick any microphone, cancel speaker echo, and lower other audio while you talk. Bluetooth headphones keep full playback quality. |
 | **Recent dictations** | Your last 10 results in the menu, kept in memory only. Click one to copy it again. |

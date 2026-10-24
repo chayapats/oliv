@@ -21,6 +21,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     let permissions = PermissionsModel()
     let models = ModelState()
     let controller: DictationController
+    /// Keeps the Dictionary in step with the OLIV server (and other devices).
+    let dictionarySync = DictionarySync()
+    /// Last API configuration pushed to sync; a change triggers a resync.
+    private var syncedAPIConfiguration: OLIVAPIConfiguration?
 
     /// Sparkle auto-update (W5-T1). Owns the updater + its standard AppKit user
     /// driver (the update window/prompts). `startingUpdater: true` starts the
@@ -68,8 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         controller.cleanupEnabled = settings.cleanupEnabled
         controller.verbatimApps = settings.verbatimApps
         controller.removeFillers = settings.removeFillers
-        controller.replacements = settings.replacements
-        controller.vocabulary = settings.vocabulary
+        controller.dictionaryEntries = settings.dictionaryEntries
         controller.formatCommands = settings.formatCommands
         controller.thaiFormat = settings.thaiFormat
         controller.showHUD = settings.showRecordingIndicator
@@ -81,12 +84,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         // only when the toggle is on and a key is set (nil = local-only).
         ctrl.sidecar?.setGroqAPIKey(settings.groqKeyForSidecar)
 
+        controller.dictionarySync = dictionarySync
+        // Undo→redictate suggestions go to the settings inbox (gated there on
+        // the auto-learn toggle and history; approval is always required).
+        controller.autoLearnSettings = settings
+
         // Live-apply: any settings change re-pushes into the running controller.
         settings.onChange = { [weak self] in self?.applyLiveSettings() }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         controller.start()          // install the tap + kick off the non-blocking warm
+        syncedAPIConfiguration = settings.olivAPIConfiguration
+        dictionarySync.attach(to: settings)
         refreshReadiness()
         if needsAttention { showOnboarding() }
     }
@@ -110,8 +120,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         controller.cleanupEnabled = settings.cleanupEnabled
         controller.verbatimApps = settings.verbatimApps
         controller.removeFillers = settings.removeFillers
-        controller.replacements = settings.replacements
-        controller.vocabulary = settings.vocabulary
+        controller.dictionaryEntries = settings.dictionaryEntries
         controller.formatCommands = settings.formatCommands
         controller.thaiFormat = settings.thaiFormat
         controller.showHUD = settings.showRecordingIndicator
@@ -129,6 +138,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         // A Groq key/toggle change respawns the sidecar (self-heal) so the new
         // spawn env takes effect on the next dictate; a no-op when unchanged.
         controller.sidecar?.setGroqAPIKey(settings.groqKeyForSidecar)
+        if settings.olivAPIConfiguration != syncedAPIConfiguration {
+            syncedAPIConfiguration = settings.olivAPIConfiguration
+            dictionarySync.configurationChanged()
+        }
         refreshReadiness()
     }
 

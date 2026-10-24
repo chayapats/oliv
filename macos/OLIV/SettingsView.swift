@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 enum SettingsPage: String, CaseIterable, Identifiable {
-    case general, shortcuts, audio, engines, cleanup, replacements, vocabulary, cloud, models
+    case general, shortcuts, audio, engines, cleanup, dictionary, cloud, models
     var id: String { rawValue }
     var title: String {
         switch self {
@@ -11,8 +11,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .audio: return "Audio & microphone"
         case .engines: return "Dictation engine"
         case .cleanup: return "Text cleanup"
-        case .replacements: return "Replacements"
-        case .vocabulary: return "Vocabulary"
+        case .dictionary: return "Dictionary"
         case .cloud: return "Cloud services"
         case .models: return "Models & storage"
         }
@@ -24,8 +23,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .audio: return "Choose how OLIV hears you and handles other audio."
         case .engines: return "Choose the engine that turns your speech into text."
         case .cleanup: return "Turn what you say into text that’s ready to use."
-        case .replacements: return "Say a short phrase. Get exactly the text you need."
-        case .vocabulary: return "Help OLIV recognize the words that matter to you."
+        case .dictionary: return "Teach OLIV your words, and how to fix what it mishears."
         case .cloud: return "Connect a remote engine when you want to use one."
         case .models: return "Manage the models that make on-device dictation possible."
         }
@@ -37,8 +35,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .audio: return "mic"
         case .engines: return "waveform"
         case .cleanup: return "wand.and.stars"
-        case .replacements: return "arrow.left.arrow.right"
-        case .vocabulary: return "character.book.closed"
+        case .dictionary: return "book.closed"
         case .cloud: return "cloud"
         case .models: return "internaldrive"
         }
@@ -46,7 +43,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     var group: String {
         switch self {
         case .general, .shortcuts, .audio: return "EVERYDAY"
-        case .engines, .cleanup, .replacements, .vocabulary: return "DICTATION"
+        case .engines, .cleanup, .dictionary: return "DICTATION"
         case .cloud, .models: return "SYSTEM"
         }
     }
@@ -57,8 +54,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .audio: return "microphone input device bluetooth airpods echo cancellation speaker music volume lower duck"
         case .engines: return "stt recognition transcription local on device offline typhoon whisper pathumma groq api download"
         case .cleanup: return "fillers um uh thai numbers repeated words formatting commands new line paragraph verbatim apps bundle"
-        case .replacements: return "snippets phrase email text expansion dictionary"
-        case .vocabulary: return "custom words terms names jargon acronyms spelling recognition"
+        case .dictionary: return "dictionary vocabulary replacements custom words terms names jargon acronyms spelling recognition snippets phrase corrections starred sync"
         case .cloud: return "groq oliv api remote server url key keychain connection timeout credentials"
         case .models: return "download storage disk space finder weights gemma typhoon whisper pathumma offline"
         }
@@ -191,8 +187,7 @@ struct SettingsView: View {
         case .audio: AudioSettingsView()
         case .engines: EngineSettingsView(onOpenCloud: { selectedPage = .cloud })
         case .cleanup: CleanupSettingsView()
-        case .replacements: ReplacementsSettingsView()
-        case .vocabulary: VocabularySettingsView()
+        case .dictionary: DictionarySettingsView()
         case .cloud: CloudSettingsView(onOpenEngines: { selectedPage = .engines })
         case .models: ModelsSettingsView()
         }

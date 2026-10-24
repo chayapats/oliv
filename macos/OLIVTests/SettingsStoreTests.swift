@@ -37,13 +37,12 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(s.engineID, SidecarClient.defaultEngine)
         XCTAssertTrue(s.cleanupEnabled)
         XCTAssertTrue(s.verbatimApps.isEmpty)
-        // W4-T1: filler removal defaults ON; no replacements out of the box.
+        // W4-T1: filler removal defaults ON; an empty Dictionary out of the box.
         XCTAssertTrue(s.removeFillers)
-        XCTAssertTrue(s.replacements.isEmpty)
+        XCTAssertTrue(s.dictionaryEntries.isEmpty)
         // W4-T2: recording HUD defaults ON.
         XCTAssertTrue(s.showRecordingIndicator)
-        // B3/B4: empty vocabulary, formatting commands OFF by default.
-        XCTAssertTrue(s.vocabulary.isEmpty)
+        // B4: formatting commands OFF by default.
         XCTAssertFalse(s.formatCommands)
         // Thai formatting post-pass defaults ON.
         XCTAssertTrue(s.thaiFormat)
@@ -142,8 +141,8 @@ final class SettingsStoreTests: XCTestCase {
         s.verbatimApps = ["com.apple.dt.xcode", "com.apple.terminal"]
         s.removeFillers = false
         s.showRecordingIndicator = false
-        s.replacements = ["อีเมลของผม": "me@example.com", "เบอร์ผม": "080-000-0000"]
-        s.vocabulary = ["Grafana", "คูเบอร์เนติส", "OLIV"]
+        s.addDictionaryEntry(word: "me@example.com", correction: "อีเมลของผม")
+        s.addDictionaryEntry(word: "คูเบอร์เนติส", correction: nil)
         s.formatCommands = true
         s.thaiFormat = false   // default is ON; flip to prove the round-trip
 
@@ -157,51 +156,11 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(reloaded.verbatimApps, ["com.apple.dt.xcode", "com.apple.terminal"])
         XCTAssertFalse(reloaded.removeFillers)
         XCTAssertFalse(reloaded.showRecordingIndicator)
-        XCTAssertEqual(reloaded.replacements,
-                       ["อีเมลของผม": "me@example.com", "เบอร์ผม": "080-000-0000"])
-        // B3: vocabulary round-trips AND preserves the user's ordering.
-        XCTAssertEqual(reloaded.vocabulary, ["Grafana", "คูเบอร์เนติส", "OLIV"])
+        // The Dictionary round-trips in the user's order.
+        XCTAssertEqual(reloaded.dictionaryEntries.map(\.word), ["me@example.com", "คูเบอร์เนติส"])
+        XCTAssertEqual(reloaded.dictionaryEntries.first?.correction, "อีเมลของผม")
         XCTAssertTrue(reloaded.formatCommands)
         XCTAssertFalse(reloaded.thaiFormat)
-    }
-
-    // B3: addVocabularyTerm trims, ignores blanks, de-duplicates
-    // case-insensitively, appends (preserving order), and persists; remove drops
-    // by exact value.
-    func testVocabularyAddDedupRemovePersist() {
-        let s = OLIVSettings(defaults: defaults, keychain: InMemoryKeychain())
-        s.addVocabularyTerm("  Grafana  ")
-        s.addVocabularyTerm("คูเบอร์เนติส")
-        s.addVocabularyTerm("")             // blank → ignored
-        s.addVocabularyTerm("grafana")      // case-insensitive dup → ignored
-        XCTAssertEqual(s.vocabulary, ["Grafana", "คูเบอร์เนติส"])
-
-        let reloaded = OLIVSettings(defaults: defaults, keychain: InMemoryKeychain())
-        XCTAssertEqual(reloaded.vocabulary, ["Grafana", "คูเบอร์เนติส"])
-        reloaded.removeVocabularyTerm("Grafana")
-        XCTAssertEqual(reloaded.vocabulary, ["คูเบอร์เนติส"])
-    }
-
-    // W4-T1: setReplacement trims the spoken key, ignores a blank spoken OR
-    // replacement, overwrites an existing key, and persists across a reload;
-    // removeReplacement drops by exact spoken phrase.
-    func testReplacementsAddOverwriteRemovePersist() {
-        let s = OLIVSettings(defaults: defaults, keychain: InMemoryKeychain())
-        s.setReplacement(spoken: "  อีเมลของผม  ", replacement: "me@example.com")
-        s.setReplacement(spoken: "เบอร์ผม", replacement: "080-000-0000")
-        s.setReplacement(spoken: "", replacement: "x")            // blank spoken → ignored
-        s.setReplacement(spoken: "y", replacement: "   ")         // blank replacement → ignored
-        XCTAssertEqual(s.replacements,
-                       ["อีเมลของผม": "me@example.com", "เบอร์ผม": "080-000-0000"])
-
-        s.setReplacement(spoken: "อีเมลของผม", replacement: "new@example.com")  // overwrite
-        XCTAssertEqual(s.replacements["อีเมลของผม"], "new@example.com")
-
-        let reloaded = OLIVSettings(defaults: defaults, keychain: InMemoryKeychain())
-        XCTAssertEqual(reloaded.replacements["อีเมลของผม"], "new@example.com")
-        reloaded.removeReplacement("เบอร์ผม")
-        XCTAssertNil(reloaded.replacements["เบอร์ผม"])
-        XCTAssertEqual(reloaded.replacements.count, 1)
     }
 
     // add/remove lowercase the bundle id (macOS bundle-id case-insensitivity) and

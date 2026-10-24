@@ -288,27 +288,24 @@ final class SidecarClient {
     /// those words/spellings. B4 `formatCommands` (default OFF) turns on the
     /// spoken formatting-command pass (new line / paragraph / bullet). Both are
     /// omitted-when-default so a defaults dictate stays byte-identical on the wire.
+    ///
+    /// `dictionary` (omitted when empty): the personal Dictionary's enabled
+    /// entries as `{word, correction?, starred}`, applied by the Rust pipeline
+    /// exactly as the OLIV server applies its copy.
     func dictate(samples: [Float], engine: String? = nil, cleanup: Bool,
                  removeFillers: Bool = false,
                  replacements: [String: String] = [:],
                  vocabulary: [String] = [],
                  formatCommands: Bool = false,
-                 thaiFormat: Bool = false) throws -> DictationResult {
+                 thaiFormat: Bool = false,
+                 dictionary: [DictionaryEntry] = []) throws -> DictationResult {
         let data = samples.withUnsafeBufferPointer { Data(buffer: $0) }
-        var body: [String: Any] = [
-            "cmd": "dictate",
-            "engine": engine ?? self.engine,
-            "cleanup": cleanup,
-            "pcm_b64": data.base64EncodedString(),
-        ]
-        // Protocol default is false/absent; send the flag only when on, and the
-        // table only when non-empty, so a defaults-off dictate is byte-identical
-        // on the wire to the pre-W4-T1 request.
-        if removeFillers { body["remove_fillers"] = true }
-        if !replacements.isEmpty { body["replacements"] = replacements }
-        if !vocabulary.isEmpty { body["vocabulary"] = vocabulary }
-        if formatCommands { body["format_commands"] = true }
-        if thaiFormat { body["thai_format"] = true }
+        let body = Self.dictateBody(
+            engine: engine ?? self.engine, pcmB64: data.base64EncodedString(),
+            cleanup: cleanup, removeFillers: removeFillers,
+            replacements: replacements, vocabulary: vocabulary,
+            formatCommands: formatCommands, thaiFormat: thaiFormat,
+            dictionary: dictionary)
         let reply = try exchange(body, timeout: SidecarClient.dictateTimeout)
         return DictationResult(
             raw: reply["raw"] as? String ?? "",
@@ -703,5 +700,47 @@ private final class LineQueue {
             if !cond.wait(until: deadline) { return nil }   // timed out
         }
         return items.removeFirst()
+    }
+}
+
+// MARK: Request body
+
+extension SidecarClient {
+    /// Enabled entries in the sidecar's `dictionary` wire shape.
+    nonisolated static func dictionaryWireEntries(_ entries: [DictionaryEntry]) -> [[String: Any]] {
+        entries.filter(\.enabled).map { entry in
+            var obj: [String: Any] = ["word": entry.word, "starred": entry.starred]
+            if let correction = entry.correction { obj["correction"] = correction }
+            return obj
+        }
+    }
+
+    /// Pure request-body builder for `dictate` (test seam): the omit-when-
+    /// default idiom lives here, so hermetic tests can assert the exact wire
+    /// shape (including the `dictionary` passthrough) without a sidecar.
+    nonisolated static func dictateBody(engine: String, pcmB64: String, cleanup: Bool,
+                                        removeFillers: Bool = false,
+                                        replacements: [String: String] = [:],
+                                        vocabulary: [String] = [],
+                                        formatCommands: Bool = false,
+                                        thaiFormat: Bool = false,
+                                        dictionary: [DictionaryEntry] = []) -> [String: Any] {
+        var body: [String: Any] = [
+            "cmd": "dictate",
+            "engine": engine,
+            "cleanup": cleanup,
+            "pcm_b64": pcmB64,
+        ]
+        // Protocol default is false/absent; send the flag only when on, and the
+        // table only when non-empty, so a defaults-off dictate is byte-identical
+        // on the wire to the pre-W4-T1 request.
+        if removeFillers { body["remove_fillers"] = true }
+        if !replacements.isEmpty { body["replacements"] = replacements }
+        if !vocabulary.isEmpty { body["vocabulary"] = vocabulary }
+        if formatCommands { body["format_commands"] = true }
+        if thaiFormat { body["thai_format"] = true }
+        let wire = dictionaryWireEntries(dictionary)
+        if !wire.isEmpty { body["dictionary"] = wire }
+        return body
     }
 }

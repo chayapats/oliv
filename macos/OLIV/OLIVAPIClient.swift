@@ -83,6 +83,7 @@ struct OLIVAPIConfiguration: Equatable, CustomDebugStringConvertible {
 enum OLIVAPIError: Error, LocalizedError {
     case invalidURL, insecureURL, invalidKey, invalidTimeout, emptyAudio, audioTooLong
     case requestTooLarge, responseTooLarge, invalidReply, redirect, timeout, network, cancelled, busy
+    case unsupported
     case http(Int)
     case cooldown(TimeInterval)
 
@@ -102,6 +103,7 @@ enum OLIVAPIError: Error, LocalizedError {
         case .network: return "Could not reach the API. Check the connection, URL and TLS certificate."
         case .cancelled: return "The API request was cancelled."
         case .busy: return "An API dictation is already in progress."
+        case .unsupported: return "This OLIV server doesn't support dictionary sync yet."
         case .cooldown(let seconds): return "API cooldown — wait \(String(format: "%.0f", ceil(seconds))) seconds."
         case .http(401): return "API key invalid, expired or revoked. Update it in Settings."
         case .http(403): return "API access denied. Check key scope dictate or contact the administrator."
@@ -274,6 +276,13 @@ final class OLIVAPIClient: DictationProviding {
     static let maxSamples = 1_920_000
     static let maxRequestBytes = 8 * 1024 * 1024
     static let maxResponseBytes = 1024 * 1024
+    /// Deployed-server caps (see `cappedRemoteParams`): vocabulary and
+    /// replacements are each truncated to 128 entries, every string ≤256
+    /// UTF-8 bytes.
+    static let maxRemoteVocabularyEntries = 128
+    static let maxRemoteVocabularyBytes = 256
+    static let maxRemoteReplacementPairs = 128
+    static let maxRemoteReplacementBytes = 256
     private let configuration: OLIVAPIConfiguration
     private let transport: OLIVAPITransport?
     private let state: OLIVAPIRequestState
@@ -300,8 +309,11 @@ final class OLIVAPIClient: DictationProviding {
             body["cleanup"] = options.cleanup
             body["remove_fillers"] = options.removeFillers
             body["thai_format"] = options.thaiFormat && options.cleanup
-            body["vocabulary"] = options.vocabulary
-            body["replacements"] = options.replacements
+            // Same server caps as the HTTPS path (see `requestBody`).
+            let capped = Self.cappedRemoteParams(vocabulary: options.vocabulary,
+                                                 replacements: options.replacements)
+            body["vocabulary"] = capped.vocabulary
+            body["replacements"] = capped.replacements
             let reply = try await RustWorkerRequest().send(body, timeout: configuration.timeout)
             try checkNativeError(reply)
             return try Self.parseReply(status: 200, data: JSONSerialization.data(withJSONObject: reply))
@@ -320,6 +332,32 @@ final class OLIVAPIClient: DictationProviding {
         return try Self.parseReply(status: status, data: reply.data)
     }
 
+    /// The personal dictionary on the server (oliv-server docs/DICTIONARY.md):
+    /// `ops == nil` fetches it, otherwise the operations are applied first.
+    /// Independent of dictation: no busy flag, cooldown or quota involved.
+    /// Throws `.unsupported` when the server predates the dictionary (404).
+    func dictionary(ops: [DictionaryOp]?) async throws -> DictionarySnapshot {
+        let object: [String: Any]
+        if transport == nil {
+            var body = nativeRequest("api_dictionary")
+            if let ops { body["ops"] = ops.map(\.wire) }
+            let reply = try await RustWorkerRequest().send(body, timeout: configuration.timeout)
+            if reply["code"] as? String == "unsupported" { throw OLIVAPIError.unsupported }
+            try checkNativeError(reply)
+            object = reply
+        } else {
+            let body = try ops.map { try JSONSerialization.data(withJSONObject: ["ops": $0.map(\.wire)]) }
+            let reply = try await transport!.send(request(path: "v1/dictionary", body: body, authorized: true),
+                                                 timeout: configuration.timeout, limit: Self.maxResponseBytes)
+            if reply.response.statusCode == 404 { throw OLIVAPIError.unsupported }
+            try Self.checkStatus(reply.response.statusCode)
+            guard let parsed = try? JSONSerialization.jsonObject(with: reply.data) as? [String: Any],
+                  parsed["ok"] as? Bool == true else { throw OLIVAPIError.invalidReply }
+            object = parsed
+        }
+        return try DictionarySnapshot(object)
+    }
+
     /// Liveness only; never sends a key and never gates dictation.
     func health() async throws {
         if transport == nil {
@@ -327,7 +365,7 @@ final class OLIVAPIClient: DictationProviding {
             try checkNativeError(reply)
             return
         }
-        let reply = try await transport!.send(request(path: "health", body: nil),
+        let reply = try await transport!.send(request(path: "health", body: nil, authorized: false),
                                              timeout: configuration.timeout, limit: 8192)
         try Self.checkStatus(reply.response.statusCode)
         struct Health: Decodable { let ok: Bool }
@@ -363,14 +401,17 @@ final class OLIVAPIClient: DictationProviding {
         }
     }
 
-    private func request(path: String, body: Data?) -> URLRequest {
+    /// `body` makes it a JSON POST. Only `/health` goes without the key.
+    private func request(path: String, body: Data?, authorized: Bool = true) -> URLRequest {
         var request = URLRequest(url: configuration.baseURL.appendingPathComponent(path))
         request.timeoutInterval = configuration.timeout
         request.setValue("oliv-macos/" + (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString")
                          as? String ?? "dev"), forHTTPHeaderField: "User-Agent")
+        if authorized {
+            request.setValue("Bearer " + configuration.apiKey, forHTTPHeaderField: "Authorization")
+        }
         if let body = body {
             request.httpMethod = "POST"
-            request.setValue("Bearer " + configuration.apiKey, forHTTPHeaderField: "Authorization")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = body
         }
@@ -379,15 +420,60 @@ final class OLIVAPIClient: DictationProviding {
 
     static func requestBody(samples: [Float], options: DictationOptions) throws -> Data {
         let wav = try encodeWAV(samples)
+        // The server applies the synced dictionary itself; vocabulary and
+        // replacements are only filled for servers without it, truncated to
+        // their caps.
+        let capped = cappedRemoteParams(vocabulary: options.vocabulary,
+                                         replacements: options.replacements)
         // Sorted keys give equal-length replacement ties a stable order; Mac
         // settings store a dictionary, unlike Linux's ordered TOML table.
         let data = try JSONSerialization.data(withJSONObject: [
             "wav_b64": wav.base64EncodedString(), "cleanup": options.cleanup,
             "remove_fillers": options.removeFillers, "thai_format": options.thaiFormat && options.cleanup,
-            "vocabulary": options.vocabulary, "replacements": options.replacements,
+            "vocabulary": capped.vocabulary, "replacements": capped.replacements,
         ], options: [.sortedKeys])
         guard data.count <= maxRequestBytes else { throw OLIVAPIError.requestTooLarge }
         return data
+    }
+
+    /// The server's caps on request `vocabulary`/`replacements` (oversized
+    /// payloads are rejected with 400).
+    ///
+    /// Vocabulary: at most `maxRemoteVocabularyEntries` entries, each 1…
+    /// `maxRemoteVocabularyBytes` UTF-8 bytes. Input order (starred-first from
+    /// the derivation) is preserved, so truncation drops the least important
+    /// terms first. Replacements: at most `maxRemoteReplacementPairs` pairs in
+    /// sorted-key order (matching the wire order), each key/value nonempty and
+    /// ≤ `maxRemoteReplacementBytes` UTF-8 bytes.
+    ///
+    /// Byte counts use UTF-8: Thai text runs 3 bytes/char, so a 100-char Thai
+    /// word is ~300 bytes and MUST be dropped for remote. The dropped counts
+    /// let the UI warn ("N dictionary terms skipped for cloud dictation").
+    static func cappedRemoteParams(vocabulary: [String],
+                                   replacements: [String: String])
+    -> (vocabulary: [String], replacements: [String: String],
+        droppedVocabulary: Int, droppedReplacements: Int) {
+        var keptVocab: [String] = []
+        keptVocab.reserveCapacity(min(vocabulary.count, maxRemoteVocabularyEntries))
+        for term in vocabulary {
+            guard keptVocab.count < maxRemoteVocabularyEntries else { break }
+            let bytes = term.utf8.count
+            guard bytes > 0, bytes <= maxRemoteVocabularyBytes else { continue }
+            keptVocab.append(term)
+        }
+        var keptRepl: [String: String] = [:]
+        for key in replacements.keys.sorted() {
+            guard keptRepl.count < maxRemoteReplacementPairs else { break }
+            guard let value = replacements[key] else { continue }
+            let keyBytes = key.utf8.count
+            let valueBytes = value.utf8.count
+            guard keyBytes > 0, keyBytes <= maxRemoteReplacementBytes,
+                  valueBytes > 0, valueBytes <= maxRemoteReplacementBytes else { continue }
+            keptRepl[key] = value
+        }
+        return (keptVocab, keptRepl,
+                vocabulary.count - keptVocab.count,
+                replacements.count - keptRepl.count)
     }
 
     static func encodeWAV(_ samples: [Float]) throws -> Data {
@@ -436,6 +522,7 @@ final class OLIVAPIClient: DictationProviding {
             let fillers_removed: Int?
             let replacements_fired: Int?
             let thai_format_fired: Int?
+            let dictionary_revision: Int?
         }
         guard let reply = try? JSONDecoder().decode(Reply.self, from: data), reply.ok,
               reply.final != nil || reply.no_speech == true,
@@ -449,7 +536,8 @@ final class OLIVAPIClient: DictationProviding {
                                thaiFormatFired: reply.thai_format_fired ?? 0,
                                noSpeech: reply.no_speech ?? false,
                                sttRedecoded: reply.stt_redecoded ?? false,
-                               engineID: engineID)
+                               engineID: engineID,
+                               dictionaryRevision: reply.dictionary_revision)
     }
 
     static func retryAfter(_ header: String?, now: Date) -> TimeInterval {

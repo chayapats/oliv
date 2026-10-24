@@ -29,6 +29,9 @@ struct DictationResult {
     var sttRedecoded: Bool = false
     /// Actual engine that returned this result, including Groq's local fallback.
     var engineID: String? = nil
+    /// OLIV API only: the server dictionary revision this dictation used, so
+    /// `DictionarySync` can notice another device's edits. nil elsewhere.
+    var dictionaryRevision: Int? = nil
 
     var textToPaste: String { noSpeech ? "" : final }
 }
@@ -41,6 +44,10 @@ struct DictationOptions {
     var vocabulary: [String] = []
     var formatCommands = false
     var thaiFormat = false
+    /// The personal dictionary for LOCAL engines (sent to the sidecar as the
+    /// structured `dictionary` array). The OLIV API applies its own synced copy
+    /// instead, so this stays empty for it.
+    var dictionary: [DictionaryEntry] = []
 }
 
 protocol DictationProviding {
@@ -61,7 +68,8 @@ struct SidecarDictationProvider: DictationProviding {
                                    replacements: options.replacements,
                                    vocabulary: options.vocabulary,
                                    formatCommands: options.formatCommands,
-                                   thaiFormat: options.thaiFormat)
+                                   thaiFormat: options.thaiFormat,
+                                   dictionary: options.dictionary)
             }) else { throw DictationProviderError.localFailure }
         return result
     }

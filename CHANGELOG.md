@@ -6,6 +6,21 @@ the matching `## [X.Y.Z]` section (falling back to `## [Unreleased]`) into the
 Sparkle appcast's release notes, so keep entries short and end-user readable.
 
 ## [Unreleased]
+- **One Dictionary for your words.** Vocabulary and Replacements are now a
+  single Dictionary: a word, plus an optional correction for what you say or
+  what OLIV mishears. Star the words that matter most, turn entries on/off,
+  search, bulk delete, and import/export CSV. Your existing lists move over
+  automatically.
+- **Synced across devices.** With the OLIV API, the Dictionary is kept on your
+  server and shared with your other devices; edits made offline sync later.
+- **Smarter matching.** Corrections ignore letter case and never cut a Thai word
+  in half; "SHA สองห้าหก" becomes SHA256 for a word like `SHA256`; and if the
+  cleanup model rewrites one of your words (e.g. spells a Thai name in English),
+  OLIV keeps your spelling.
+- **Suggestions you approve.** Turn on suggestions and OLIV notices when you undo
+  a dictation and say it again, or when a newly added word was misheard before.
+  Nothing is added until you approve it.
+- OLIV API dictation survives a server restart without an error.
 
 ## [0.2.0] — 2026-10-11
 - **A 5× smaller download, and no Python inside.** Text processing and API

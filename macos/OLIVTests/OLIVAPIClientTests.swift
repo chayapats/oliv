@@ -78,8 +78,14 @@ final class OLIVAPIClientTests: XCTestCase {
         let longest = try OLIVAPIClient.requestBody(samples: Array(repeating: 0, count: OLIVAPIClient.maxSamples),
                                                    options: DictationOptions(cleanup: false))
         XCTAssertLessThan(longest.count, OLIVAPIClient.maxRequestBytes)
-        XCTAssertThrowsError(try OLIVAPIClient.requestBody(samples: [0], options: DictationOptions(
-            cleanup: true, replacements: ["a": String(repeating: "b", count: OLIVAPIClient.maxRequestBytes)])))
+        // Server caps truncate instead of rejecting: an 8 MB replacement value
+        // exceeds the 256-byte per-string cap, so it is dropped (counted in
+        // `cappedRemoteParams`) and the body stays small — no throw.
+        let capped = try OLIVAPIClient.requestBody(samples: [0], options: DictationOptions(
+            cleanup: true, replacements: ["a": String(repeating: "b", count: OLIVAPIClient.maxRequestBytes)]))
+        let cappedBody = try XCTUnwrap(JSONSerialization.jsonObject(with: capped) as? [String: Any])
+        XCTAssertEqual(cappedBody["replacements"] as? [String: String], [:])
+        XCTAssertLessThan(capped.count, OLIVAPIClient.maxRequestBytes)
     }
 
     func testRequestIncludesFalseAndPreservesUnicodeWithoutSidecarFields() throws {
@@ -190,6 +196,39 @@ final class OLIVAPIClientTests: XCTestCase {
         XCTAssertEqual(health.requests.first?.url?.path, "/health")
         XCTAssertNil(health.requests.first?.value(forHTTPHeaderField: "Authorization"))
         XCTAssertNil(health.requests.first?.httpBody)
+    }
+
+    func testDictionarySyncRequestsAndReplies() async throws {
+        let snapshot = Data(#"{"ok":true,"revision":2,"max_entries":1000,"rejected":[],"entries":[{"id":"a","word":"SHA256","correction":null,"enabled":true,"starred":true,"source":"manual"}]}"#.utf8)
+        let get = FixtureTransport(status: 200, data: snapshot)
+        let fetched = try await client(get).dictionary(ops: nil)
+        XCTAssertEqual(fetched.revision, 2)
+        XCTAssertEqual(fetched.entries.first?.word, "SHA256")
+        let request = try XCTUnwrap(get.requests.first)
+        XCTAssertEqual(request.url?.path, "/v1/dictionary")
+        XCTAssertEqual(request.httpMethod ?? "GET", "GET")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-key-never-real",
+                       "unlike /health, the dictionary is per key")
+
+        let post = FixtureTransport(status: 200, data: snapshot)
+        _ = try await client(post).dictionary(ops: [.delete(id: "a")])
+        let body = try XCTUnwrap(post.requests.first?.httpBody)
+        let sent = try XCTUnwrap(JSONSerialization.jsonObject(with: body) as? [String: [[String: String]]])
+        XCTAssertEqual(sent, ["ops": [["op": "delete", "id": "a"]]])
+        XCTAssertEqual(post.requests.first?.httpMethod, "POST")
+
+        do { _ = try await client(FixtureTransport(status: 404, data: Data())).dictionary(ops: nil); XCTFail() }
+        catch OLIVAPIError.unsupported {}
+        // Sync does not take the dictation slot.
+        try state.begin(now: Date())
+        _ = try await client(FixtureTransport(status: 200, data: snapshot)).dictionary(ops: nil)
+        state.end()
+    }
+
+    func testDictateReplyCarriesTheDictionaryRevision() throws {
+        let reply = try OLIVAPIClient.parseReply(status: 200, data: Data(#"{"ok":true,"final":"x","dictionary_revision":7}"#.utf8))
+        XCTAssertEqual(reply.dictionaryRevision, 7)
+        XCTAssertNil(try OLIVAPIClient.parseReply(status: 200, data: Data(#"{"ok":true,"final":"x"}"#.utf8)).dictionaryRevision)
     }
 
     func testURLSessionTransportRoundTripAndBoundedResponse() async throws {

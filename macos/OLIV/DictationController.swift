@@ -38,6 +38,14 @@ final class DictationController {
     /// fallback pastes do not count — Cmd+Z would not reverse them.
     private var lastPastedText: String?
 
+    /// Auto-learn undo→redictate tracking (proposal-only, no silent learning).
+    /// Set when an undo fires; consumed one-shot by `noteUndoThenRedictate`
+    /// when the next paste lands within `autoLearnWindowSeconds`. Wired to the
+    /// store by the coordinator; nil = auto-learn disabled.
+    weak var autoLearnSettings: OLIVSettings?
+    var lastUndoneForLearn: (text: String, at: Date)?
+    var autoLearnWindowSeconds: Double = 30
+
     /// samples → transcript. nil / no-op until W3-T3 wires the sidecar in. Kept
     /// as a fallback seam (tests / future backends); when `sidecar` is set it
     /// takes precedence in the release path.
@@ -61,15 +69,15 @@ final class DictationController {
     /// Sent per-dictate.
     var removeFillers: Bool = true
 
-    /// W4-T1 Feature A: user replacements/snippets (spoken → replacement). Sent
-    /// per-dictate; an empty table is omitted from the request.
-    var replacements: [String: String] = [:]
-
-    /// B3 custom vocabulary: terms sent per-dictate to bias STT recognition (an
-    /// empty list is omitted from the request). B4 formatting-command toggle
-    /// (default OFF). Both live-applied from Settings via the coordinator.
-    var vocabulary: [String] = []
+    /// B4 formatting-command toggle (default OFF), live-applied from Settings.
     var formatCommands: Bool = false
+
+    /// The personal Dictionary (live-applied from Settings). Local engines get
+    /// it per dictate; the OLIV API applies its own synced copy.
+    var dictionaryEntries: [DictionaryEntry] = []
+    /// Whether the server applies the dictionary itself, and where to report
+    /// the revision a dictation used. Wired by the coordinator.
+    weak var dictionarySync: DictionarySync?
 
     /// Thai formatting post-pass (Settings default ON): collapse repeated words
     /// to ๆ and write spoken numbers from ten up as digits. Sent per-dictate,
@@ -284,6 +292,10 @@ final class DictationController {
         }
         let result = injector.undo()
         if result.posted {
+            // Remember the undone text for auto-learn: if the user redictates
+            // within the window, the diff becomes an inbox PROPOSAL (the store
+            // gates on the toggle + history; approval is still required).
+            lastUndoneForLearn = (text, Date())
             lastPastedText = nil
             hud?.notice("Undid last dictation", systemImage: "arrow.uturn.backward")
         } else {
@@ -295,6 +307,23 @@ final class DictationController {
     var hasUndoablePaste: Bool {
         guard let text = lastPastedText else { return false }
         return !text.isEmpty
+    }
+
+    /// Auto-learn seam (proposal-only): diff an undone paste (`old`) against
+    /// its redictation (`new`) and stage inbox candidates. One-shot — consumes
+    /// the undo marker. No-op when the undo is older than
+    /// `autoLearnWindowSeconds`, when no store is wired, or when the store's
+    /// gates (auto-learn toggle, history retention) reject the proposals.
+    /// Never learns silently — every candidate still needs user approval.
+    func noteUndoThenRedictate(old: String, new: String) {
+        let undoneAt = lastUndoneForLearn?.at
+        lastUndoneForLearn = nil
+        guard let at = undoneAt,
+              Date().timeIntervalSince(at) <= autoLearnWindowSeconds else { return }
+        guard let store = autoLearnSettings else { return }
+        let proposals = AutoLearn.proposeFromUndoRedo(oldFinal: old, newFinal: new)
+        guard !proposals.isEmpty else { return }
+        store.proposeAutoLearnCandidates(proposals)
     }
 
     /// Fold the global cleanup switch and the per-app verbatim list into the
@@ -554,8 +583,13 @@ final class DictationController {
         let provider = Self.provider(engine: engine, sidecar: sidecar, apiConfiguration: olivAPIConfiguration)
         let captureSeconds = Self.captureSeconds(for: engine)
         let removeFillers = self.removeFillers
-        let replacements = self.replacements
-        let vocabulary = self.vocabulary
+        // Dictionary routing, frozen at release: local engines get the entries;
+        // the OLIV API applies its own synced copy, and only a server without
+        // dictionary sync (or one not confirmed yet) gets derived vocabulary /
+        // replacements instead.
+        let entries = self.dictionaryEntries
+        let remote = engine == OLIVAPIClient.engineID
+        let deriveForServer = remote && dictionarySync?.serverAppliesDictionary != true
         let formatCommands = self.formatCommands
         let thaiFormat = self.thaiFormat
         // Resolve cleanup ONCE, here at release (main actor), against the app the
@@ -566,10 +600,13 @@ final class DictationController {
             globalEnabled: cleanupEnabled,
             verbatimApps: verbatimApps,
             frontmostBundleID: frontmostBundleID())
-        let options = DictationOptions(cleanup: cleanup, removeFillers: removeFillers,
-                                       replacements: replacements, vocabulary: vocabulary,
-                                       formatCommands: formatCommands && engine != OLIVAPIClient.engineID,
-                                       thaiFormat: Self.effectiveThaiFormat(setting: thaiFormat, cleanup: cleanup))
+        let options = DictationOptions(
+            cleanup: cleanup, removeFillers: removeFillers,
+            replacements: deriveForServer ? DictionaryEntry.replacements(from: entries) : [:],
+            vocabulary: deriveForServer ? DictionaryEntry.vocabulary(from: entries) : [],
+            formatCommands: formatCommands && !remote,
+            thaiFormat: Self.effectiveThaiFormat(setting: thaiFormat, cleanup: cleanup),
+            dictionary: remote ? [] : entries)
 
         // Off-main worker: bounded stop → transcribe → paste. Any failure here
         // is swallowed + logged; we always return to idle so the app can't get
@@ -597,6 +634,7 @@ final class DictationController {
             // history below only when the utterance landed (never on failure).
             var pastedText: String?
             var failureNotice: String?
+            var dictionaryRevision: Int?
 
             if samples.isEmpty {
                 // "Held the key without speaking" and "spoke into a mic that never
@@ -608,6 +646,7 @@ final class DictationController {
                 do {
                     let result = try await provider.dictate(samples: samples, options: options)
                     guard !Task.isCancelled else { return }
+                    dictionaryRevision = result.dictionaryRevision
                     if result.cleanupError != nil {
                         // Remote error strings may contain private text. Log only
                         // the fact of degradation and use the provider's final.
@@ -654,8 +693,10 @@ final class DictationController {
             let frozenStats = stats
             let frozenPastedText = pastedText
             let frozenFailureNotice = failureNotice
+            let frozenRevision = dictionaryRevision
             let controller = self
             await MainActor.run {
+                controller?.dictionarySync?.noteServerRevision(frozenRevision)
                 guard controller?.warmingGeneration == generation else { return }
                 controller?.processingTask = nil
                 appState.status = .idle
@@ -677,6 +718,11 @@ final class DictationController {
                 // clipboard — Cmd+Z would not reverse it.
                 if outcome == .pastedOK, let text = frozenPastedText, !text.isEmpty {
                     controller?.lastPastedText = text
+                    // An undo followed by a redictation: stage the difference
+                    // as auto-learn proposals (approval still required).
+                    if let old = controller?.lastUndoneForLearn {
+                        controller?.noteUndoThenRedictate(old: old.text, new: text)
+                    }
                 }
                 switch outcome {
                 case .pastedOK, .nothingToDo:

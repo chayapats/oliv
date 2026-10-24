@@ -107,124 +107,489 @@ struct CleanupSettingsView: View {
     }
 }
 
-struct ReplacementsSettingsView: View {
-    @EnvironmentObject private var settings: OLIVSettings
-    @State private var newSpoken = ""
-    @State private var newReplacement = ""
-    @State private var editingSpoken: String?
+// MARK: Dictionary
 
-    var body: some View {
-        SettingsPane {
-            SettingsNotice(text: "For example, say “อีเมลของผม” to insert your email address. Replacements run after transcription and cleanup; the longest matching phrase is applied first.", icon: "text.quote")
-            SettingsCard(title: editingSpoken == nil ? "Add a replacement" : "Edit replacement", icon: "plus.circle", subtitle: "A phrase you say, and the exact text OLIV should type.") {
-                HStack(alignment: .top, spacing: 14) {
-                    VStack(alignment: .leading, spacing: 7) {
-                        Text("When I say").font(.system(size: 12, weight: .medium))
-                        TextField("e.g. my email", text: $newSpoken).textFieldStyle(.roundedBorder)
-                            .onSubmit(save).accessibilityLabel("Spoken phrase")
-                    }
-                    Image(systemName: "arrow.right").foregroundStyle(SettingsStyle.accent).padding(.top, 28)
-                    VStack(alignment: .leading, spacing: 7) {
-                        Text("Type this").font(.system(size: 12, weight: .medium))
-                        TextField("e.g. hello@example.com", text: $newReplacement).textFieldStyle(.roundedBorder)
-                            .onSubmit(save).accessibilityLabel("Replacement text")
-                    }
-                }
-                HStack {
-                    if trimmedSpoken != editingSpoken, settings.replacements[trimmedSpoken] != nil {
-                        Text("This phrase already exists and will be updated.")
-                            .font(.system(size: 11)).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if editingSpoken != nil { Button("Cancel", action: clearDraft) }
-                    Button(editingSpoken != nil ? "Save changes" : (settings.replacements[trimmedSpoken] != nil ? "Update replacement" : "Add replacement"), action: save)
-                        .buttonStyle(.borderedProminent).disabled(!canSave)
-                }
-            }
-            SettingsCard(title: "Your replacements · \(settings.replacements.count)", icon: "arrow.left.arrow.right") {
-                if settings.replacements.isEmpty {
-                    SettingsEmptyState(icon: "text.badge.plus", title: "Less speaking, more doing", detail: "Create shortcuts for emails, links, addresses or phrases you use often.")
-                } else {
-                    HStack {
-                        Text("SPOKEN PHRASE").frame(maxWidth: .infinity, alignment: .leading)
-                        Text("REPLACEMENT").frame(maxWidth: .infinity, alignment: .leading)
-                        Spacer().frame(width: 64)
-                    }
-                    .font(.system(size: 9, weight: .semibold)).tracking(1).foregroundStyle(.secondary)
-                    ForEach(settings.replacements.keys.sorted(), id: \.self) { spoken in
-                        Divider()
-                        HStack(alignment: .top, spacing: 12) {
-                            Text(spoken).frame(maxWidth: .infinity, alignment: .leading)
-                            Text(settings.replacements[spoken] ?? "").frame(maxWidth: .infinity, alignment: .leading)
-                                .textSelection(.enabled)
-                            Button {
-                                editingSpoken = spoken
-                                newSpoken = spoken
-                                newReplacement = settings.replacements[spoken] ?? ""
-                            } label: { Image(systemName: "pencil").frame(width: 26, height: 26) }
-                            .buttonStyle(.borderless).help("Edit replacement").accessibilityLabel("Edit \(spoken)")
-                            SettingsRemoveButton(item: spoken) {
-                                settings.removeReplacement(spoken)
-                                if editingSpoken == spoken { clearDraft() }
-                            }
-                        }
-                        .font(.system(size: 12))
-                    }
-                }
-            }
+/// A saved CSV payload for the Dictionary export sheet.
+struct DictionaryCSVDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.commaSeparatedText] }
+    var text: String
+
+    init(text: String = "") { self.text = text }
+
+    init(configuration: ReadConfiguration) throws {
+        if let data = configuration.file.regularFileContents,
+           let s = String(data: data, encoding: .utf8) {
+            text = s
+        } else {
+            text = ""
         }
     }
-    private var trimmedSpoken: String { newSpoken.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var canSave: Bool { !trimmedSpoken.isEmpty && !newReplacement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    private func save() {
-        guard canSave else { return }
-        if let original = editingSpoken, original != trimmedSpoken { settings.removeReplacement(original) }
-        settings.setReplacement(spoken: newSpoken, replacement: newReplacement)
-        clearDraft()
-    }
-    private func clearDraft() {
-        newSpoken = ""
-        newReplacement = ""
-        editingSpoken = nil
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: Data(text.utf8))
     }
 }
 
-struct VocabularySettingsView: View {
+/// The Dictionary page: vocabulary words and misspelling corrections in one
+/// searchable list, with enable/star toggles, edit/delete, bulk delete, CSV
+/// import/export, sync status, and the auto-learn inbox.
+struct DictionarySettingsView: View {
     @EnvironmentObject private var settings: OLIVSettings
-    @State private var newTerm = ""
+    @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var sync: DictionarySync
+    @State private var search = ""
+    @State private var newWord = ""
+    @State private var newCorrection = ""
+    @State private var wantsCorrection = false
+    @State private var suggestedNotice: String?
+    @State private var editingID: String?
+    @State private var editWord = ""
+    @State private var editCorrection = ""
+    @State private var editWantsCorrection = false
+    @State private var selectMode = false
+    @State private var selection = Set<String>()
+    @State private var showImporter = false
+    @State private var showExporter = false
+    @State private var exportDocument = DictionaryCSVDocument()
+    @State private var importMessage: String?
+    @State private var importWarning = false
+
+    private var filtered: [DictionaryEntry] { settings.dictionarySearch(search) }
 
     var body: some View {
         SettingsPane {
-            SettingsNotice(text: "Vocabulary guides recognition from the start. Add names, technical terms or acronyms OLIV mishears. Use Replacements for phrases that should expand into different text.", icon: "character.book.closed")
-            SettingsCard(title: "Teach OLIV a word", icon: "plus.circle", subtitle: "Use the spelling you want to see in your transcript.") {
-                HStack(spacing: 10) {
-                    TextField("e.g. Grafana, Kubernetes, ชยพัฒน์", text: $newTerm)
-                        .textFieldStyle(.roundedBorder).onSubmit(addTyped).accessibilityLabel("Vocabulary term")
-                    Button("Add word", action: addTyped).buttonStyle(.borderedProminent)
-                        .disabled(newTerm.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            SettingsNotice(text: "Vocabulary words bias recognition from the start — add names, jargon or spellings OLIV mishears. Turn on “Correct a misspelling” when you say one thing and want different text typed. Starred words are sent to recognition first.",
+                           icon: "book.closed")
+
+            SettingsCard(title: "Add word", icon: "plus.circle",
+                         subtitle: "Use the spelling you want to see in your transcript.") {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("Word").font(.system(size: 12, weight: .medium))
+                    TextField("e.g. Grafana, ชยพัฒน์", text: $newWord)
+                        .textFieldStyle(.roundedBorder).onSubmit(addEntry)
+                        .accessibilityLabel("Word")
                 }
-                Text("Custom vocabulary applies to every dictation.")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
-            }
-            SettingsCard(title: "Your vocabulary · \(settings.vocabulary.count)", icon: "character.book.closed") {
-                if settings.vocabulary.isEmpty {
-                    SettingsEmptyState(icon: "character.cursor.ibeam", title: "Make it your vocabulary", detail: "Start with your name, a project, or a word you often have to correct.")
-                } else {
-                    ForEach(Array(settings.vocabulary.enumerated()), id: \.element) { index, term in
-                        if index > 0 { Divider() }
-                        HStack {
-                            Text(term).font(.system(size: 13)).textSelection(.enabled)
-                            Spacer()
-                            SettingsRemoveButton(item: term) { settings.removeVocabularyTerm(term) }
-                        }
+                Toggle("Correct a misspelling", isOn: $wantsCorrection)
+                    .font(.system(size: 12, weight: .medium))
+                    .accessibilityLabel("Correct a misspelling")
+                if wantsCorrection {
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text("When I say / STT hears").font(.system(size: 12, weight: .medium))
+                        TextField("e.g. grafannah", text: $newCorrection)
+                            .textFieldStyle(.roundedBorder).onSubmit(addEntry)
+                            .accessibilityLabel("Misspelling")
                     }
+                }
+                if newWord.count > DictionaryEntry.warnFieldLength
+                    || newCorrection.count > DictionaryEntry.warnFieldLength {
+                    Text("Long, but it will still save (up to \(DictionaryEntry.maxFieldLength) characters).")
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+                HStack {
+                    if wantsCorrection, !trimmedCorrection.isEmpty,
+                       settings.dictionaryEntries.contains(where: {
+                           $0.correction.map(DictionaryEntry.trimmed) == trimmedCorrection
+                               && DictionaryEntry.dedupeKey(for: $0.word) != DictionaryEntry.dedupeKey(for: trimmedWord)
+                       }) {
+                        Text("This misspelling already corrects another word.")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Add word", action: addEntry)
+                        .buttonStyle(.borderedProminent).disabled(!canAdd)
+                }
+                if let notice = suggestedNotice {
+                    SettingsNotice(text: notice, icon: "sparkles")
+                }
+                syncStatus
+            }
+
+            SettingsCard(title: "Your dictionary · \(settings.dictionaryEntries.count)", icon: "book.closed") {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    TextField("Search words or misspellings", text: $search)
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityLabel("Search dictionary")
+                    if !search.isEmpty {
+                        Button { search = "" } label: { Image(systemName: "xmark.circle.fill") }
+                            .buttonStyle(.plain).foregroundStyle(.secondary)
+                            .accessibilityLabel("Clear search")
+                    }
+                }
+                HStack {
+                    Button(selectMode ? "Done" : "Select") {
+                        selectMode.toggle()
+                        if !selectMode { selection.removeAll() }
+                    }
+                    .font(.system(size: 12))
+                    if selectMode {
+                        Button("Select all") { selection = Set(filtered.map(\.id)) }
+                            .font(.system(size: 12)).disabled(filtered.isEmpty)
+                        Spacer()
+                        Button("Delete selected (\(selection.count))") { deleteSelected() }
+                            .font(.system(size: 12)).foregroundStyle(.red)
+                            .disabled(selection.isEmpty)
+                    } else {
+                        Spacer()
+                        Text("\(filtered.count) shown")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                }
+                if filtered.isEmpty {
+                    SettingsEmptyState(
+                        icon: "character.cursor.ibeam",
+                        title: settings.dictionaryEntries.isEmpty ? "Make it your vocabulary" : "No matches",
+                        detail: settings.dictionaryEntries.isEmpty
+                            ? "Start with your name, a project, or a word you often have to correct."
+                            : "Try a different search.")
+                } else {
+                    ForEach(filtered) { entry in
+                        if entry.id != filtered.first?.id { Divider() }
+                        dictionaryRow(entry)
+                    }
+                }
+            }
+
+            SettingsCard(title: "Import & export", icon: "arrow.up.arrow.down") {
+                HStack(spacing: 10) {
+                    Button("Import CSV…") { showImporter = true }
+                        .buttonStyle(.bordered)
+                    Button("Export CSV") { exportEntries() }
+                        .buttonStyle(.bordered)
+                        .disabled(settings.dictionaryEntries.isEmpty)
+                }
+                Text("CSV format: word,correction — one per line, up to \(DictionaryEntry.maxCSVRows) rows and 3MB. Rows without a correction become vocabulary words.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                if let message = importMessage {
+                    SettingsNotice(text: message, icon: importWarning ? "exclamationmark.triangle" : "info.circle",
+                                   warning: importWarning)
+                }
+            }
+            .fileImporter(isPresented: $showImporter, allowedContentTypes: [.commaSeparatedText],
+                          allowsMultipleSelection: false, onCompletion: importCSV)
+            .fileExporter(isPresented: $showExporter, document: exportDocument,
+                          contentType: .commaSeparatedText,
+                          defaultFilename: "oliv-dictionary.csv") { result in
+                if case let .failure(error) = result {
+                    importMessage = "Export failed: \(error.localizedDescription)"
+                    importWarning = true
+                }
+            }
+
+            SettingsCard(title: "Auto-learn", icon: "sparkles",
+                         subtitle: "Let OLIV notice words you correct often.") {
+                SettingsToggle(title: "Suggest words from my corrections",
+                               detail: "When you undo a dictation and say it again within 30 seconds, OLIV suggests the difference in the inbox below. Nothing is added until you approve it.",
+                               isOn: $settings.dictionaryAutoLearn)
+            }
+
+            SettingsCard(title: "Auto-learn inbox · \(settings.autoLearnCandidates.count)", icon: "tray.and.arrow.down",
+                         subtitle: "Words OLIV noticed you fixing. Nothing here is applied until you approve it.") {
+                if settings.autoLearnCandidates.isEmpty {
+                    SettingsEmptyState(icon: "tray", title: "No suggestions yet",
+                                       detail: "Undo a dictation and say it again — the difference shows up here for your approval.")
+                } else {
+                    ForEach(settings.autoLearnCandidates) { candidate in
+                        if candidate.id != settings.autoLearnCandidates.first?.id { Divider() }
+                        HStack(alignment: .top, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(candidate.word).font(.system(size: 13, weight: .medium))
+                                    .textSelection(.enabled)
+                                if let correction = candidate.correction, !correction.isEmpty {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "arrow.turn.up.left").font(.system(size: 10))
+                                        Text(correction).font(.system(size: 12))
+                                    }
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                                } else {
+                                    Text("Vocabulary only").font(.system(size: 11)).foregroundStyle(.secondary)
+                                }
+                                Text(candidate.reason == AutoLearnCandidate.reasonUndoRedictate
+                                     ? "You undid this and said it again"
+                                     : "Found in your recent dictation after you added the word")
+                                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button("Approve") { settings.approveCandidate(candidate.id) }
+                                .buttonStyle(.borderedProminent).controlSize(.small)
+                                .accessibilityLabel("Approve \(candidate.word)")
+                            Button { settings.dismissCandidate(candidate.id) } label: {
+                                Image(systemName: "xmark").frame(width: 26, height: 26)
+                            }
+                            .buttonStyle(.borderless).foregroundStyle(.secondary)
+                            .help("Dismiss \(candidate.word)")
+                            .accessibilityLabel("Dismiss \(candidate.word)")
+                        }
+                        .font(.system(size: 12))
+                    }
+                    HStack {
+                        Spacer()
+                        Button("Clear all") { settings.clearCandidates() }
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                    }
+                }
+                Text("Approving adds the word to your dictionary — dismissing forgets it. Suggestions never change what OLIV types on their own.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                if !settings.dictionaryAutoLearn {
+                    Text("Auto-learn is off, so no new suggestions are collected — this inbox is kept as-is.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
                 }
             }
         }
     }
-    private func addTyped() {
-        guard !newTerm.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        settings.addVocabularyTerm(newTerm)
-        newTerm = ""
+
+    @ViewBuilder
+    private func dictionaryRow(_ entry: DictionaryEntry) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                if selectMode {
+                    Toggle("", isOn: selectionBinding(for: entry.id))
+                        .toggleStyle(.checkbox).controlSize(.small)
+                        .labelsHidden().accessibilityLabel("Select \(entry.word)")
+                }
+                Toggle("", isOn: enabledBinding(for: entry))
+                    .toggleStyle(.switch).controlSize(.small)
+                    .labelsHidden().accessibilityLabel("Enable \(entry.word)")
+                    .help(entry.enabled ? "Enabled" : "Disabled")
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(entry.word).font(.system(size: 13, weight: .medium))
+                        .textSelection(.enabled)
+                        .foregroundStyle(entry.enabled ? .primary : .secondary)
+                    if let correction = entry.correction, !correction.isEmpty {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.turn.up.left").font(.system(size: 10))
+                            Text(correction).font(.system(size: 12))
+                        }
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                    } else {
+                        Text("Vocabulary only").font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                Button {
+                    settings.setDictionaryEntryStarred(id: entry.id, starred: !entry.starred)
+                } label: {
+                    Image(systemName: entry.starred ? "star.fill" : "star")
+                        .foregroundStyle(entry.starred ? SettingsStyle.accent : .secondary)
+                        .frame(width: 26, height: 26)
+                }
+                .buttonStyle(.borderless)
+                .help(entry.starred ? "Unstar \(entry.word)" : "Star \(entry.word) — sent to recognition first")
+                .accessibilityLabel(entry.starred ? "Unstar \(entry.word)" : "Star \(entry.word)")
+                if !selectMode {
+                    Button { startEdit(entry) } label: {
+                        Image(systemName: "pencil").frame(width: 26, height: 26)
+                    }
+                    .buttonStyle(.borderless).help("Edit \(entry.word)")
+                    .accessibilityLabel("Edit \(entry.word)")
+                    SettingsRemoveButton(item: entry.word) {
+                        settings.removeDictionaryEntry(entry.id)
+                        selection.remove(entry.id)
+                        if editingID == entry.id { cancelEdit() }
+                    }
+                }
+            }
+            .font(.system(size: 12))
+            if editingID == entry.id {
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("Word", text: $editWord).textFieldStyle(.roundedBorder)
+                        .accessibilityLabel("Edit word")
+                    Toggle("Correct a misspelling", isOn: $editWantsCorrection)
+                        .font(.system(size: 12))
+                    if editWantsCorrection {
+                        TextField("Misspelling", text: $editCorrection).textFieldStyle(.roundedBorder)
+                            .accessibilityLabel("Edit misspelling")
+                    }
+                    HStack {
+                        Spacer()
+                        Button("Cancel", action: cancelEdit)
+                        Button("Save changes", action: saveEdit)
+                            .buttonStyle(.borderedProminent).disabled(!canSaveEdit)
+                    }
+                }
+                .padding(10)
+                .background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
+            }
+        }
+    }
+
+    /// Where the dictionary lives and whether it is up to date.
+    @ViewBuilder
+    private var syncStatus: some View {
+        let (text, icon, warning): (String, String, Bool) = {
+            switch sync.status {
+            case .localOnly: return ("Saved on this Mac. Add an OLIV API key to share it with your other devices.", "desktopcomputer", false)
+            case .syncing: return ("Syncing with the OLIV server…", "arrow.triangle.2.circlepath", false)
+            case .synced: return ("Synced with your other devices.", "checkmark.icloud", false)
+            case .waiting: return ("Changes saved here; they will sync when the server is reachable.", "icloud.slash", false)
+            case .unsupported: return ("This OLIV server doesn't sync dictionaries yet. Words still apply to every dictation.", "info.circle", false)
+            case .failed(let message): return (message, "exclamationmark.triangle", true)
+            }
+        }()
+        SettingsNotice(text: text, icon: icon, warning: warning)
+        if !sync.rejectedWords.isEmpty {
+            SettingsNotice(text: "Not synced (duplicate or dictionary full): \(sync.rejectedWords.joined(separator: ", "))",
+                           icon: "exclamationmark.triangle", warning: true)
+        }
+    }
+
+    private var trimmedWord: String { DictionaryEntry.trimmed(newWord) }
+    private var trimmedCorrection: String { DictionaryEntry.trimmed(newCorrection) }
+
+    private var canAdd: Bool {
+        if wantsCorrection, trimmedCorrection.isEmpty { return false }
+        let corr: String? = wantsCorrection ? newCorrection : nil
+        guard let pair = DictionaryEntry.normalized(word: newWord, correction: corr) else {
+            return false
+        }
+        let key = DictionaryEntry(word: pair.word, correction: pair.correction).dedupeKey()
+        return !settings.dictionaryEntries.contains { $0.dedupeKey() == key }
+    }
+
+    private func addEntry() {
+        guard canAdd else { return }
+        let wordOnly = !wantsCorrection
+            || newCorrection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        settings.addDictionaryEntry(word: newWord,
+                                    correction: wantsCorrection ? newCorrection : nil)
+        if wordOnly {
+            suggestCorrectionForNewWord(newWord)
+        } else {
+            suggestedNotice = nil
+        }
+        newWord = ""
+        newCorrection = ""
+    }
+
+    /// The user just added a word-only entry: look through recent transcripts
+    /// for what STT actually produced and stage a correction candidate for
+    /// one-tap approval. Explicit user action — allowed even with auto-learn
+    /// off; history off means no transcripts to scan.
+    private func suggestCorrectionForNewWord(_ word: String) {
+        let recents = appState.transcripts.entries.map(\.text)
+        guard let candidate = AutoLearn.proposeCorrectionForNewWord(word: word,
+                                                                   recentTexts: recents) else {
+            suggestedNotice = nil
+            return
+        }
+        settings.proposeAutoLearnCandidates([candidate], explicit: true)
+        if let correction = candidate.correction {
+            suggestedNotice = "“\(correction)” in your recent dictation looks like “\(candidate.word)” — review it in the auto-learn inbox below."
+        } else {
+            suggestedNotice = nil
+        }
+    }
+
+    private func enabledBinding(for entry: DictionaryEntry) -> Binding<Bool> {
+        Binding(get: { entry.enabled },
+                set: { settings.setDictionaryEntryEnabled(id: entry.id, enabled: $0) })
+    }
+
+    private func selectionBinding(for id: String) -> Binding<Bool> {
+        Binding(get: { selection.contains(id) }, set: {
+            if $0 { selection.insert(id) } else { selection.remove(id) }
+        })
+    }
+
+    private func startEdit(_ entry: DictionaryEntry) {
+        editingID = entry.id
+        editWord = entry.word
+        if let correction = entry.correction, !correction.isEmpty {
+            editWantsCorrection = true
+            editCorrection = correction
+        } else {
+            editWantsCorrection = false
+            editCorrection = ""
+        }
+    }
+
+    private func cancelEdit() {
+        editingID = nil
+        editWord = ""
+        editCorrection = ""
+        editWantsCorrection = false
+    }
+
+    private var canSaveEdit: Bool {
+        guard editingID != nil else { return false }
+        if editWantsCorrection, DictionaryEntry.trimmed(editCorrection).isEmpty { return false }
+        let corr: String? = editWantsCorrection ? editCorrection : nil
+        guard let pair = DictionaryEntry.normalized(word: editWord, correction: corr) else {
+            return false
+        }
+        let key = DictionaryEntry(word: pair.word, correction: pair.correction).dedupeKey()
+        return !settings.dictionaryEntries.contains {
+            $0.id != editingID && $0.dedupeKey() == key
+        }
+    }
+
+    private func saveEdit() {
+        guard let id = editingID, canSaveEdit else { return }
+        settings.updateDictionaryEntry(id: id, word: editWord,
+                                       correction: editWantsCorrection ? editCorrection : nil)
+        cancelEdit()
+    }
+
+    private func deleteSelected() {
+        settings.removeDictionaryEntries(selection)
+        selection.removeAll()
+        selectMode = false
+    }
+
+    private func exportEntries() {
+        exportDocument = DictionaryCSVDocument(text: settings.exportDictionaryCSV())
+        importMessage = nil
+        showExporter = true
+    }
+
+    private func importCSV(_ result: Result<[URL], Error>) {
+        switch result {
+        case let .success(urls):
+            guard let url = urls.first else { return }
+            let didAccess = url.startAccessingSecurityScopedResource()
+            defer { if didAccess { url.stopAccessingSecurityScopedResource() } }
+            do {
+                let data = try Data(contentsOf: url)
+                guard data.count <= DictionaryEntry.maxCSVBytes else {
+                    throw DictionaryEntry.CSVError.tooLarge(limit: DictionaryEntry.maxCSVBytes)
+                }
+                guard let text = String(data: data, encoding: .utf8) else {
+                    importMessage = "Could not read that file as text (expected UTF-8 CSV)."
+                    importWarning = true
+                    return
+                }
+                let (imported, skipped) = try settings.importDictionaryCSV(text)
+                importWarning = false
+                if imported == 0 {
+                    importMessage = skipped == 0
+                        ? "Nothing to import — the file has no word rows."
+                        : "No new words — \(skipped) row\(skipped == 1 ? " was" : "s were") skipped (invalid or already in your dictionary)."
+                } else if skipped == 0 {
+                    importMessage = "Imported \(imported) word\(imported == 1 ? "" : "s")."
+                } else {
+                    importMessage = "Imported \(imported) word\(imported == 1 ? "" : "s"); \(skipped) row\(skipped == 1 ? " was" : "s were") skipped (invalid or duplicate)."
+                }
+            } catch let error as DictionaryEntry.CSVError {
+                importWarning = true
+                switch error {
+                case .empty:
+                    importMessage = "That file is empty — nothing to import."
+                case .badHeader:
+                    importMessage = "Wrong format — the first line must be “word,correction”."
+                case let .tooManyRows(limit):
+                    importMessage = "Too many rows — the limit is \(limit) per import."
+                case .tooLarge:
+                    importMessage = "That file is over 3MB — split it and try again."
+                }
+            } catch {
+                importWarning = true
+                importMessage = "Import failed: \(error.localizedDescription)"
+            }
+        case let .failure(error):
+            importWarning = true
+            importMessage = "Import failed: \(error.localizedDescription)"
+        }
     }
 }

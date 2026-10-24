@@ -35,10 +35,14 @@ final class OLIVSettings: ObservableObject {
         static let apiEnabled = "oliv.api.enabled"
         static let apiURL = "oliv.api.url"
         static let apiTimeout = "oliv.api.timeout"
-        static let replacements = "oliv.replacements"     // [String:String] spoken -> replacement
+        static let legacyReplacements = "oliv.replacements" // pre-Dictionary [String:String]; migrated once, then removed
         static let removeFillers = "oliv.removeFillers"   // W4-T1 filler-word toggle
         static let showRecordingIndicator = "oliv.showRecordingIndicator" // W4-T2 HUD toggle
-        static let vocabulary = "oliv.vocabulary"         // B3 custom-vocabulary term list [String]
+        static let legacyVocabulary = "oliv.vocabulary"   // pre-Dictionary [String]; migrated once, then removed
+        static let legacyDictionaryBackup = "oliv.legacyDictionaryBackup" // JSON copy of both, kept for recovery
+        static let dictionaryEntries = "oliv.dictionaryEntries" // Dictionary JSON [DictionaryEntry]
+        static let dictionaryAutoLearn = "oliv.dictionaryAutoLearn" // undo→redictate suggestions toggle
+        static let autoLearnCandidates = "oliv.autoLearnCandidates" // inbox JSON [AutoLearnCandidate]
         static let formatCommands = "oliv.formatCommands" // B4 spoken formatting-command toggle
         static let thaiFormat = "oliv.thaiFormat"         // Thai number/reduplication post-pass toggle
         static let historyEnabled = "oliv.historyEnabled" // 0.1.5 recent-transcripts toggle
@@ -173,13 +177,40 @@ final class OLIVSettings: ObservableObject {
         didSet { defaults.set(duckOtherAudio, forKey: Key.duckOtherAudio); onChange?() }
     }
 
-    /// B3 custom vocabulary: user terms (names / jargon / product names) sent
-    /// per-dictate as a Whisper initial_prompt to bias RECOGNITION toward them —
-    /// distinct from `replacements`, which only rewrites text STT already
-    /// produced. Ordered, de-duplicated; an empty list is omitted from the wire.
-    @Published var vocabulary: [String] {
-        didSet { defaults.set(vocabulary, forKey: Key.vocabulary); onChange?() }
+    /// The personal Dictionary: vocabulary words and misspelling corrections
+    /// (the old separate Vocabulary/Replacements lists were migrated into it).
+    /// Persisted as JSON under `oliv.dictionaryEntries`; every user edit is
+    /// reported to `onDictionaryEdit` so `DictionarySync` can send it on.
+    @Published var dictionaryEntries: [DictionaryEntry] {
+        didSet {
+            persistDictionaryEntries()
+            if !applyingServerDictionary { onDictionaryEdit?(oldValue, dictionaryEntries) }
+            onChange?()
+        }
     }
+
+    /// (old, new) after each user edit of `dictionaryEntries`; not called for
+    /// lists that came from the server.
+    var onDictionaryEdit: (([DictionaryEntry], [DictionaryEntry]) -> Void)?
+    private var applyingServerDictionary = false
+
+    /// Auto-learn (Wispr `auto_learn` parity). Default OFF. When on, undoing a
+    /// dictation and saying it again within 30 s stages the difference in the
+    /// inbox below; nothing is learned until the user approves it.
+    @Published var dictionaryAutoLearn: Bool {
+        didSet { defaults.set(dictionaryAutoLearn, forKey: Key.dictionaryAutoLearn); onChange?() }
+    }
+
+    /// Auto-learn candidate inbox (proposal + approval only — nothing here is
+    /// applied until the user approves it). Newest first, capped at
+    /// `autoLearnCap` (oldest dropped). Persisted as JSON under
+    /// `oliv.autoLearnCandidates`.
+    @Published var autoLearnCandidates: [AutoLearnCandidate] {
+        didSet { persistAutoLearnCandidates(); onChange?() }
+    }
+
+    /// Inbox ceiling: the newest 50 proposals are kept.
+    static let autoLearnCap = 50
 
     /// B4: convert spoken formatting commands (new line / paragraph / bullet)
     /// into real line breaks. Default OFF — higher false-positive risk than
@@ -204,14 +235,6 @@ final class OLIVSettings: ObservableObject {
     /// the moment it flips off.
     @Published var historyEnabled: Bool {
         didSet { defaults.set(historyEnabled, forKey: Key.historyEnabled); onChange?() }
-    }
-
-    /// W4-T1 Feature A: user replacements/snippets — spoken phrase -> replacement
-    /// (e.g. "อีเมลของผม" -> the user's real email). Persisted as a [String:String]
-    /// dict; sent per-dictate (an empty dict is omitted from the request). The
-    /// sidecar applies it via the same boundary-guarded apply_dictionary pass.
-    @Published var replacements: [String: String] {
-        didSet { defaults.set(replacements, forKey: Key.replacements); onChange?() }
     }
 
     /// Lowercased bundle ids kept VERBATIM (cleanup bypassed) — the collapsed
@@ -317,8 +340,11 @@ final class OLIVSettings: ObservableObject {
         cleanupEnabled = defaults.object(forKey: Key.cleanupEnabled) as? Bool ?? true
         removeFillers = defaults.object(forKey: Key.removeFillers) as? Bool ?? true
         showRecordingIndicator = defaults.object(forKey: Key.showRecordingIndicator) as? Bool ?? true
-        replacements = defaults.dictionary(forKey: Key.replacements) as? [String: String] ?? [:]
-        vocabulary = defaults.array(forKey: Key.vocabulary) as? [String] ?? []
+        dictionaryAutoLearn = defaults.object(forKey: Key.dictionaryAutoLearn) as? Bool ?? false
+        // `dictionaryEntries` is resolved below (see migration), after every
+        // stored property has a value — Swift forbids any other order.
+        dictionaryEntries = []
+        autoLearnCandidates = []
         formatCommands = defaults.object(forKey: Key.formatCommands) as? Bool ?? false
         thaiFormat = defaults.object(forKey: Key.thaiFormat) as? Bool ?? true   // default ON
         historyEnabled = defaults.object(forKey: Key.historyEnabled) as? Bool ?? true
@@ -334,6 +360,25 @@ final class OLIVSettings: ObservableObject {
         let apiTimeout = defaults.object(forKey: Key.apiTimeout) as? Int ?? 120
         olivAPITimeout = (10...180).contains(apiTimeout) ? apiTimeout : 120
         olivAPIKey = keychain.string(forAccount: KeychainStore.olivAPIAccount) ?? ""
+        // Dictionary, resolved LAST: every stored property above has a value
+        // now. didSet does not run during init, so persist explicitly.
+        if let data = defaults.data(forKey: Key.dictionaryEntries),
+           let decoded = try? JSONDecoder().decode([DictionaryEntry].self, from: data) {
+            dictionaryEntries = decoded
+        } else {
+            dictionaryEntries = DictionaryEntry.migrate(
+                vocabulary: defaults.array(forKey: Key.legacyVocabulary) as? [String] ?? [],
+                replacements: defaults.dictionary(forKey: Key.legacyReplacements) as? [String: String] ?? [:])
+            persistDictionaryEntries()
+        }
+        retireLegacyDictionaryStores()
+        // Auto-learn inbox: load persisted proposals (legacy installs have
+        // none — the key is simply absent). Corrupt JSON resets to empty rather
+        // than crashing; the migration above is untouched.
+        if let data = defaults.data(forKey: Key.autoLearnCandidates),
+           let decoded = try? JSONDecoder().decode([AutoLearnCandidate].self, from: data) {
+            autoLearnCandidates = Array(decoded.prefix(Self.autoLearnCap))
+        }
         // Defend the picker invariant on load: if a persisted engineID is no
         // longer offered (e.g. a stored groq selection whose key/toggle is now
         // gone), fall back to the local default. onChange is still nil here, so
@@ -422,33 +467,189 @@ final class OLIVSettings: ObservableObject {
         verbatimApps.remove(bundleID.lowercased())
     }
 
-    /// Add/update a user replacement (W4-T1). The spoken phrase is trimmed;
-    /// blank spoken OR blank replacement is ignored (a snippet needs both). An
-    /// existing spoken phrase is overwritten (a dict keyed by spoken phrase).
-    func setReplacement(spoken: String, replacement: String) {
-        let key = spoken.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !key.isEmpty,
-              !replacement.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        replacements[key] = replacement
+    // MARK: Dictionary
+
+    private func persistDictionaryEntries() {
+        defaults.set(try? JSONEncoder().encode(dictionaryEntries), forKey: Key.dictionaryEntries)
     }
 
-    /// Remove a user replacement by its exact spoken phrase.
-    func removeReplacement(_ spoken: String) {
-        replacements.removeValue(forKey: spoken)
+    /// The pre-Dictionary vocabulary/replacements stores are folded into
+    /// `dictionaryEntries` on first launch. Afterwards they must not linger:
+    /// anything still reading them would resurrect entries the user deleted.
+    /// A JSON copy is kept under `legacyDictionaryBackup` for manual recovery.
+    private func retireLegacyDictionaryStores() {
+        let vocabulary = defaults.array(forKey: Key.legacyVocabulary) as? [String]
+        let replacements = defaults.dictionary(forKey: Key.legacyReplacements) as? [String: String]
+        guard vocabulary != nil || replacements != nil else { return }
+        if defaults.data(forKey: Key.legacyDictionaryBackup) == nil {
+            let backup: [String: Any] = ["vocabulary": vocabulary ?? [], "replacements": replacements ?? [:]]
+            defaults.set(try? JSONSerialization.data(withJSONObject: backup), forKey: Key.legacyDictionaryBackup)
+        }
+        defaults.removeObject(forKey: Key.legacyVocabulary)
+        defaults.removeObject(forKey: Key.legacyReplacements)
     }
 
-    /// Add a custom-vocabulary term (B3). Trimmed; blank input ignored; a term
-    /// already present (case-insensitively) is not duplicated. Appends so the
-    /// user's ordering is preserved.
-    func addVocabularyTerm(_ term: String) {
-        let t = term.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !t.isEmpty else { return }
-        guard !vocabulary.contains(where: { $0.caseInsensitiveCompare(t) == .orderedSame }) else { return }
-        vocabulary.append(t)
+    /// Install the server's copy (from `DictionarySync`) without reporting it
+    /// back as a user edit. Device-local usage counts are kept by id.
+    func replaceDictionaryFromServer(_ entries: [DictionaryEntry]) {
+        let usage = Dictionary(dictionaryEntries.map { ($0.id, $0.usageCount) }, uniquingKeysWith: { a, _ in a })
+        let merged = entries.map { entry -> DictionaryEntry in
+            var entry = entry
+            entry.usageCount = usage[entry.id] ?? entry.usageCount
+            return entry
+        }
+        guard merged != dictionaryEntries else { return }
+        applyingServerDictionary = true
+        defer { applyingServerDictionary = false }
+        dictionaryEntries = merged
     }
 
-    /// Remove a custom-vocabulary term by its exact value.
-    func removeVocabularyTerm(_ term: String) {
-        vocabulary.removeAll { $0 == term }
+    /// Case-insensitive substring search over word + correction. Empty query
+    /// returns everything in stored order.
+    func dictionarySearch(_ query: String) -> [DictionaryEntry] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return dictionaryEntries }
+        return dictionaryEntries.filter {
+            $0.word.localizedCaseInsensitiveContains(q)
+                || ($0.correction?.localizedCaseInsensitiveContains(q) ?? false)
+        }
+    }
+
+    /// Append a word (+ optional correction). Trims, validates, and dedupes;
+    /// returns nil when invalid or already present. When a word-only entry for
+    /// the same word exists and a correction is supplied, it is upgraded in
+    /// place instead of duplicating.
+    @discardableResult
+    func addDictionaryEntry(word: String, correction: String?,
+                            source: DictionarySource = .manual) -> DictionaryEntry? {
+        guard let pair = DictionaryEntry.normalized(word: word, correction: correction) else {
+            return nil
+        }
+        let candidate = DictionaryEntry(word: pair.word, correction: pair.correction, source: source)
+        if dictionaryEntries.contains(where: { $0.dedupeKey() == candidate.dedupeKey() }) {
+            return nil
+        }
+        if pair.correction != nil,
+           let idx = dictionaryEntries.firstIndex(where: {
+               $0.correction == nil
+                   && DictionaryEntry.dedupeKey(for: $0.word) == DictionaryEntry.dedupeKey(for: pair.word)
+           }) {
+            dictionaryEntries[idx].correction = pair.correction
+            return dictionaryEntries[idx]
+        }
+        dictionaryEntries.append(candidate)
+        return candidate
+    }
+
+    /// Replace an entry's word/correction by id. Returns false when the id is
+    /// unknown, the pair is invalid, or it would collide with another entry.
+    @discardableResult
+    func updateDictionaryEntry(id: String, word: String, correction: String?) -> Bool {
+        guard let idx = dictionaryEntries.firstIndex(where: { $0.id == id }),
+              let pair = DictionaryEntry.normalized(word: word, correction: correction) else {
+            return false
+        }
+        let key = DictionaryEntry(word: pair.word, correction: pair.correction).dedupeKey()
+        guard !dictionaryEntries.enumerated().contains(where: {
+            $0.offset != idx && $0.element.dedupeKey() == key
+        }) else { return false }
+        dictionaryEntries[idx].word = pair.word
+        dictionaryEntries[idx].correction = pair.correction
+        return true
+    }
+
+    func removeDictionaryEntry(_ id: String) {
+        dictionaryEntries.removeAll { $0.id == id }
+    }
+
+    func removeDictionaryEntries(_ ids: Set<String>) {
+        guard !ids.isEmpty else { return }
+        dictionaryEntries.removeAll { ids.contains($0.id) }
+    }
+
+    func setDictionaryEntryEnabled(id: String, enabled: Bool) {
+        guard let idx = dictionaryEntries.firstIndex(where: { $0.id == id }) else { return }
+        dictionaryEntries[idx].enabled = enabled
+    }
+
+    func setDictionaryEntryStarred(id: String, starred: Bool) {
+        guard let idx = dictionaryEntries.firstIndex(where: { $0.id == id }) else { return }
+        dictionaryEntries[idx].starred = starred
+    }
+
+    /// Import `word,correction` CSV text: parses (≤1000 rows, ≤3MB enforced by
+    /// the parser), dedupes against existing entries, appends the rest.
+    /// - Returns: (imported, skipped) — skipped counts invalid + duplicate rows.
+    @discardableResult
+    func importDictionaryCSV(_ text: String) throws -> (imported: Int, skipped: Int) {
+        let parsed = try DictionaryEntry.parseCSV(text)
+        var seen = Set(dictionaryEntries.map { $0.dedupeKey() })
+        var imported = 0
+        var skipped = parsed.skipped
+        for entry in parsed.entries {
+            guard seen.insert(entry.dedupeKey()).inserted else { skipped += 1; continue }
+            dictionaryEntries.append(entry)
+            imported += 1
+        }
+        return (imported, skipped)
+    }
+
+    /// Export every entry (including disabled) to `word,correction` CSV.
+    func exportDictionaryCSV() -> String {
+        DictionaryEntry.serializeCSV(dictionaryEntries)
+    }
+
+    // MARK: Auto-learn inbox (proposal + approval only)
+
+    private func persistAutoLearnCandidates() {
+        defaults.set(try? JSONEncoder().encode(autoLearnCandidates), forKey: Key.autoLearnCandidates)
+    }
+
+    /// Stage background proposals (undo→redictate path). No-op unless the
+    /// auto-learn toggle is ON and history retention is ON (history off means
+    /// no transcript retention → no background candidates). Pass
+    /// `explicit: true` for suggestions the user asked for (adding a word),
+    /// which are always allowed. Dedupes against existing dictionary
+    /// entries and within the inbox (repeat sightings bump `baseCount` instead
+    /// of duplicating); the inbox keeps the newest `autoLearnCap` proposals.
+    func proposeAutoLearnCandidates(_ candidates: [AutoLearnCandidate], explicit: Bool = false) {
+        guard explicit || (dictionaryAutoLearn && historyEnabled) else { return }
+        let existing = Set(dictionaryEntries.map { $0.dedupeKey() })
+        for candidate in candidates {
+            let key = candidate.dedupeKey()
+            guard !existing.contains(key) else { continue }
+            if let idx = autoLearnCandidates.firstIndex(where: { $0.dedupeKey() == key }) {
+                autoLearnCandidates[idx].baseCount += candidate.baseCount
+            } else {
+                autoLearnCandidates.insert(candidate, at: 0)
+            }
+        }
+        if autoLearnCandidates.count > Self.autoLearnCap {
+            autoLearnCandidates = Array(autoLearnCandidates.prefix(Self.autoLearnCap))
+        }
+    }
+
+    /// Approve a candidate: it becomes a real DictionaryEntry via the existing
+    /// add path (source `.autoLearn`) and leaves the inbox. Returns the entry,
+    /// or nil when the id is unknown or the pair is now a duplicate.
+    @discardableResult
+    func approveCandidate(_ id: UUID) -> DictionaryEntry? {
+        guard let idx = autoLearnCandidates.firstIndex(where: { $0.id == id }) else {
+            return nil
+        }
+        let candidate = autoLearnCandidates.remove(at: idx)
+        return addDictionaryEntry(word: candidate.word, correction: candidate.correction,
+                                  source: .autoLearn)
+    }
+
+    /// Dismiss a candidate without learning it.
+    func dismissCandidate(_ id: UUID) {
+        autoLearnCandidates.removeAll { $0.id == id }
+    }
+
+    /// Empty the inbox.
+    func clearCandidates() {
+        guard !autoLearnCandidates.isEmpty else { return }
+        autoLearnCandidates.removeAll()
     }
 }

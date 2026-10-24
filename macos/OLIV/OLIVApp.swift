@@ -34,7 +34,9 @@ struct OLIVApp: App {
 
         Settings {
             SettingsView()
+                .environmentObject(appDelegate.appState)
                 .environmentObject(appDelegate.settings)
+                .environmentObject(appDelegate.dictionarySync)
                 .environmentObject(appDelegate.models)
                 .environmentObject(appDelegate.permissions)
                 .environmentObject(appDelegate)
