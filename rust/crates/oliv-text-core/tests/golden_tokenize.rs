@@ -1,7 +1,7 @@
 mod common;
 
 use common::{check, s};
-use oliv_pipeline::tokenize::word_tokenize;
+use oliv_text_core::tokenize::word_tokenize;
 use serde_json::{Value, json};
 
 fn run(c: &Value) -> Result<Value, String> {

@@ -962,12 +962,24 @@ dependencies = [
 name = "oliv-text"
 version = "0.1.0"
 dependencies = [
+ "fancy-regex",
+ "flate2",
+ "num-bigint",
+ "oliv-text-core",
+ "regex",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "oliv-text-core"
+version = "0.1.0"
+dependencies = [
  "caseless",
  "fancy-regex",
  "flate2",
  "num-bigint",
  "regex",
- "serde",
  "serde_json",
  "unicode-general-category",
  "unicode-normalization",

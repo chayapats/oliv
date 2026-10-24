@@ -9,7 +9,10 @@ The upstream Rust crate declares Apache-2.0. Its Python reference is OLIV
 retain their separate `data/LICENSE-pythainlp` license.
 
 Extraction removes HTTP server/config/inference adapters from the core,
-embeds corpus data within this crate, and keeps the pure LLM/STT contracts.
+and keeps the pure LLM/STT contracts. The deterministic text modules
+(segmentation, dictionary, numbers, romanization, phonetic matching, metrics)
+and the embedded corpus data live in the sibling `oliv-text-core` crate, which
+oliv-server also depends on; this crate re-exports them.
 Mac-specific extensions live in `commands.rs`, `audio.rs`, and `local.rs`.
 Corpus-derived upstream goldens are excluded from this public repository.
 Public fixtures are frozen from public test literals and synthetic examples

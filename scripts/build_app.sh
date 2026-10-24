@@ -18,7 +18,7 @@ cp "$ROOT/macos/OLIVInference/LICENSE-mlx-audio-swift" "$RT/licenses/"
 cp "$ROOT/macos/OLIVInference/LICENSE-mlx-whisper" "$RT/licenses/"
 cp "$ROOT/macos/OLIVInference/UPSTREAM.md" "$RT/licenses/native-inference.md"
 cp "$ROOT/rust/crates/oliv-text/LICENSE-APACHE" "$RT/licenses/LICENSE-oliv-linux"
-cp "$ROOT/rust/crates/oliv-text/data/LICENSE-pythainlp" "$RT/licenses/"
+cp "$ROOT/rust/crates/oliv-text-core/data/LICENSE-pythainlp" "$RT/licenses/"
 cp "$ROOT/rust/crates/oliv-text/UPSTREAM.md" "$RT/licenses/rust-core.md"
 "${OLIV_CARGO:-$HOME/.cargo/bin/cargo}" metadata --locked --manifest-path "$ROOT/rust/Cargo.toml" \
   --format-version 1 --filter-platform aarch64-apple-darwin > "$BUILD/rust-metadata.json"

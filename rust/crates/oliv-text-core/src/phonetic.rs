@@ -142,7 +142,9 @@ fn lev(a: &[char], b: &[char]) -> usize {
     prev[b.len()]
 }
 
-pub(crate) fn norm_dist(a: &str, b: &str) -> f64 {
+/// Levenshtein distance over chars divided by the longer length: 0.0 = equal,
+/// 1.0 = nothing shared. Two empty strings also count as 1.0 (never a match).
+pub fn norm_dist(a: &str, b: &str) -> f64 {
     let a: Vec<char> = a.chars().collect();
     let b: Vec<char> = b.chars().collect();
     let m = a.len().max(b.len());

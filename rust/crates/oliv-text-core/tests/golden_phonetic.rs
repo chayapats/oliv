@@ -2,7 +2,7 @@
 mod common;
 
 use common::{check, s, strs};
-use oliv_pipeline::{phonetic, royin};
+use oliv_text_core::{phonetic, royin};
 use serde_json::json;
 
 #[test]

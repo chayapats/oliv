@@ -1,25 +1,23 @@
 //! Portable OLIV text pipeline, extracted from OLIV Linux 0000a4d.
+//!
+//! The deterministic text core (segmentation, dictionary, numbers, phonetic
+//! matching, metrics) lives in `oliv-text-core`, shared with oliv-server; it is
+//! re-exported here so `crate::pyu` etc. keep working.
+pub use oliv_text_core::{
+    data, dictionary, metrics, phonetic, pyu, royin, tokenize, trie, wordtonum,
+};
+
 pub mod audio;
 pub mod commands;
-pub mod data;
 pub mod dictate;
-pub mod dictionary;
-mod dictionary_tables;
 pub mod fillers;
 pub mod gate;
 pub mod guardrail;
 pub mod hallucination;
 pub mod llm;
 pub mod local;
-pub mod metrics;
-pub mod phonetic;
 pub mod pipeline;
 mod prompts_text;
-pub mod pyu;
-pub mod royin;
 pub mod spacing;
 pub mod stt;
 pub mod thai_format;
-pub mod tokenize;
-pub mod trie;
-pub mod wordtonum;

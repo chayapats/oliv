@@ -2,7 +2,7 @@
 mod common;
 
 use common::{check, s};
-use oliv_pipeline::{gate, guardrail, metrics};
+use oliv_pipeline::{gate, guardrail};
 use serde_json::json;
 
 #[test]
@@ -31,21 +31,6 @@ fn gate() {
     check("gate.jsonl", |c| {
         let hits = c["args"][1].as_u64().unwrap() as usize;
         Ok(json!(gate::gate(s(&c["args"][0]), hits)))
-    });
-}
-
-#[test]
-fn normalize() {
-    check("normalize.jsonl", |c| {
-        Ok(json!(metrics::normalize(s(&c["args"][0]))))
-    });
-}
-
-#[test]
-fn metrics_tokenize() {
-    check("metrics_tokenize.jsonl", |c| {
-        assert_eq!(c["args"][1], "newmm");
-        Ok(json!(metrics::tokenize(s(&c["args"][0]))))
     });
 }
 
