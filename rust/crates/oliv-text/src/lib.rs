@@ -4,7 +4,7 @@
 //! matching, metrics) lives in `oliv-text-core`, shared with oliv-server; it is
 //! re-exported here so `crate::pyu` etc. keep working.
 pub use oliv_text_core::{
-    data, dictionary, metrics, phonetic, pyu, royin, tokenize, trie, wordtonum,
+    data, dictionary, metrics, phonetic, pyu, royin, tokenize, trie, user_dictionary, wordtonum,
 };
 
 pub mod audio;

@@ -156,11 +156,22 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
         "ping" => Ok(
             json!({"ok":true,"pid":std::process::id(),"runtime":"rust-core","upstream":"0000a4d"}),
         ),
-        "api_health" | "api_dictate" => {
+        "api_health" | "api_dictate" | "api_dictionary" => {
             let config = oliv_transport::config::Config::from_request(request)?;
             if command == "api_health" {
                 return Ok(match oliv_transport::api::health(&config) {
                     Ok(()) => json!({"ok":true}),
+                    Err(e) => api_failure(e),
+                });
+            }
+            if command == "api_dictionary" {
+                // `ops` present: POST changes; absent: GET the snapshot.
+                let ops = request.get("ops").filter(|o| !o.is_null());
+                return Ok(match oliv_transport::api::dictionary(&config, ops) {
+                    Ok(mut snapshot) => {
+                        snapshot["ok"] = json!(true);
+                        snapshot
+                    }
                     Err(e) => api_failure(e),
                 });
             }
@@ -216,7 +227,8 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
             let opts = local_options(request)?;
             let r = oliv_pipeline::pipeline::clean_ex(
                 request["text"].as_str().unwrap_or(""),
-                &opts.vocabulary,
+                &opts.effective_vocabulary(),
+                &opts.dictionary,
                 opts.prompt,
                 &llm,
             );
@@ -262,7 +274,7 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
             } else {
                 commands::initial_prompt(
                     request["initial_prompt"].as_str(),
-                    &opts.vocabulary,
+                    &opts.effective_vocabulary(),
                     request["format_commands"] == true,
                 )
             };

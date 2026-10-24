@@ -207,6 +207,9 @@ fn evaluate(args: Eval) -> Result<()> {
                 _ => {}
             }
         }
+        if let Some(dict) = row.get("dictionary") {
+            request["dictionary"] = dict.clone();
+        }
         let reply = runtime.request(request, Duration::from_secs(65))?;
         let final_text = reply["final"]
             .as_str()

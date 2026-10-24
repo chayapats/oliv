@@ -1,6 +1,6 @@
 //! The sidecar dictate text path after STT (`/v1/clean`, and `/v1/dictate` once
 //! STT has run): CJK strip -> hallucination gate -> fillers -> `clean_ex` ->
-//! user replacements -> Thai format. Audio-only gates and spoken formatting
+//! user dictionary + replacements -> Thai format. Audio-only gates and spoken formatting
 //! commands are not part of OLIV Linux v1.
 
 use serde::Serialize;
@@ -12,6 +12,7 @@ use crate::llm::{Llm, Prompt};
 use crate::pipeline::clean_ex;
 use crate::pyu::is_blank;
 use crate::thai_format::apply_thai_format;
+use crate::user_dictionary::{Entry, UserDictionary};
 
 /// Per-request options (the JSON body fields besides the text/audio).
 /// Every pass is on unless the request turns it off.
@@ -23,6 +24,9 @@ pub struct Options {
     pub vocabulary: Vec<String>,
     /// `{spoken: replacement}` in the request's key order.
     pub replacements: Vec<(String, String)>,
+    /// The user's personal dictionary (`dictionary` entries in the request;
+    /// the Mac app sends its synced copy so local dictation matches the server).
+    pub dictionary: UserDictionary,
     pub prompt: Prompt,
 }
 
@@ -34,6 +38,7 @@ impl Default for Options {
             thai_format: true,
             vocabulary: Vec::new(),
             replacements: Vec::new(),
+            dictionary: UserDictionary::default(),
             prompt: Prompt::default(),
         }
     }
@@ -77,6 +82,17 @@ impl Options {
             }
             Some(_) => return Err("replacements must map strings to strings".into()),
         }
+        match body.get("dictionary") {
+            None | Some(Value::Null) => {}
+            Some(Value::Array(a)) => {
+                let entries = a
+                    .iter()
+                    .map(dictionary_entry)
+                    .collect::<Result<Vec<_>, _>>()?;
+                o.dictionary = UserDictionary::new(&entries);
+            }
+            Some(_) => return Err("dictionary must be a list".into()),
+        }
         match body.get("prompt") {
             None | Some(Value::Null) => {}
             Some(Value::String(p)) => o.prompt = p.parse()?,
@@ -84,6 +100,38 @@ impl Options {
         }
         Ok(o)
     }
+
+    /// STT bias and fuzzy vocabulary: dictionary words (starred first), then
+    /// request `vocabulary` terms not already present.
+    pub fn effective_vocabulary(&self) -> Vec<String> {
+        self.dictionary.merged_vocabulary(&self.vocabulary)
+    }
+}
+
+/// One `{word, correction?, enabled?, starred?}` dictionary entry. Invalid
+/// words are dropped later by `UserDictionary`; wrong JSON types are errors.
+fn dictionary_entry(v: &Value) -> Result<Entry, String> {
+    let m = v.as_object().ok_or("dictionary entries must be objects")?;
+    let word = m
+        .get("word")
+        .and_then(Value::as_str)
+        .ok_or("dictionary entry word must be a string")?;
+    let correction = match m.get("correction") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(c)) => Some(c.clone()),
+        Some(_) => return Err("dictionary entry correction must be a string".into()),
+    };
+    let flag = |key: &str, default: bool| match m.get(key) {
+        None | Some(Value::Null) => Ok(default),
+        Some(Value::Bool(b)) => Ok(*b),
+        Some(_) => Err(format!("dictionary entry {key} must be true or false")),
+    };
+    Ok(Entry {
+        word: word.to_string(),
+        correction,
+        enabled: flag("enabled", true)?,
+        starred: flag("starred", false)?,
+    })
 }
 
 /// The text part of a dictate/clean reply.
@@ -129,7 +177,13 @@ pub fn clean_text(text: &str, opts: &Options, llm: &dyn Llm) -> Outcome {
     // _clean_and_replace_segments with a single segment
     let mut seg = t;
     if opts.cleanup && !is_blank(&seg) {
-        let r = clean_ex(&seg, &opts.vocabulary, opts.prompt, llm);
+        let r = clean_ex(
+            &seg,
+            &opts.effective_vocabulary(),
+            &opts.dictionary,
+            opts.prompt,
+            llm,
+        );
         seg = r.text;
         out.llm_ran = r.llm_ran;
         out.dict_hits = r.dict_hits;
@@ -138,13 +192,10 @@ pub fn clean_text(text: &str, opts: &Options, llm: &dyn Llm) -> Outcome {
         out.guardrail_flag = r.guardrail_flag;
         out.cleanup_error = r.llm_error;
     }
-    if !opts.replacements.is_empty() && !is_blank(&seg) {
-        let table: Vec<(&str, &str)> = opts
-            .replacements
-            .iter()
-            .map(|(k, v)| (k.as_str(), v.as_str()))
-            .collect();
-        let (s, n) = crate::pipeline::apply_replacements(&seg, &table);
+    // Like legacy replacements, dictionary corrections apply with cleanup off too.
+    if (!opts.replacements.is_empty() || !opts.dictionary.is_empty()) && !is_blank(&seg) {
+        let (s, n) =
+            crate::pipeline::apply_replacements(&seg, &opts.dictionary, &opts.replacements);
         seg = s;
         out.replacements_fired = n;
     }

@@ -1,14 +1,16 @@
-//! `pipeline.clean_ex`: dictionary -> vocab -> gate -> LLM -> guardrail ->
-//! Thai spacing -> canonical casing.
+//! `pipeline.clean_ex`: built-in dictionary -> user dictionary (corrections,
+//! Thai numerals) -> vocab -> gate -> LLM -> guardrail -> user-dictionary guard
+//! -> Thai spacing -> canonical casing. Same order as oliv-server's pipeline.
 
 use serde::Serialize;
 
-use crate::dictionary::{apply_canonical_casing, apply_dictionary, apply_table};
+use crate::dictionary::{apply_canonical_casing, apply_dictionary};
 use crate::gate::gate;
 use crate::guardrail::guardrail;
 use crate::llm::{Llm, Prompt, Request};
 use crate::phonetic::{correct_with_vocab, vocab_hint};
 use crate::spacing::normalize_thai_spacing;
+use crate::user_dictionary::UserDictionary;
 
 /// Per-stage trace of one cleanup (Oliv's `CleanResult` minus timings).
 #[derive(Clone, Debug, Serialize, PartialEq)]
@@ -32,8 +34,30 @@ pub struct CleanResult {
 /// Guardrail flag used when the LLM call itself failed.
 pub const LLM_ERROR_FLAG: &str = "llmError->dict";
 
-pub fn clean_ex(text: &str, vocab: &[String], prompt: Prompt, llm: &dyn Llm) -> CleanResult {
+/// Guardrail flag used when the LLM rewrote a user-dictionary word (e.g.
+/// romanized a Thai name the user fixed); `text` is then the deterministic
+/// result.
+pub const DICTIONARY_FLAG: &str = "dictionary->dict";
+
+/// `vocab` is the full fuzzy/STT vocabulary (dictionary words first, see
+/// `Options::effective_vocabulary`); `dict` supplies the literal corrections,
+/// Thai-numeral words and the LLM guard.
+pub fn clean_ex(
+    text: &str,
+    vocab: &[String],
+    dict: &UserDictionary,
+    prompt: Prompt,
+    llm: &dyn Llm,
+) -> CleanResult {
     let (mut dict_text, mut dict_hits) = apply_dictionary(text);
+    for pass in [
+        UserDictionary::apply_corrections,
+        UserDictionary::apply_numerals,
+    ] {
+        let (t, n) = pass(dict, &dict_text);
+        dict_text = t;
+        dict_hits += n;
+    }
     let mut vocab_fired = 0;
     let mut hints = Vec::new();
     if !vocab.is_empty() {
@@ -71,7 +95,11 @@ pub fn clean_ex(text: &str, vocab: &[String], prompt: Prompt, llm: &dyn Llm) -> 
             Ok(g) => {
                 let (f, flag) = guardrail(&dict_text, &g);
                 llm_raw_gen = Some(g);
-                (f, flag.to_string())
+                if dict.lost_words(&dict_text, &f).is_empty() {
+                    (f, flag.to_string())
+                } else {
+                    (dict_text.clone(), DICTIONARY_FLAG.to_string())
+                }
             }
             Err(e) => {
                 llm_error = Some(e.to_string());
@@ -96,8 +124,16 @@ pub fn clean_ex(text: &str, vocab: &[String], prompt: Prompt, llm: &dyn Llm) -> 
     }
 }
 
-/// User replacements (sidecar): `apply_dictionary(text, table)` then Thai spacing.
-pub fn apply_replacements(text: &str, table: &[(&str, &str)]) -> (String, usize) {
-    let (t, n) = apply_table(text, table);
-    (normalize_thai_spacing(&t), n)
+/// After cleanup: dictionary corrections merged with the legacy
+/// `replacements` table, then Thai-numeral words again (repairs what the LLM
+/// split or spelled out), then Thai spacing. Without a dictionary this is the
+/// sidecar's `apply_dictionary(text, table)` + spacing.
+pub fn apply_replacements(
+    text: &str,
+    dict: &UserDictionary,
+    legacy: &[(String, String)],
+) -> (String, usize) {
+    let (t, a) = dict.apply_with_legacy(text, legacy);
+    let (t, b) = dict.apply_numerals(&t);
+    (normalize_thai_spacing(&t), a + b)
 }

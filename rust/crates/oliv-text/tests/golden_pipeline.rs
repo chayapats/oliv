@@ -103,7 +103,13 @@ fn clean_ex_golden() {
             Value::Null => vec![],
             v => strs(v),
         };
-        let r = clean_ex(s(&c["args"][0]), &vocab, prompt_of(&c["prompt"]), &llm);
+        let r = clean_ex(
+            s(&c["args"][0]),
+            &vocab,
+            &Default::default(),
+            prompt_of(&c["prompt"]),
+            &llm,
+        );
         assert!(r.llm_error.is_none(), "{:?}", r.llm_error);
         Ok(serde_json::to_value(&r).unwrap())
     });

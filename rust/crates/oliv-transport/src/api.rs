@@ -1,5 +1,6 @@
-//! Talking to oliv-api `POST /v1/dictate` (see "สัญญา HTTP" in `docs/PLAN.md`),
-//! and what to do with its reply.
+//! Talking to oliv-api `POST /v1/dictate` and the personal dictionary
+//! `GET/POST /v1/dictionary` (see oliv-server `docs/PUBLIC-API.md` and
+//! `docs/DICTIONARY.md`), and what to do with the replies.
 
 use std::time::{Duration, SystemTime};
 
@@ -31,6 +32,9 @@ pub struct Reply {
     pub fillers_removed: usize,
     pub replacements_fired: usize,
     pub thai_format_fired: usize,
+    /// The server dictionary revision this dictation used (None from servers
+    /// without the dictionary, or when its store was unavailable).
+    pub dictionary_revision: Option<i64>,
 }
 
 /// The request body. `prompt` is left out so the server's default applies.
@@ -58,6 +62,9 @@ pub struct Failure {
     pub code: &'static str,
     pub status: Option<u16>,
     pub notice: &'static str,
+    /// The request provably never reached oliv-api (connection refused, or the
+    /// edge answered 502/530 itself), so sending it again is safe.
+    pub unreached: bool,
 }
 
 impl std::fmt::Display for Failure {
@@ -81,6 +88,7 @@ impl From<String> for Failure {
             code: "invalidReply",
             status: None,
             notice: "Request failed — try again later",
+            unreached: false,
         }
     }
 }
@@ -213,7 +221,43 @@ fn transport_error(e: ureq::Error) -> Failure {
         ureq::Error::BodyExceedsLimit(_) => "responseTooLarge",
         _ => "network",
     };
+    error.unreached = match &e {
+        ureq::Error::ConnectionFailed => true,
+        ureq::Error::Io(io) => io.kind() == std::io::ErrorKind::ConnectionRefused,
+        _ => false,
+    };
     error
+}
+
+/// oliv-api's own error replies are JSON with a `code`; an edge or tunnel
+/// 502/530 (origin unreachable, e.g. during a server restart) is not.
+fn answered_by_edge(status: u16, resp: &mut ureq::http::Response<ureq::Body>) -> bool {
+    if !matches!(status, 502 | 530) {
+        return false;
+    }
+    let text = resp
+        .body_mut()
+        .with_config()
+        .limit(16 * 1024)
+        .read_to_string()
+        .unwrap_or_default();
+    !serde_json::from_str::<Value>(&text).is_ok_and(|v| v["code"].is_string())
+}
+
+/// Wait before the single retry of a request that never reached oliv-api:
+/// long enough to ride out a server restart, short enough to stay unnoticed.
+const RETRY_DELAY: Duration = Duration::from_millis(500);
+
+/// Run `send`, and once more after [`RETRY_DELAY`] if the first attempt never
+/// reached oliv-api. A request the server may have processed is never replayed.
+fn with_one_retry<T>(mut send: impl FnMut() -> Result<T, Failure>) -> Result<T, Failure> {
+    match send() {
+        Err(e) if e.unreached => {
+            std::thread::sleep(RETRY_DELAY);
+            send()
+        }
+        result => result,
+    }
 }
 
 fn retry_after(header: Option<&str>, now: SystemTime) -> Duration {
@@ -241,11 +285,15 @@ fn dictate_with_agent(cfg: &Config, wav: &[u8], agent: &ureq::Agent) -> Result<R
         error.code = "requestTooLarge";
         return Err(error);
     }
+    with_one_retry(|| dictate_once(cfg, &encoded, agent))
+}
+
+fn dictate_once(cfg: &Config, encoded: &[u8], agent: &ureq::Agent) -> Result<Reply, Failure> {
     let mut resp = agent
         .post(&format!("{}/v1/dictate", cfg.url))
         .header("Authorization", &format!("Bearer {}", cfg.token))
         .header("Content-Type", "application/json")
-        .send(&encoded)
+        .send(encoded)
         .map_err(transport_error)?;
     let status = resp.status().as_u16();
     let header = resp
@@ -260,6 +308,7 @@ fn dictate_with_agent(cfg: &Config, wav: &[u8], agent: &ureq::Agent) -> Result<R
     if status != 200 {
         let mut error = status_error(status, "");
         error.retry_after = delay;
+        error.unreached = answered_by_edge(status, &mut resp);
         return Err(error);
     }
     let text = resp
@@ -282,6 +331,63 @@ fn dictate_with_agent(cfg: &Config, wav: &[u8], agent: &ureq::Agent) -> Result<R
         }
         e
     })
+}
+
+/// The caller's personal dictionary: `GET /v1/dictionary`, or `POST` with
+/// `ops` (`[{"op":"upsert","entry":{…}} | {"op":"delete","id":…}]`). Returns the
+/// server snapshot `{revision, max_entries, entries, rejected}`. A server that
+/// predates the dictionary answers 404: code `unsupported`.
+pub fn dictionary(cfg: &Config, ops: Option<&Value>) -> Result<Value, Failure> {
+    let agent: ureq::Agent = agent_config(cfg).build().into();
+    let url = format!("{}/v1/dictionary", cfg.url);
+    let auth = format!("Bearer {}", cfg.token);
+    let body = match ops {
+        Some(ops) => Some(
+            serde_json::to_vec(&json!({ "ops": ops }))
+                .map_err(|_| failure("cannot encode request"))?,
+        ),
+        None => None,
+    };
+    let mut resp = with_one_retry(|| {
+        let sent = match &body {
+            Some(body) => agent
+                .post(&url)
+                .header("Authorization", &auth)
+                .header("Content-Type", "application/json")
+                .send(body.as_slice()),
+            None => agent.get(&url).header("Authorization", &auth).call(),
+        };
+        let mut resp = sent.map_err(transport_error)?;
+        let status = resp.status().as_u16();
+        if status == 200 {
+            return Ok(resp);
+        }
+        let mut error = status_error(status, "");
+        error.unreached = answered_by_edge(status, &mut resp);
+        if status == 404 {
+            error.code = "unsupported";
+        }
+        Err(error)
+    })?;
+    let value: Value = resp
+        .body_mut()
+        .with_config()
+        .limit(1024 * 1024)
+        .read_json()
+        .map_err(|_| failure("HTTP 200: malformed dictionary reply"))?;
+    let valid = value["ok"] == true
+        && value["revision"].as_i64().is_some_and(|r| r >= 0)
+        && value["entries"].is_array()
+        && (value["rejected"].is_null() || value["rejected"].is_array());
+    if !valid {
+        return Err(failure("HTTP 200: invalid dictionary reply"));
+    }
+    Ok(json!({
+        "revision": value["revision"],
+        "max_entries": value["max_entries"],
+        "entries": value["entries"],
+        "rejected": if value["rejected"].is_null() { json!([]) } else { value["rejected"].clone() },
+    }))
 }
 
 /// An optional diagnostic, never a prerequisite for recording/inference.
@@ -509,7 +615,10 @@ mod tests {
 
     #[test]
     fn dictate_server_error_and_down() {
-        let (url, h) = serve_once(502, r#"{"ok":false,"error":"stt down"}"#);
+        let (url, h) = serve_once(
+            502,
+            r#"{"ok":false,"error":"stt down","code":"inference_failed"}"#,
+        );
         let c = Config { url, ..cfg() };
         assert!(dictate(&c, &[9]).unwrap_err().contains("server/pipeline"));
         h.join().unwrap();
@@ -524,5 +633,117 @@ mod tests {
             ..cfg()
         };
         assert!(dictate(&c, &[9]).is_err());
+    }
+
+    /// Answers each connection with the next `(status, content-type, body)` and
+    /// hands back every request it saw.
+    fn serve_seq(
+        replies: Vec<(u16, &'static str, &'static str)>,
+    ) -> (String, std::thread::JoinHandle<Vec<String>>) {
+        use std::io::{BufRead, BufReader, Read, Write};
+        let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", l.local_addr().unwrap());
+        let h = std::thread::spawn(move || {
+            let mut seen = Vec::new();
+            for (status, ctype, body) in replies {
+                let (s, _) = l.accept().unwrap();
+                let mut r = BufReader::new(s);
+                let (mut head, mut len) = (String::new(), 0);
+                loop {
+                    let mut line = String::new();
+                    r.read_line(&mut line).unwrap();
+                    if let Some(v) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                        len = v.trim().parse().unwrap();
+                    }
+                    head.push_str(&line);
+                    if line == "\r\n" {
+                        break;
+                    }
+                }
+                let mut b = vec![0; len];
+                r.read_exact(&mut b).unwrap();
+                let mut s = r.into_inner();
+                write!(
+                    s,
+                    "HTTP/1.1 {status} X\r\nContent-Type: {ctype}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+                seen.push(head + &String::from_utf8(b).unwrap());
+            }
+            seen
+        });
+        (url, h)
+    }
+
+    const JSON: &str = "application/json";
+    const SNAPSHOT: &str = r#"{"ok":true,"revision":3,"max_entries":1000,"entries":[{"id":"a","word":"SHA256"}],"rejected":[]}"#;
+
+    #[test]
+    fn dictionary_get_and_post() {
+        let (url, h) = serve_seq(vec![(200, JSON, SNAPSHOT), (200, JSON, SNAPSHOT)]);
+        let c = Config { url, ..cfg() };
+        let snap = dictionary(&c, None).unwrap();
+        assert_eq!(snap["revision"], 3);
+        assert_eq!(snap["entries"][0]["word"], "SHA256");
+        let ops = json!([{"op": "delete", "id": "a"}]);
+        dictionary(&c, Some(&ops)).unwrap();
+        let seen = h.join().unwrap();
+        assert!(seen[0].starts_with("GET /v1/dictionary "), "{}", seen[0]);
+        assert!(seen[1].starts_with("POST /v1/dictionary "), "{}", seen[1]);
+        assert!(
+            seen[1].ends_with(r#"{"ops":[{"op":"delete","id":"a"}]}"#),
+            "{}",
+            seen[1]
+        );
+    }
+
+    #[test]
+    fn dictionary_on_an_older_server_is_unsupported() {
+        let (url, h) = serve_seq(vec![(
+            404,
+            JSON,
+            r#"{"ok":false,"error":"not found","code":"not_found"}"#,
+        )]);
+        let e = dictionary(&Config { url, ..cfg() }, None).unwrap_err();
+        assert_eq!((e.code, e.status), ("unsupported", Some(404)));
+        h.join().unwrap();
+        let (url, h) = serve_seq(vec![(200, JSON, r#"{"ok":true,"entries":[]}"#)]);
+        assert!(
+            dictionary(&Config { url, ..cfg() }, None).is_err(),
+            "revision is required"
+        );
+        h.join().unwrap();
+    }
+
+    #[test]
+    fn edge_502_is_retried_once_but_oliv_api_502_is_not() {
+        let (url, h) = serve_seq(vec![
+            (502, "text/html", "<html>Bad gateway</html>"),
+            (
+                200,
+                JSON,
+                r#"{"ok":true,"raw":"a","final":"b","dictionary_revision":4}"#,
+            ),
+        ]);
+        let r = dictate(&Config { url, ..cfg() }, &[9]).unwrap();
+        assert_eq!(
+            (r.final_text.as_str(), r.dictionary_revision),
+            ("b", Some(4))
+        );
+        assert_eq!(h.join().unwrap().len(), 2);
+
+        let (url, h) = serve_seq(vec![(
+            502,
+            JSON,
+            r#"{"ok":false,"error":"speech recognition failed; retry later","code":"inference_failed"}"#,
+        )]);
+        let e = dictate(&Config { url, ..cfg() }, &[9]).unwrap_err();
+        assert!(!e.unreached);
+        assert_eq!(
+            h.join().unwrap().len(),
+            1,
+            "a processed request is never replayed"
+        );
     }
 }

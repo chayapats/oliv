@@ -1,0 +1,108 @@
+//! The personal dictionary wired through the local (sidecar) text path. The
+//! matching rules themselves are tested in oliv-text-core.
+
+use oliv_pipeline::commands::initial_prompt;
+use oliv_pipeline::dictate::{Options, clean_text};
+use oliv_pipeline::llm::{Llm, LlmError, Prompt, Request};
+use oliv_pipeline::pipeline::DICTIONARY_FLAG;
+use serde_json::{Value, json};
+
+/// Replies with a fixed generation.
+struct Fixed(&'static str);
+
+impl Llm for Fixed {
+    fn generate(&self, _: &Request) -> Result<String, LlmError> {
+        Ok(self.0.to_string())
+    }
+}
+
+/// Must never be called: the gate skips text without Thai.
+struct NoLlm;
+
+impl Llm for NoLlm {
+    fn generate(&self, req: &Request) -> Result<String, LlmError> {
+        panic!("unexpected LLM call for {:?}", req.text)
+    }
+}
+
+fn opts(body: Value) -> Result<Options, String> {
+    Options::from_json(body.as_object().unwrap(), Prompt::V2)
+}
+
+#[test]
+fn request_dictionary_is_parsed_and_validated() {
+    let o = opts(json!({
+        "vocabulary": ["Legacy", "koolify"],
+        "dictionary": [
+            {"word": "Koolify", "correction": "koolify", "starred": true},
+            {"word": "Legacy"},
+            {"word": "Off", "enabled": false},
+            {"word": "!!!"},
+        ],
+    }))
+    .unwrap();
+    assert_eq!(o.effective_vocabulary(), ["Koolify", "Legacy"]);
+
+    for bad in [
+        json!({"dictionary": "x"}),
+        json!({"dictionary": [{"correction": "x"}]}),
+        json!({"dictionary": [{"word": "x", "enabled": "yes"}]}),
+        json!({"dictionary": [{"word": "x", "correction": 3}]}),
+    ] {
+        assert!(opts(bad.clone()).is_err(), "{bad}");
+    }
+    assert!(opts(json!({})).unwrap().dictionary.is_empty());
+}
+
+#[test]
+fn clean_text_applies_corrections_numerals_and_legacy_replacements() {
+    let o = opts(json!({
+        "thai_format": false,
+        "replacements": {"say": "Legacy"},
+        "dictionary": [{"word": "Koolify", "correction": "koolify"}, {"word": "SHA256"}],
+    }))
+    .unwrap();
+    let out = clean_text("say koolify now", &o, &NoLlm);
+    assert_eq!(out.final_text, "Legacy Koolify now");
+    assert_eq!((out.dict_hits, out.replacements_fired), (1, 1));
+
+    let out = clean_text("ใช้ SHA สองห้าหก", &o, &Fixed("ใช้ SHA256"));
+    assert_eq!(out.final_text, "ใช้ SHA256");
+}
+
+#[test]
+fn corrections_apply_with_cleanup_off() {
+    let o = opts(
+        json!({"cleanup": false, "dictionary": [{"word": "Koolify", "correction": "koolify"}]}),
+    )
+    .unwrap();
+    let out = clean_text("ask koolify", &o, &NoLlm);
+    assert_eq!(
+        (out.final_text.as_str(), out.replacements_fired),
+        ("ask Koolify", 1)
+    );
+}
+
+#[test]
+fn an_llm_that_drops_a_dictionary_word_is_rejected() {
+    let o = opts(
+        json!({"thai_format": false, "dictionary": [{"word": "เจนจิรา", "correction": "เจนจิลา"}]}),
+    )
+    .unwrap();
+    let out = clean_text("คุณเจนจิลามาไหม", &o, &Fixed("คุณ Janejira มาไหม"));
+    assert_eq!(out.final_text, "คุณเจนจิรามาไหม");
+    assert_eq!(out.guardrail_flag, DICTIONARY_FLAG);
+}
+
+#[test]
+fn stt_prompt_lists_starred_dictionary_words_first() {
+    let o = opts(json!({
+        "vocabulary": ["Kafka"],
+        "dictionary": [{"word": "Grafana"}, {"word": "Koolify", "starred": true}],
+    }))
+    .unwrap();
+    assert_eq!(
+        initial_prompt(None, &o.effective_vocabulary(), false),
+        Some("Koolify, Grafana, Kafka".to_string())
+    );
+}

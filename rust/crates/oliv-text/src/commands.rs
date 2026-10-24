@@ -131,6 +131,10 @@ pub fn apply(text: &str) -> (String, usize) {
     (join(&segments, &separators), separators.len())
 }
 
+/// STT bias prompt: explicit override, else the vocabulary joined with ", ",
+/// plus formatting commands. `vocabulary` must already be ordered with starred
+/// dictionary words first (`dictate::Options::effective_vocabulary`);
+/// truncation at 960 chars keeps the head, so starred terms survive.
 pub fn initial_prompt(
     explicit: Option<&str>,
     vocabulary: &[String],
