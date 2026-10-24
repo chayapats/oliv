@@ -612,9 +612,13 @@ final class OLIVSettings: ObservableObject {
     /// which are always allowed. Dedupes against existing dictionary
     /// entries and within the inbox (repeat sightings bump `baseCount` instead
     /// of duplicating); the inbox keeps the newest `autoLearnCap` proposals.
-    func proposeAutoLearnCandidates(_ candidates: [AutoLearnCandidate], explicit: Bool = false) {
-        guard explicit || (dictionaryAutoLearn && historyEnabled) else { return }
+    /// Returns the candidates that are new to the inbox (repeat sightings and
+    /// words already in the dictionary are not), so callers can tell the user.
+    @discardableResult
+    func proposeAutoLearnCandidates(_ candidates: [AutoLearnCandidate], explicit: Bool = false) -> [AutoLearnCandidate] {
+        guard explicit || (dictionaryAutoLearn && historyEnabled) else { return [] }
         let existing = Set(dictionaryEntries.map { $0.dedupeKey() })
+        var added: [AutoLearnCandidate] = []
         for candidate in candidates {
             let key = candidate.dedupeKey()
             guard !existing.contains(key) else { continue }
@@ -622,11 +626,13 @@ final class OLIVSettings: ObservableObject {
                 autoLearnCandidates[idx].baseCount += candidate.baseCount
             } else {
                 autoLearnCandidates.insert(candidate, at: 0)
+                added.append(candidate)
             }
         }
         if autoLearnCandidates.count > Self.autoLearnCap {
             autoLearnCandidates = Array(autoLearnCandidates.prefix(Self.autoLearnCap))
         }
+        return added
     }
 
     /// Approve a candidate: it becomes a real DictionaryEntry via the existing

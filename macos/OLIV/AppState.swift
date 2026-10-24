@@ -113,6 +113,10 @@ final class AppState: ObservableObject {
     /// one. Menu-only, never persisted.
     @Published var lastDictation: LastDictationStats?
 
+    /// A page the Settings window should switch to (e.g. the menu's "Review
+    /// Dictionary Suggestions…"); SettingsView consumes and clears it.
+    @Published var requestedSettingsPage: SettingsPage?
+
     /// Recent transcripts for the menu's "Recent…" submenu (0.1.5). In-memory
     /// only (see TranscriptLog); recording is gated by the history toggle at
     /// the DictationController record point, and turning the toggle off clears

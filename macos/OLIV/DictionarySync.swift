@@ -203,6 +203,12 @@ final class DictionarySync: ObservableObject {
         schedule(after: 0)
     }
 
+    /// Fetch the server copy now (e.g. the Dictionary page opened), so edits
+    /// made on other devices show up without waiting for a dictation.
+    func refresh() {
+        schedule(after: 0)
+    }
+
     /// A dictation reply carried the server's revision; refresh if another
     /// device changed the dictionary.
     func noteServerRevision(_ revision: Int?) {

@@ -115,6 +115,25 @@ final class AutoLearnTests: XCTestCase {
 
     // MARK: Inbox gating / dedupe / cap (settings level)
 
+    func testProposalsReportOnlyNewSuggestions() {
+        let s = makeSettings()
+        s.dictionaryAutoLearn = true
+        let first = s.proposeAutoLearnCandidates(AutoLearn.proposeFromUndoRedo(
+            oldFinal: "call grafannah tomorrow", newFinal: "call Grafana tomorrow"))
+        XCTAssertEqual(first.map(\.word), ["Grafana"])
+        let repeated = s.proposeAutoLearnCandidates(AutoLearn.proposeFromUndoRedo(
+            oldFinal: "call grafannah tomorrow", newFinal: "call Grafana tomorrow"))
+        XCTAssertTrue(repeated.isEmpty, "a repeat sighting is not announced again")
+        XCTAssertEqual(s.autoLearnCandidates.first?.baseCount, 2)
+    }
+
+    func testSuggestionNoticeNamesTheChange() {
+        let c = AutoLearnCandidate(word: "Grafana", correction: "grafannah",
+                                   reason: AutoLearnCandidate.reasonUndoRedictate)
+        XCTAssertEqual(DictationController.suggestionNotice(c),
+                       "Dictionary suggestion: “grafannah” → “Grafana” · review it in the OLIV menu")
+    }
+
     func testToggleOffBlocksBackgroundProposals() {
         let s = makeSettings()
         XCTAssertFalse(s.dictionaryAutoLearn, "default OFF")

@@ -315,15 +315,17 @@ final class DictationController {
     /// `autoLearnWindowSeconds`, when no store is wired, or when the store's
     /// gates (auto-learn toggle, history retention) reject the proposals.
     /// Never learns silently — every candidate still needs user approval.
-    func noteUndoThenRedictate(old: String, new: String) {
+    /// Returns the first newly staged suggestion, for the HUD to announce.
+    @discardableResult
+    func noteUndoThenRedictate(old: String, new: String) -> AutoLearnCandidate? {
         let undoneAt = lastUndoneForLearn?.at
         lastUndoneForLearn = nil
         guard let at = undoneAt,
-              Date().timeIntervalSince(at) <= autoLearnWindowSeconds else { return }
-        guard let store = autoLearnSettings else { return }
+              Date().timeIntervalSince(at) <= autoLearnWindowSeconds else { return nil }
+        guard let store = autoLearnSettings else { return nil }
         let proposals = AutoLearn.proposeFromUndoRedo(oldFinal: old, newFinal: new)
-        guard !proposals.isEmpty else { return }
-        store.proposeAutoLearnCandidates(proposals)
+        guard !proposals.isEmpty else { return nil }
+        return store.proposeAutoLearnCandidates(proposals).first
     }
 
     /// Fold the global cleanup switch and the per-app verbatim list into the
@@ -716,12 +718,13 @@ final class DictationController {
                 // Remember only a true auto-paste so undo's Cmd+Z matches what
                 // landed at the cursor. pasteNeedsManual left text on the
                 // clipboard — Cmd+Z would not reverse it.
+                var suggestion: AutoLearnCandidate?
                 if outcome == .pastedOK, let text = frozenPastedText, !text.isEmpty {
                     controller?.lastPastedText = text
                     // An undo followed by a redictation: stage the difference
                     // as auto-learn proposals (approval still required).
                     if let old = controller?.lastUndoneForLearn {
-                        controller?.noteUndoThenRedictate(old: old.text, new: text)
+                        suggestion = controller?.noteUndoThenRedictate(old: old.text, new: text)
                     }
                 }
                 switch outcome {
@@ -732,6 +735,8 @@ final class DictationController {
                     } else if let actual = frozenStats?.engineID, actual != engine {
                         hud?.notice("Used \(DictationExecution(engineID: actual).label) fallback",
                                     systemImage: "desktopcomputer")
+                    } else if let suggestion {
+                        hud?.notice(DictationController.suggestionNotice(suggestion), systemImage: "sparkles", duration: 5)
                     } else {
                         hud?.hide()   // quick fade on completion
                     }
@@ -747,6 +752,12 @@ final class DictationController {
                 }
             }
         }
+    }
+
+    /// "Dictionary suggestion: grafannah → Grafana · review it from the menu".
+    nonisolated static func suggestionNotice(_ candidate: AutoLearnCandidate) -> String {
+        let change = candidate.correction.map { "“\($0)” → “\(candidate.word)”" } ?? "“\(candidate.word)”"
+        return "Dictionary suggestion: \(change) · review it in the OLIV menu"
     }
 
     nonisolated static func captureSeconds(for engine: String) -> TimeInterval {

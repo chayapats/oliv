@@ -38,6 +38,8 @@ struct SettingsCard<Content: View>: View {
     let title: String
     let icon: String
     var subtitle: String? = nil
+    /// Draws attention (e.g. suggestions waiting for the user).
+    var highlighted = false
     @ViewBuilder var content: () -> Content
 
     var body: some View {
@@ -61,8 +63,11 @@ struct SettingsCard<Content: View>: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(20)
-        .background(SettingsStyle.surface, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(SettingsStyle.border))
+        .background(highlighted ? SettingsStyle.accent.opacity(0.06) : SettingsStyle.surface,
+                    in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16)
+            .strokeBorder(highlighted ? SettingsStyle.accent.opacity(0.55) : SettingsStyle.border,
+                          lineWidth: highlighted ? 1.5 : 1))
     }
 }
 

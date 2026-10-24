@@ -69,6 +69,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
 /// Navigation is local to this window. Preferences retain their production bindings.
 struct SettingsView: View {
     @EnvironmentObject private var settings: OLIVSettings
+    @EnvironmentObject private var appState: AppState
     @State private var selectedPage: SettingsPage = .general
     @State private var search = ""
 
@@ -107,6 +108,16 @@ struct SettingsView: View {
                 selectedPage = first
             }
         }
+        .onAppear(perform: openRequestedPage)
+        .onChange(of: appState.requestedSettingsPage) { _, _ in openRequestedPage() }
+    }
+
+    /// Switch to a page another surface asked for (the menu), once.
+    private func openRequestedPage() {
+        guard let page = appState.requestedSettingsPage else { return }
+        selectedPage = page
+        search = ""
+        appState.requestedSettingsPage = nil
     }
 
     private var sidebar: some View {

@@ -141,7 +141,8 @@ struct DictionarySettingsView: View {
     @State private var newWord = ""
     @State private var newCorrection = ""
     @State private var wantsCorrection = false
-    @State private var suggestedNotice: String?
+    /// A near-miss found after adding a word, asked about right away.
+    @State private var pendingSuggestion: AutoLearnCandidate?
     @State private var editingID: String?
     @State private var editWord = ""
     @State private var editCorrection = ""
@@ -158,6 +159,8 @@ struct DictionarySettingsView: View {
 
     var body: some View {
         SettingsPane {
+            if !settings.autoLearnCandidates.isEmpty { suggestionsCard }
+
             SettingsNotice(text: "Vocabulary words bias recognition from the start — add names, jargon or spellings OLIV mishears. Turn on “Correct a misspelling” when you say one thing and want different text typed. Starred words are sent to recognition first.",
                            icon: "book.closed")
 
@@ -197,9 +200,6 @@ struct DictionarySettingsView: View {
                     Spacer()
                     Button("Add word", action: addEntry)
                         .buttonStyle(.borderedProminent).disabled(!canAdd)
-                }
-                if let notice = suggestedNotice {
-                    SettingsNotice(text: notice, icon: "sparkles")
                 }
                 syncStatus
             }
@@ -279,63 +279,22 @@ struct DictionarySettingsView: View {
             SettingsCard(title: "Auto-learn", icon: "sparkles",
                          subtitle: "Let OLIV notice words you correct often.") {
                 SettingsToggle(title: "Suggest words from my corrections",
-                               detail: "When you undo a dictation and say it again within 30 seconds, OLIV suggests the difference in the inbox below. Nothing is added until you approve it.",
+                               detail: "When you undo a dictation and say it again within 30 seconds, OLIV suggests the difference (a notice appears, and it waits at the top of this page and in the OLIV menu). Nothing is added until you approve it.",
                                isOn: $settings.dictionaryAutoLearn)
             }
 
-            SettingsCard(title: "Auto-learn inbox · \(settings.autoLearnCandidates.count)", icon: "tray.and.arrow.down",
-                         subtitle: "Words OLIV noticed you fixing. Nothing here is applied until you approve it.") {
-                if settings.autoLearnCandidates.isEmpty {
-                    SettingsEmptyState(icon: "tray", title: "No suggestions yet",
-                                       detail: "Undo a dictation and say it again — the difference shows up here for your approval.")
-                } else {
-                    ForEach(settings.autoLearnCandidates) { candidate in
-                        if candidate.id != settings.autoLearnCandidates.first?.id { Divider() }
-                        HStack(alignment: .top, spacing: 10) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(candidate.word).font(.system(size: 13, weight: .medium))
-                                    .textSelection(.enabled)
-                                if let correction = candidate.correction, !correction.isEmpty {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: "arrow.turn.up.left").font(.system(size: 10))
-                                        Text(correction).font(.system(size: 12))
-                                    }
-                                    .foregroundStyle(.secondary)
-                                    .textSelection(.enabled)
-                                } else {
-                                    Text("Vocabulary only").font(.system(size: 11)).foregroundStyle(.secondary)
-                                }
-                                Text(candidate.reason == AutoLearnCandidate.reasonUndoRedictate
-                                     ? "You undid this and said it again"
-                                     : "Found in your recent dictation after you added the word")
-                                    .font(.system(size: 11)).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Button("Approve") { settings.approveCandidate(candidate.id) }
-                                .buttonStyle(.borderedProminent).controlSize(.small)
-                                .accessibilityLabel("Approve \(candidate.word)")
-                            Button { settings.dismissCandidate(candidate.id) } label: {
-                                Image(systemName: "xmark").frame(width: 26, height: 26)
-                            }
-                            .buttonStyle(.borderless).foregroundStyle(.secondary)
-                            .help("Dismiss \(candidate.word)")
-                            .accessibilityLabel("Dismiss \(candidate.word)")
-                        }
-                        .font(.system(size: 12))
-                    }
-                    HStack {
-                        Spacer()
-                        Button("Clear all") { settings.clearCandidates() }
-                            .font(.system(size: 12)).foregroundStyle(.secondary)
-                    }
-                }
-                Text("Approving adds the word to your dictionary — dismissing forgets it. Suggestions never change what OLIV types on their own.")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
-                if !settings.dictionaryAutoLearn {
-                    Text("Auto-learn is off, so no new suggestions are collected — this inbox is kept as-is.")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
-                }
+        }
+        .onAppear { sync.refresh() }
+        .alert(pendingSuggestion.map { "Fix “\($0.correction ?? "")” too?" } ?? "",
+               isPresented: Binding(get: { pendingSuggestion != nil }, set: { if !$0 { pendingSuggestion = nil } }),
+               presenting: pendingSuggestion) { candidate in
+            Button("Add correction") {
+                settings.addDictionaryEntry(word: candidate.word, correction: candidate.correction, source: .autoLearn)
             }
+            Button("Later") { settings.proposeAutoLearnCandidates([candidate], explicit: true) }
+            Button("No thanks", role: .cancel) {}
+        } message: { candidate in
+            Text("Your recent dictation had “\(candidate.correction ?? "")”. OLIV can type “\(candidate.word)” whenever it hears that.")
         }
     }
 
@@ -415,6 +374,51 @@ struct DictionarySettingsView: View {
         }
     }
 
+    /// Suggestions waiting for approval, shown first and highlighted so they
+    /// are not missed.
+    private var suggestionsCard: some View {
+        SettingsCard(title: "Suggestions for your dictionary · \(settings.autoLearnCandidates.count)",
+                     icon: "sparkles",
+                     subtitle: "Words OLIV noticed you fixing. Nothing changes until you approve.",
+                     highlighted: true) {
+            ForEach(settings.autoLearnCandidates) { candidate in
+                if candidate.id != settings.autoLearnCandidates.first?.id { Divider() }
+                HStack(alignment: .top, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        if let correction = candidate.correction, !correction.isEmpty {
+                            Text("“\(correction)” → “\(candidate.word)”").font(.system(size: 13, weight: .medium))
+                                .textSelection(.enabled)
+                        } else {
+                            Text(candidate.word).font(.system(size: 13, weight: .medium)).textSelection(.enabled)
+                        }
+                        Text(candidate.reason == AutoLearnCandidate.reasonUndoRedictate
+                             ? "You undid this and said it again"
+                             : "Found in your recent dictation after you added the word")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button("Approve") { settings.approveCandidate(candidate.id) }
+                        .buttonStyle(.borderedProminent).controlSize(.small)
+                        .accessibilityLabel("Approve \(candidate.word)")
+                    Button { settings.dismissCandidate(candidate.id) } label: {
+                        Image(systemName: "xmark").frame(width: 26, height: 26)
+                    }
+                    .buttonStyle(.borderless).foregroundStyle(.secondary)
+                    .help("Dismiss \(candidate.word)")
+                    .accessibilityLabel("Dismiss \(candidate.word)")
+                }
+                .font(.system(size: 12))
+            }
+            if settings.autoLearnCandidates.count > 1 {
+                HStack {
+                    Spacer()
+                    Button("Dismiss all") { settings.clearCandidates() }
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
     /// Where the dictionary lives and whether it is up to date.
     @ViewBuilder
     private var syncStatus: some View {
@@ -454,32 +458,20 @@ struct DictionarySettingsView: View {
             || newCorrection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         settings.addDictionaryEntry(word: newWord,
                                     correction: wantsCorrection ? newCorrection : nil)
-        if wordOnly {
-            suggestCorrectionForNewWord(newWord)
-        } else {
-            suggestedNotice = nil
-        }
+        if wordOnly { suggestCorrectionForNewWord(newWord) }
         newWord = ""
         newCorrection = ""
     }
 
-    /// The user just added a word-only entry: look through recent transcripts
-    /// for what STT actually produced and stage a correction candidate for
-    /// one-tap approval. Explicit user action — allowed even with auto-learn
-    /// off; history off means no transcripts to scan.
+    /// The user just added a word-only entry: if a recent transcript shows
+    /// what STT actually heard, ask right away whether to add that correction.
+    /// Explicit user action — allowed even with auto-learn off; history off
+    /// means no transcripts to scan.
     private func suggestCorrectionForNewWord(_ word: String) {
         let recents = appState.transcripts.entries.map(\.text)
-        guard let candidate = AutoLearn.proposeCorrectionForNewWord(word: word,
-                                                                   recentTexts: recents) else {
-            suggestedNotice = nil
-            return
-        }
-        settings.proposeAutoLearnCandidates([candidate], explicit: true)
-        if let correction = candidate.correction {
-            suggestedNotice = "“\(correction)” in your recent dictation looks like “\(candidate.word)” — review it in the auto-learn inbox below."
-        } else {
-            suggestedNotice = nil
-        }
+        guard let candidate = AutoLearn.proposeCorrectionForNewWord(word: word, recentTexts: recents),
+              candidate.correction != nil else { return }
+        pendingSuggestion = candidate
     }
 
     private func enabledBinding(for entry: DictionaryEntry) -> Binding<Bool> {

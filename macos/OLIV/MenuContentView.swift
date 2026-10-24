@@ -64,6 +64,16 @@ struct MenuContentView: View {
         }
         .keyboardShortcut(",", modifiers: .command)
 
+        // Auto-learn suggestions wait for approval; surface them here so they
+        // are not buried at the bottom of Settings.
+        if !settings.autoLearnCandidates.isEmpty {
+            Button("Review Dictionary Suggestions (\(settings.autoLearnCandidates.count))…") {
+                appState.requestedSettingsPage = .dictionary
+                NSApplication.shared.activate(ignoringOtherApps: true)
+                openSettings()
+            }
+        }
+
         Divider()
 
         // One-click support report (0.1.5): version/engine/grants/models to the
