@@ -112,6 +112,14 @@ fn acronym_fold(term: &str) -> String {
     )
 }
 
+/// `fold` drops digits, so a bare prefix ("SHA") folds like the numbered
+/// term ("SHA256") and would snap to it. A token may only pair with a term
+/// carrying the same ASCII digits (none on both sides included).
+fn digits_compatible(token_text: &str, term: &str) -> bool {
+    let digits = |s: &str| s.chars().filter(char::is_ascii_digit).collect::<String>();
+    digits(token_text) == digits(term)
+}
+
 fn is_acronym(term: &str) -> bool {
     let t = term.replace('.', "");
     let n = t.chars().count();
@@ -261,6 +269,7 @@ pub fn correct_with_vocab(text: &str, vocab_terms: &[String]) -> VocabResult {
                     && !best.is_empty()
                     && first_char(&fold(best)) == first
                     && consonant_coverage(best, &wf) >= CONS_COVERAGE
+                    && digits_compatible(&toks.concat(), best)
                     && !(sc.len() >= 2 && sc[1].0 - d1 < FUZZY_MARGIN)
                 {
                     proposals.push((d1, start, end, best));
@@ -304,6 +313,7 @@ pub fn correct_with_vocab(text: &str, vocab_terms: &[String]) -> VocabResult {
                 && !best.is_empty()
                 && first_char(&fold(best)) == first
                 && consonant_coverage(best, &wf) >= CONS_COVERAGE
+                && digits_compatible(&toks, best)
                 && !(sc.len() >= 2 && sc[1].0 - d1 < FUZZY_MARGIN)
             {
                 proposals.push((d1, start, end, best));

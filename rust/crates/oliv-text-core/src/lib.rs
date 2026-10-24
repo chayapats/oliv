@@ -2,7 +2,7 @@
 //! (`oliv-text`) and the OLIV server (`chayapats/oliv-server`): Thai word
 //! segmentation (newmm + TCC over the pythainlp 5.3.4 word list), the built-in
 //! dictionary and canonical casing, Thai number words, RTGS romanization,
-//! phonetic vocabulary matching, and evaluation metrics.
+//! phonetic vocabulary matching, the user dictionary, and evaluation metrics.
 //!
 //! Everything here is pure and model-free. Change behavior here once; both
 //! consumers pick it up by version.
@@ -15,4 +15,5 @@ pub mod pyu;
 pub mod royin;
 pub mod tokenize;
 pub mod trie;
+pub mod user_dictionary;
 pub mod wordtonum;
