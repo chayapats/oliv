@@ -179,6 +179,31 @@ impl UserDictionary {
         apply_keys(text, &keys)
     }
 
+    /// The post-cleanup pass: corrections merged with the legacy table like
+    /// [`Self::apply_with_legacy`], except that nothing matches inside an
+    /// occurrence of a correction's own output. The pre-LLM pass already
+    /// corrected what was heard, so its output must not be corrected again
+    /// (`foo→bar` then `bar→baz`, or `ไทย→ประเทศไทย` expanding twice), while
+    /// a phrase the cleanup model newly produced is still corrected.
+    pub fn apply_after_cleanup(&self, text: &str, legacy: &[(String, String)]) -> (String, usize) {
+        if self.corrections.is_empty() {
+            return self.apply_with_legacy(text, legacy);
+        }
+        let mut seen = HashSet::new();
+        let mut guards: Vec<Key> = self
+            .corrections
+            .iter()
+            .filter(|k| seen.insert(k.value.clone()))
+            .map(|k| Key::guard(&k.value))
+            .collect();
+        guards.sort_by_key(|k| std::cmp::Reverse(k.chars.len()));
+        let legacy: Vec<Key> = legacy.iter().map(|(k, v)| Key::legacy(k, v)).collect();
+        let mut rest: Vec<&Key> = self.corrections.iter().chain(&legacy).collect();
+        rest.sort_by_key(|k| std::cmp::Reverse(k.chars.len()));
+        let keys: Vec<&Key> = guards.iter().chain(rest).collect();
+        apply_keys(text, &keys)
+    }
+
     /// Map alphanumeric words spoken as `<letters> <Thai numerals>` to the
     /// exact word, when the numerals' value equals the word's digits:
     /// `SHA สองห้าหก` / `SHA สองร้อยห้าสิบหก` / `SHA256 สองห้าหก` → `SHA256`.
@@ -256,6 +281,9 @@ struct Key {
     /// spacing. Legacy replacement keys: exact, no boundary, always spaced
     /// (the Python-parity `apply_table` behavior).
     user: bool,
+    /// Claims its matches without changing them (protects a correction's
+    /// output from later keys).
+    guard: bool,
 }
 
 impl Key {
@@ -264,6 +292,7 @@ impl Key {
             chars: heard.chars().collect(),
             value: word.to_string(),
             user: true,
+            guard: false,
         }
     }
 
@@ -272,6 +301,16 @@ impl Key {
             chars: heard.chars().collect(),
             value: word.to_string(),
             user: false,
+            guard: false,
+        }
+    }
+
+    fn guard(word: &str) -> Self {
+        Key {
+            chars: word.chars().collect(),
+            value: word.to_string(),
+            user: true,
+            guard: true,
         }
     }
 }
@@ -309,6 +348,9 @@ fn apply_keys(text: &str, keys: &[&Key]) -> (String, usize) {
                 continue;
             }
             claimed[i..j].iter_mut().for_each(|c| *c = true);
+            if key.guard {
+                continue;
+            }
             // Already exactly right (e.g. the post-LLM pass re-meeting its own
             // output): keep the span claimed, but change and count nothing.
             if key.user && t[i..j].iter().copied().eq(key.value.chars()) {

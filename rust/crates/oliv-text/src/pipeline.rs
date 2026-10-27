@@ -127,10 +127,11 @@ pub fn clean_ex(
 /// The post pass, once per segment. Every correction applies exactly once:
 ///
 /// - `cleaned` (`clean_ex` ran, so its pre-LLM pass already applied the
-///   dictionary corrections): only the legacy `replacements` table, then
-///   Thai-numeral words again (repairs what the LLM split or spelled out).
-///   Re-running the corrections here would chain them (`foo→bar`, `bar→baz`)
-///   or re-apply one whose word contains what was heard.
+///   dictionary corrections): corrections + the legacy `replacements` table,
+///   but never inside a correction's own output (no chained `foo→bar→baz`,
+///   no `ไทย→ประเทศไทย` twice; a phrase the LLM newly produced is still
+///   corrected), then Thai-numeral words again (repairs what the LLM split
+///   or spelled out).
 /// - not cleaned (cleanup off / verbatim app): dictionary corrections merged
 ///   with the legacy table, like the legacy replacements always were; no
 ///   numeral rewrite, which is cleanup.
@@ -144,7 +145,7 @@ pub fn apply_replacements(
     cleaned: bool,
 ) -> (String, usize) {
     if cleaned {
-        let (t, a) = UserDictionary::default().apply_with_legacy(text, legacy);
+        let (t, a) = dict.apply_after_cleanup(text, legacy);
         let (t, b) = dict.apply_numerals(&t);
         (normalize_thai_spacing(&t), a + b)
     } else {
@@ -156,10 +157,5 @@ pub fn apply_replacements(
 /// Whether [`apply_replacements`] has anything to do. A vocabulary-only
 /// dictionary never does with cleanup off, so verbatim text stays verbatim.
 pub fn has_replacements(dict: &UserDictionary, legacy: &[(String, String)], cleaned: bool) -> bool {
-    !legacy.is_empty()
-        || if cleaned {
-            dict.has_numerals()
-        } else {
-            dict.has_corrections()
-        }
+    !legacy.is_empty() || dict.has_corrections() || (cleaned && dict.has_numerals())
 }

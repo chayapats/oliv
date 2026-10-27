@@ -217,7 +217,11 @@ enum AutoLearn {
         }
         var total = 0, block = 0, pending: Int?
         var valid = true
+        // Bounded far below Int.max, so no sum or product below can overflow;
+        // no word's digit suffix is that long a number anyway.
+        let ceiling = 1_000_000_000_000_000
         for w in words {
+            guard total <= ceiling, block <= ceiling else { valid = false; break }
             if let d = digit[w] {
                 if pending != nil { valid = false; break }
                 pending = d
@@ -233,7 +237,8 @@ enum AutoLearn {
                 pending = nil
             }
         }
-        if valid, words.contains(where: { unit[$0] != nil || $0 == "ล้าน" }) {
+        if valid, total <= ceiling, block <= ceiling,
+           words.contains(where: { unit[$0] != nil || $0 == "ล้าน" }) {
             readings.insert(String(total + block + (pending ?? 0)))
         }
         return readings

@@ -178,6 +178,8 @@ final class DictionaryTests: XCTestCase {
         XCTAssertEqual(DictionaryEntry.dedupeKey(for: "ﬁle"), DictionaryEntry.dedupeKey(for: "FILE"))
         XCTAssertEqual(DictionaryEntry.dedupeKey(for: "σίσυφος"), DictionaryEntry.dedupeKey(for: "ΣΊΣΥΦΟΣ"))
         XCTAssertNotEqual(DictionaryEntry.dedupeKey(for: "ไทย"), DictionaryEntry.dedupeKey(for: "ไท"))
+        // Like Rust: composed and decomposed accents are different keys.
+        XCTAssertNotEqual(DictionaryEntry.dedupeKey(for: "caf\u{E9}"), DictionaryEntry.dedupeKey(for: "cafe\u{301}"))
     }
 
     func testCSVSkipsInvalidAndDuplicateRows() throws {
@@ -253,6 +255,18 @@ final class DictionaryTests: XCTestCase {
         XCTAssertEqual(migrated.map(\.correction), ["grafannah", "addr"])
         // Everything else keeps its exact output as a legacy snippet.
         XCTAssertEqual(kept, ["dash": "—", "sig": long, "spaced": " hello "])
+    }
+
+    func testRulesThatInteractWithAKeptSnippetStayWithIt() {
+        let long = String(repeating: "x", count: 101)
+        let (migrated, kept) = DictionaryEntry.migrate(
+            vocabulary: ["Bar"],
+            replacements: ["foo": "bar", "bar": long, "say": "Short", "say bar": long, "ok": "OK"])
+        // foo→bar feeds the kept "bar" snippet; "say" overlaps "say bar":
+        // both stay in the legacy table. ok→OK is independent.
+        XCTAssertEqual(kept, ["bar": long, "say bar": long, "foo": "bar", "say": "Short"])
+        XCTAssertEqual(migrated.map(\.word), ["Bar", "OK"])
+        XCTAssertEqual(migrated.map(\.correction), [nil, "ok"])
     }
 
     func testLegacySnippetsSurviveRelaunchAndCanBeRemoved() {

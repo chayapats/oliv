@@ -109,7 +109,10 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
     static func dedupeKey(for word: String) -> String {
         let t = trimmed(word)
         let hasThai = t.unicodeScalars.contains { (0x0E00...0x0E7F).contains($0.value) }
-        return hasThai ? t : t.folding(options: .caseInsensitive, locale: nil)
+        let folded = hasThai ? t : t.folding(options: .caseInsensitive, locale: nil)
+        // Spelled out by scalar: Swift String equality treats canonically
+        // equivalent text (é vs e + ◌́) as equal, Rust's String keys do not.
+        return folded.unicodeScalars.map { String($0.value, radix: 16) }.joined(separator: ".")
     }
 
     /// Full identity of an entry: word + correction (one correction per entry).
@@ -175,6 +178,7 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
         var entries: [DictionaryEntry] = []
         var fullKeys = Set<String>()
         var wordOnlyIndex: [String: Int] = [:]  // word key → entries index (nil-correction only)
+        var vocabularyWords: [String: String] = [:]  // word key → original vocabulary spelling
         for term in vocabulary {
             let t = trimmed(term)
             guard isValidWord(t) else { continue }
@@ -182,6 +186,7 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
             let full = entry.dedupeKey()
             guard fullKeys.insert(full).inserted else { continue }
             wordOnlyIndex[dedupeKey(for: t)] = entries.count
+            vocabularyWords[dedupeKey(for: t)] = t
             entries.append(entry)
         }
         for spoken in replacements.keys.sorted() {
@@ -206,6 +211,33 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
             }
             fullKeys.insert(full)
             entries.append(candidate)
+        }
+        // Rules that interact with a kept snippet (overlapping spoken phrases,
+        // or one's output containing the other's phrase) stay with it in the
+        // legacy table, so they keep 0.2.0's single longest-match pass
+        // instead of being split across two passes.
+        func overlaps(_ a: String, _ b: String) -> Bool {
+            a.range(of: b, options: .caseInsensitive) != nil || b.range(of: a, options: .caseInsensitive) != nil
+        }
+        var changed = !kept.isEmpty
+        while changed {
+            changed = false
+            for (i, entry) in entries.enumerated().reversed() {
+                guard let spoken = entry.correction else { continue }
+                let interacts = kept.contains { k, v in
+                    overlaps(spoken, k) || entry.word.range(of: k, options: .caseInsensitive) != nil
+                        || v.range(of: spoken, options: .caseInsensitive) != nil
+                }
+                guard interacts else { continue }
+                kept[spoken] = replacements[spoken] ?? entry.word
+                if let original = vocabularyWords[dedupeKey(for: entry.word)] {
+                    entries[i].correction = nil  // it was a vocabulary word first
+                    entries[i].word = original
+                } else {
+                    entries.remove(at: i)
+                }
+                changed = true
+            }
         }
         return (entries, kept)
     }

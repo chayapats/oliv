@@ -364,6 +364,90 @@ final class DictionarySyncTests: XCTestCase {
         XCTAssertFalse(sync.serverAppliesDictionary)
     }
 
+    func testLocalOnlyEditsDoNotPileUpButDeletionsAfterSyncAreKept() async {
+        let settings = makeSettings(apiEnabled: false)
+        let sync = makeSync()
+        sync.attach(to: settings)
+        for i in 0..<20 { settings.addDictionaryEntry(word: "Word\(i)", correction: nil) }
+        XCTAssertTrue(sync.state.pending.isEmpty, "never synced: nothing to queue")
+
+        // Synced once, then the key is removed and an entry deleted: only the
+        // deletion is remembered, and the next sync re-uploads the rest.
+        settings.olivAPIKey = "oliv-test-key"
+        settings.olivAPIEnabled = true
+        await sync.syncNow()
+        XCTAssertEqual(server.entries.count, 20)
+        settings.olivAPIEnabled = false
+        settings.dictionaryEntries.removeAll { $0.word == "Word0" }
+        settings.addDictionaryEntry(word: "Offline", correction: nil)
+        XCTAssertEqual(sync.state.pending, [.delete(id: server.entries[0].id)])
+        settings.olivAPIEnabled = true
+        await sync.syncNow()
+        XCTAssertFalse(server.entries.contains { $0.word == "Word0" })
+        XCTAssertTrue(server.entries.contains { $0.word == "Offline" })
+    }
+
+    func testAQueuedEditMissingLocallyAfterACrashIsReplayed() async {
+        let settings = makeSettings()
+        let sync = makeSync()
+        sync.attach(to: settings)
+        await sync.syncNow()
+        settings.addDictionaryEntry(word: "Grafana", correction: nil)
+        XCTAssertEqual(sync.state.pending.count, 1)
+        // Simulate dying after the outbox write but before the dictionary write.
+        defaults.set(try? JSONEncoder().encode([DictionaryEntry]()), forKey: "oliv.dictionaryEntries")
+        let relaunchedSettings = makeSettings()
+        XCTAssertTrue(relaunchedSettings.dictionaryEntries.isEmpty)
+        let relaunched = makeSync()
+        relaunched.attach(to: relaunchedSettings)
+        XCTAssertEqual(relaunchedSettings.dictionaryEntries.map(\.word), ["Grafana"])
+        // Even if the account changes before the next sync, the upload has it.
+        relaunchedSettings.olivAPIKey = "oliv-other-key"
+        await relaunched.syncNow()
+        XCTAssertEqual(server.entries.map(\.word), ["Grafana"])
+    }
+
+    func testARefusalNeverOverridesANewerEdit() async {
+        let settings = makeSettings()
+        server.limit = 1
+        let sync = makeSync()
+        sync.attach(to: settings)
+        settings.addDictionaryEntry(word: "Existing", correction: nil)
+        await sync.syncNow()
+        // Refused for space, but deleted while the request was in flight.
+        settings.addDictionaryEntry(word: "Old", correction: nil)
+        server.duringRequest = { @MainActor in settings.dictionaryEntries.removeAll { $0.word == "Old" } }
+        await sync.syncNow()
+        XCTAssertEqual(settings.dictionaryEntries.map(\.word), ["Existing"])
+        XCTAssertTrue(sync.state.held.isEmpty)
+
+        // Added then deleted in the same offline batch: refused, but gone.
+        server.failure = OLIVAPIError.network
+        settings.addDictionaryEntry(word: "Abandoned", correction: nil)
+        await sync.syncNow()
+        settings.dictionaryEntries.removeAll { $0.word == "Abandoned" }
+        settings.addDictionaryEntry(word: "Other", correction: nil)
+        server.failure = nil
+        await sync.syncNow()
+        XCTAssertFalse(settings.dictionaryEntries.contains { $0.word == "Abandoned" })
+        XCTAssertEqual(sync.state.held.map(\.word), ["Other"], "the live refusal is still held")
+
+        // A duplicate refusal edited in flight: the newer word wins.
+        server.limit = 10
+        server.entries.append(DictionaryEntry(id: "phone", word: "Taken"))
+        settings.addDictionaryEntry(word: "Taken2", correction: nil)
+        let id = settings.dictionaryEntries.last!.id
+        settings.dictionaryEntries[settings.dictionaryEntries.count - 1].word = "taken"
+        server.duringRequest = { @MainActor in
+            if let i = settings.dictionaryEntries.firstIndex(where: { $0.id == id }) {
+                settings.dictionaryEntries[i].word = "New"
+            }
+        }
+        await sync.syncNow()
+        XCTAssertTrue(settings.dictionaryEntries.contains { $0.word == "New" })
+        XCTAssertTrue(server.entries.contains { $0.word == "New" })
+    }
+
     func testRejectedKeyNeedsTheUser() async {
         let settings = makeSettings()
         server.failure = OLIVAPIError.http(401)

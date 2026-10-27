@@ -235,6 +235,10 @@ final class DictionarySync: ObservableObject {
     /// Start following `settings`: local edits are queued, then synced.
     func attach(to settings: OLIVSettings) {
         self.settings = settings
+        // The outbox is saved before the dictionary, so an edit can be queued
+        // but missing locally after a crash: replay the queue first.
+        let replayed = DictionaryOp.apply(state.pending, to: settings.dictionaryEntries)
+        if replayed != settings.dictionaryEntries { settings.replaceDictionaryFromServer(replayed) }
         settings.onDictionaryEdit = { [weak self] old, new in self?.recordEdit(from: old, to: new) }
         configurationChanged()
     }
@@ -264,9 +268,21 @@ final class DictionarySync: ObservableObject {
     }
 
     func recordEdit(from old: [DictionaryEntry], to new: [DictionaryEntry]) {
-        let ops = DictionaryOp.diff(from: old, to: new)
+        var ops = DictionaryOp.diff(from: old, to: new)
         guard !ops.isEmpty else { return }
         var next = state
+        if settings?.olivAPIConfiguration == nil {
+            // No server to send to. Never synced: nothing to remember. Synced
+            // before: the next sync re-uploads everything, so only deletions
+            // (one per entry) need keeping.
+            guard next.account != nil else { return }
+            next.uploadedLocal = false
+            ops = ops.filter { if case .delete = $0 { return true } else { return false } }
+            let deleted = Set(ops.map(\.entryID))
+            next.pending = next.pending.filter {
+                if case .delete(let id) = $0 { return !deleted.contains(id) } else { return false }
+            }
+        }
         // A held entry the user edited goes back in the queue; deleted, it is gone.
         let touched = Set(ops.map(\.entryID))
         next.held.removeAll { touched.contains($0.id) }
@@ -382,25 +398,28 @@ final class DictionarySync: ObservableObject {
         failures = 0
         // A refused upsert is only settled when the server already holds the
         // same word + correction (a duplicate from another device: merged).
-        // Anything else stays on this Mac: a duplicate whose conflict this
-        // batch released is retried once; the rest (account full) is held.
+        // Only the LATEST intent per entry counts: the last operation for it
+        // in the batch, unless the user changed it again while the request
+        // was in flight (then that newer queued operation decides). A live
+        // refusal is retried once if it was a duplicate (this batch may have
+        // released the conflict), otherwise held on this Mac (account full).
         let refused = Set(snapshot.rejected.map(\.id))
         let reasons = Dictionary(snapshot.rejected.map { ($0.id, $0.reason) }, uniquingKeysWith: { a, _ in a })
         let serverKeys = Set(snapshot.entries.map { $0.dedupeKey() })
+        let newer = Set(next.pending.map(\.entryID))
+        var latest: [String: DictionaryOp] = [:]
+        for op in ops { latest[op.entryID] = op }
         var merged: [String] = []
-        var refusedEntries: [String: DictionaryEntry] = [:]
-        for case .upsert(let entry) in ops where refused.contains(entry.id) {
-            refusedEntries[entry.id] = entry
-        }
-        for entry in refusedEntries.values.sorted(by: { $0.word < $1.word }) {
+        for id in refused.sorted() where !newer.contains(id) {
+            guard case .upsert(let entry)? = latest[id] else { continue }  // since deleted
             if serverKeys.contains(entry.dedupeKey()) {
                 merged.append(entry.word)
-            } else if reasons[entry.id] == "duplicate", !retriedDuplicates.contains(entry.id) {
-                retriedDuplicates.insert(entry.id)
+            } else if reasons[id] == "duplicate", !retriedDuplicates.contains(id) {
+                retriedDuplicates.insert(id)
                 next.pending.append(.upsert(entry))
             } else {
-                retriedDuplicates.remove(entry.id)
-                next.held.removeAll { $0.id == entry.id }
+                retriedDuplicates.remove(id)
+                next.held.removeAll { $0.id == id }
                 next.held.append(entry)
             }
         }

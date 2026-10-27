@@ -384,6 +384,12 @@ final class AutoLearnTests: XCTestCase {
         XCTAssertEqual(AutoLearn.thaiNumeralReadings("สองจุดห้า"), [])
         XCTAssertEqual(AutoLearn.thaiNumeralReadings(String(repeating: "ล้าน", count: 12)), [],
                        "overflow is not a number, not a crash")
+        // Around Int.max through the public path (adds as well as multiplies).
+        for spoken in ["เก้าล้านสองแสนสองหมื่นสามพันสามร้อยเจ็ดสิบสองล้านสามหมื่นหกพันแปดร้อยห้าสิบสี่ล้านเจ็ดแสนเจ็ดหมื่นห้าพันแปดร้อยแปด",
+                       "เก้าล้านสองแสนสองหมื่นสามพันสามร้อยเจ็ดสิบสองล้านสามหมื่นหกพันแปดร้อยห้าสิบสี่ล้านเจ็ดแสนเจ็ดหมื่นห้าพันแปดร้อยเจ็ด",
+                       String(repeating: "แสน", count: 40)] {
+            XCTAssertNil(AutoLearn.proposeCorrectionForNewWord(word: "SHA256", recentTexts: ["use SHA \(spoken) now"]))
+        }
     }
 
     func testAddWordNumeralRuleNeedsNumeralsAfterPrefix() {

@@ -388,8 +388,10 @@ final class OLIVSettings: ObservableObject {
                 replacements: defaults.dictionary(forKey: Key.legacyReplacements) as? [String: String] ?? [:])
             dictionaryEntries = migrated.entries
             legacySnippets = migrated.kept
-            persistDictionaryEntries()
+            // Snippets first: the saved entries mark migration as done, so
+            // an interruption before them simply migrates again.
             defaults.set(migrated.kept, forKey: Key.legacySnippets)
+            persistDictionaryEntries()
         }
         retireLegacyDictionaryStores()
         // Auto-learn inbox: load persisted proposals (legacy installs have

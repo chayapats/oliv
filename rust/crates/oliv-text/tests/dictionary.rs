@@ -151,3 +151,29 @@ fn vocabulary_only_leaves_verbatim_text_alone() {
         assert_eq!(both(text, &o, &NoLlm), [text, text]);
     }
 }
+
+#[test]
+fn a_phrase_the_cleanup_model_produced_is_still_corrected() {
+    let o = opts(json!({
+        "thai_format": false,
+        "dictionary": [{"word": "Bar", "correction": "foo"}, {"word": "baz", "correction": "Bar"}],
+    }))
+    .unwrap();
+    // The LLM fixed "fooo" into the configured phrase "foo": corrected once.
+    assert_eq!(
+        both("ใช้ fooo x", &o, &Fixed("ใช้ foo x")),
+        ["ใช้ Bar x", "ใช้ Bar x"]
+    );
+}
+
+#[test]
+fn legacy_snippets_never_rewrite_a_dictionary_output() {
+    let long = "x".repeat(101);
+    let o = opts(json!({
+        "thai_format": false,
+        "replacements": {"bar": long},
+        "dictionary": [{"word": "bar", "correction": "foo"}],
+    }))
+    .unwrap();
+    assert_eq!(both("say foo", &o, &NoLlm), ["say bar", "say bar"]);
+}
