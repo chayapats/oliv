@@ -179,22 +179,50 @@ impl UserDictionary {
         apply_keys(text, &keys)
     }
 
-    /// The post-cleanup pass: corrections merged with the legacy table like
-    /// [`Self::apply_with_legacy`], except that nothing matches inside an
-    /// occurrence of a correction's own output. The pre-LLM pass already
-    /// corrected what was heard, so its output must not be corrected again
-    /// (`foo→bar` then `bar→baz`, or `ไทย→ประเทศไทย` expanding twice), while
-    /// a phrase the cleanup model newly produced is still corrected.
-    pub fn apply_after_cleanup(&self, text: &str, legacy: &[(String, String)]) -> (String, usize) {
+    /// The pre-LLM correction pass when a legacy `replacements` table runs
+    /// after cleanup: dictionary corrections, longest key first, but a legacy
+    /// key's source that is at least as long keeps its span (claimed, left
+    /// unchanged) for the post pass, as one longest-match plan over both
+    /// tables would. Also returns the outputs it wrote, for
+    /// [`Self::apply_after_cleanup`].
+    pub fn apply_corrections_before(
+        &self,
+        text: &str,
+        legacy: &[(String, String)],
+    ) -> (String, usize, Vec<String>) {
         if self.corrections.is_empty() {
+            return (text.to_string(), 0, Vec::new());
+        }
+        let guards: Vec<Key> = legacy
+            .iter()
+            .filter(|(k, _)| !k.is_empty())
+            .map(|(k, _)| Key::guard(k))
+            .collect();
+        let mut keys: Vec<&Key> = self.corrections.iter().chain(&guards).collect();
+        // Stable: on equal length the dictionary entry wins, as in apply_with_legacy.
+        keys.sort_by_key(|k| std::cmp::Reverse(k.chars.len()));
+        apply_keys_traced(text, &keys)
+    }
+
+    /// The post-cleanup pass: corrections merged with the legacy table, one
+    /// longest-match plan, except inside the exact outputs the pre-LLM pass
+    /// wrote (`produced`): those are never corrected again (no `foo→bar→baz`,
+    /// no `ไทย→ประเทศไทย` twice), while anything the cleanup model newly
+    /// produced — including a different spelling of an output — is.
+    pub fn apply_after_cleanup(
+        &self,
+        text: &str,
+        legacy: &[(String, String)],
+        produced: &[String],
+    ) -> (String, usize) {
+        if produced.is_empty() {
             return self.apply_with_legacy(text, legacy);
         }
         let mut seen = HashSet::new();
-        let mut guards: Vec<Key> = self
-            .corrections
+        let mut guards: Vec<Key> = produced
             .iter()
-            .filter(|k| seen.insert(k.value.clone()))
-            .map(|k| Key::guard(&k.value))
+            .filter(|p| !p.is_empty() && seen.insert(p.as_str()))
+            .map(|p| Key::guard(p))
             .collect();
         guards.sort_by_key(|k| std::cmp::Reverse(k.chars.len()));
         let legacy: Vec<Key> = legacy.iter().map(|(k, v)| Key::legacy(k, v)).collect();
@@ -305,19 +333,26 @@ impl Key {
         }
     }
 
+    /// Exact (case-sensitive, no boundary rule); claims, never changes.
     fn guard(word: &str) -> Self {
         Key {
             chars: word.chars().collect(),
             value: word.to_string(),
-            user: true,
+            user: false,
             guard: true,
         }
     }
 }
 
 fn apply_keys(text: &str, keys: &[&Key]) -> (String, usize) {
+    let (t, n, _) = apply_keys_traced(text, keys);
+    (t, n)
+}
+
+/// [`apply_keys`], also returning the values it wrote (one per replacement).
+fn apply_keys_traced(text: &str, keys: &[&Key]) -> (String, usize, Vec<String>) {
     if text.is_empty() || keys.is_empty() {
-        return (text.to_string(), 0);
+        return (text.to_string(), 0, Vec::new());
     }
     let tokens = token_spans(text);
     let splits_thai_word = |p: usize| {
@@ -366,7 +401,8 @@ fn apply_keys(text: &str, keys: &[&Key]) -> (String, usize) {
         }
     }
     let n = spans.len();
-    (splice(&t, spans), n)
+    let written = spans.iter().map(|s| s.value.to_string()).collect();
+    (splice(&t, spans), n, written)
 }
 
 /// A Latin-edged match must not continue a longer Latin/digit run on either

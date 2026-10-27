@@ -269,6 +269,15 @@ final class DictionaryTests: XCTestCase {
         XCTAssertEqual(migrated.map(\.correction), [nil, "ok"])
     }
 
+    func testSeveralAliasesOfAVocabularyWordLeaveOneRow() {
+        let long = String(repeating: "a", count: 101)
+        let (migrated, kept) = DictionaryEntry.migrate(
+            vocabulary: ["bar"], replacements: ["foo": "bar", "baz": "bar", "bar": long])
+        XCTAssertEqual(migrated.map(\.word), ["bar"])
+        XCTAssertEqual(migrated.map(\.correction), [nil])
+        XCTAssertEqual(Set(kept.keys), ["bar", "baz", "foo"])
+    }
+
     func testLegacySnippetsSurviveRelaunchAndCanBeRemoved() {
         defaults.set(["dash": "—", "my email": "me@example.com"], forKey: "oliv.replacements")
         let s = makeSettings()

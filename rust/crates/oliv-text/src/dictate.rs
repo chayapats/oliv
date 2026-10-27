@@ -177,15 +177,18 @@ pub fn clean_text(text: &str, opts: &Options, llm: &dyn Llm) -> Outcome {
     // _clean_and_replace_segments with a single segment
     let mut seg = t;
     let cleaned = opts.cleanup && !is_blank(&seg);
+    let mut corrected = Vec::new();
     if cleaned {
-        let r = clean_ex(
+        let r = crate::pipeline::clean_ex_with(
             &seg,
             &opts.effective_vocabulary(),
             &opts.dictionary,
+            &opts.replacements,
             opts.prompt,
             llm,
         );
         seg = r.text;
+        corrected = r.corrected;
         out.llm_ran = r.llm_ran;
         out.dict_hits = r.dict_hits;
         out.vocab_fired = r.vocab_fired;
@@ -201,7 +204,7 @@ pub fn clean_text(text: &str, opts: &Options, llm: &dyn Llm) -> Outcome {
             &seg,
             &opts.dictionary,
             &opts.replacements,
-            cleaned,
+            cleaned.then_some(corrected.as_slice()),
         );
         seg = s;
         out.replacements_fired = n;

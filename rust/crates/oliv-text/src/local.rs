@@ -53,15 +53,18 @@ pub fn clean(
     let vocabulary = opts.effective_vocabulary();
     for mut segment in segments {
         let ran_cleanup = opts.cleanup && !is_blank(&segment);
+        let mut corrected = Vec::new();
         if ran_cleanup {
-            let r = crate::pipeline::clean_ex(
+            let r = crate::pipeline::clean_ex_with(
                 &segment,
                 &vocabulary,
                 &opts.dictionary,
+                &opts.replacements,
                 opts.prompt,
                 llm,
             );
             segment = r.text;
+            corrected = r.corrected;
             out.outcome.llm_ran |= r.llm_ran;
             out.outcome.dict_hits += r.dict_hits;
             out.outcome.vocab_fired += r.vocab_fired;
@@ -82,7 +85,7 @@ pub fn clean(
                 &segment,
                 &opts.dictionary,
                 &opts.replacements,
-                ran_cleanup,
+                ran_cleanup.then_some(corrected.as_slice()),
             );
             segment = s;
             out.outcome.replacements_fired += n;

@@ -387,6 +387,27 @@ final class DictionarySyncTests: XCTestCase {
         XCTAssertTrue(server.entries.contains { $0.word == "Offline" })
     }
 
+    func testTurningTheAPIOffAndOnDuringARequestKeepsEveryEdit() async {
+        let settings = makeSettings()
+        let sync = makeSync()
+        sync.attach(to: settings)
+        settings.addDictionaryEntry(word: "First", correction: nil)
+        await sync.syncNow()
+        settings.addDictionaryEntry(word: "Second", correction: nil)
+        // Mid-request: API off, an edit and a delete, API back on; then the
+        // (late) answer for the same account lands.
+        server.duringRequest = { @MainActor in
+            settings.olivAPIEnabled = false
+            settings.addDictionaryEntry(word: "Third", correction: nil)
+            settings.dictionaryEntries.removeAll { $0.word == "First" }
+            settings.olivAPIEnabled = true
+        }
+        await sync.syncNow()
+        XCTAssertEqual(Set(settings.dictionaryEntries.map(\.word)), ["Second", "Third"])
+        XCTAssertEqual(Set(server.entries.map(\.word)), ["Second", "Third"])
+        XCTAssertTrue(sync.state.pending.isEmpty)
+    }
+
     func testAQueuedEditMissingLocallyAfterACrashIsReplayed() async {
         let settings = makeSettings()
         let sync = makeSync()

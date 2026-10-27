@@ -178,7 +178,7 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
         var entries: [DictionaryEntry] = []
         var fullKeys = Set<String>()
         var wordOnlyIndex: [String: Int] = [:]  // word key → entries index (nil-correction only)
-        var vocabularyWords: [String: String] = [:]  // word key → original vocabulary spelling
+        var vocabularyRows: [String: String] = [:]  // entry id → original vocabulary spelling
         for term in vocabulary {
             let t = trimmed(term)
             guard isValidWord(t) else { continue }
@@ -186,7 +186,7 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
             let full = entry.dedupeKey()
             guard fullKeys.insert(full).inserted else { continue }
             wordOnlyIndex[dedupeKey(for: t)] = entries.count
-            vocabularyWords[dedupeKey(for: t)] = t
+            vocabularyRows[entry.id] = t
             entries.append(entry)
         }
         for spoken in replacements.keys.sorted() {
@@ -230,8 +230,9 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
                 }
                 guard interacts else { continue }
                 kept[spoken] = replacements[spoken] ?? entry.word
-                if let original = vocabularyWords[dedupeKey(for: entry.word)] {
-                    entries[i].correction = nil  // it was a vocabulary word first
+                if let original = vocabularyRows[entry.id] {
+                    // The row was a vocabulary word that this alias upgraded.
+                    entries[i].correction = nil
                     entries[i].word = original
                 } else {
                     entries.remove(at: i)

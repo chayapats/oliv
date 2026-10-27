@@ -177,3 +177,52 @@ fn legacy_snippets_never_rewrite_a_dictionary_output() {
     .unwrap();
     assert_eq!(both("say foo", &o, &NoLlm), ["say bar", "say bar"]);
 }
+
+#[test]
+fn the_post_pass_protects_only_what_the_pre_pass_wrote() {
+    let o = |dict: Value, replacements: Value| {
+        opts(json!({"thai_format": false, "dictionary": dict, "replacements": replacements}))
+            .unwrap()
+    };
+    // Case-only correction the LLM undid: corrected again.
+    let d = o(json!([{"word": "Foo", "correction": "foo"}]), json!({}));
+    assert_eq!(
+        both("ใช้ foo x", &d, &Fixed("ใช้ foo x")),
+        ["ใช้ Foo x", "ใช้ Foo x"]
+    );
+    // An LLM-created source equal to another rule's output, none pre-written.
+    let d = o(
+        json!([{"word": "Bar", "correction": "foo"}, {"word": "baz", "correction": "Bar"}]),
+        json!({}),
+    );
+    assert_eq!(
+        both("ใช้ Barr x", &d, &Fixed("ใช้ Bar x")),
+        ["ใช้ baz x", "ใช้ baz x"]
+    );
+    // An unused correction never shields an unrelated legacy phrase.
+    let d = o(
+        json!([{"word": "bar", "correction": "foo"}]),
+        json!({"bar code": "BC"}),
+    );
+    assert_eq!(both("scan bar code", &d, &NoLlm), ["scan BC", "scan BC"]);
+}
+
+#[test]
+fn a_longer_legacy_phrase_beats_a_shorter_dictionary_correction() {
+    let long = "y".repeat(101);
+    let want = format!("say {long}");
+    for cleanup in [true, false] {
+        let o = opts(json!({
+            "cleanup": cleanup,
+            "thai_format": false,
+            "replacements": {"foo bar": long},
+            "dictionary": [{"word": "Short", "correction": "foo"}],
+        }))
+        .unwrap();
+        assert_eq!(
+            both("say foo bar", &o, &NoLlm),
+            [want.clone(), want.clone()],
+            "cleanup={cleanup}"
+        );
+    }
+}

@@ -271,10 +271,12 @@ final class DictionarySync: ObservableObject {
         var ops = DictionaryOp.diff(from: old, to: new)
         guard !ops.isEmpty else { return }
         var next = state
-        if settings?.olivAPIConfiguration == nil {
+        if settings?.olivAPIConfiguration == nil, !running {
             // No server to send to. Never synced: nothing to remember. Synced
             // before: the next sync re-uploads everything, so only deletions
-            // (one per entry) need keeping.
+            // (one per entry) need keeping. Not while an exchange is out: its
+            // answer may still be applied if the same API comes back, and it
+            // removes exactly the operations it sent.
             guard next.account != nil else { return }
             next.uploadedLocal = false
             ops = ops.filter { if case .delete = $0 { return true } else { return false } }
