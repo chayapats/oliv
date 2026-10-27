@@ -125,6 +125,38 @@ final class DictionarySyncTests: XCTestCase {
         guard case .synced = sync.status else { return XCTFail("\(sync.status)") }
     }
 
+    func testSwitchingAccountsUploadsLocalEntriesInsteadOfAdoptingTheNewServer() async {
+        let settings = makeSettings()
+        settings.addDictionaryEntry(word: "SHA256", correction: nil)
+        let first = server!
+        let second = FakeDictionaryServer()
+        second.entries = [DictionaryEntry(id: "other", word: "Koolify")]
+        var current = first
+        let sync = DictionarySync(defaults: defaults, autoSync: false, makeRemote: { _ in current })
+        sync.attach(to: settings)
+        await sync.syncNow()
+        XCTAssertEqual(first.entries.map(\.word), ["SHA256"])
+
+        // Another key (another account or server): this Mac's entries must be
+        // merged into it, not replaced by its copy.
+        settings.olivAPIKey = "oliv-other-key"
+        current = second
+        await sync.syncNow()
+        XCTAssertEqual(Set(settings.dictionaryEntries.map(\.word)), ["SHA256", "Koolify"])
+        XCTAssertEqual(Set(second.entries.map(\.word)), ["SHA256", "Koolify"])
+        XCTAssertEqual(sync.state.revision, second.revision)
+
+        // The state survives relaunch with its account, so a restart does not re-upload.
+        let relaunched = DictionarySync(defaults: defaults, autoSync: false, makeRemote: { _ in second })
+        relaunched.attach(to: settings)
+        let calls = second.calls.count
+        await relaunched.syncNow()
+        XCTAssertEqual(second.calls.count, calls + 1)
+        XCTAssertNil(second.calls.last!, "nothing to upload after a relaunch on the same account")
+        let stored = String(decoding: defaults.data(forKey: DictionarySync.stateKey) ?? Data(), as: UTF8.self)
+        XCTAssertFalse(stored.contains("oliv-other-key"), "only a hash of the key is persisted")
+    }
+
     func testEditsAreQueuedAndSentAsOperations() async {
         let settings = makeSettings()
         let sync = makeSync()

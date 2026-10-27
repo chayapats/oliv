@@ -10,6 +10,7 @@
 // dictionary stays local and dictation falls back to sending derived
 // vocabulary/replacements.
 
+import CryptoKit
 import Foundation
 
 /// One change to send to the server.
@@ -144,6 +145,16 @@ final class DictionarySync: ObservableObject {
         var uploadedLocal = false
         /// nil until the server answered once.
         var serverSupportsDictionary: Bool?
+        /// Which server + key this state belongs to (a hash, never the key).
+        /// Another account starts over with a full upload, so its snapshot
+        /// cannot replace this Mac's entries without merging them first.
+        var account: String?
+    }
+
+    /// Stable, non-reversible identity of a server + key.
+    static func accountID(_ configuration: OLIVAPIConfiguration) -> String {
+        let material = configuration.baseURL.absoluteString + "\n" + configuration.apiKey
+        return SHA256.hash(data: Data(material.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
     static let stateKey = "oliv.dictionarySync"
@@ -242,7 +253,7 @@ final class DictionarySync: ObservableObject {
 
     /// One exchange with the server; reruns while edits keep arriving.
     func syncNow() async {
-        guard let settings, let configuration = settings.olivAPIConfiguration else {
+        guard let settings, settings.olivAPIConfiguration != nil else {
             status = .localOnly
             return
         }
@@ -254,6 +265,21 @@ final class DictionarySync: ObservableObject {
         defer { running = false }
         repeat {
             runAgain = false
+            // Re-read each pass: the URL/key may have changed mid-request.
+            guard let configuration = settings.olivAPIConfiguration else {
+                status = .localOnly
+                return
+            }
+            let account = Self.accountID(configuration)
+            if state.account == nil {
+                // First sync, or state saved before accounts were recorded.
+                state.account = account
+            } else if state.account != account {
+                // Everything pending is already in the local list, which the
+                // fresh state uploads in full.
+                state = State(account: account)
+                rejectedWords = []
+            }
             await exchange(with: makeRemote(configuration), settings: settings)
         } while runAgain && status != .unsupported
     }
@@ -285,7 +311,7 @@ final class DictionarySync: ObservableObject {
         } catch OLIVAPIError.unsupported {
             // Nothing to send to a server that cannot keep it; a later upgrade
             // starts again with a full upload.
-            state = State(serverSupportsDictionary: false)
+            state = State(serverSupportsDictionary: false, account: state.account)
             status = .unsupported
         } catch OLIVAPIError.http(let code) where code == 401 || code == 403 {
             status = .failed(OLIVAPIError.http(code).errorDescription ?? "The API key was rejected.")
