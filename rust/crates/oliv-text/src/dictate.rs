@@ -176,7 +176,8 @@ pub fn clean_text(text: &str, opts: &Options, llm: &dyn Llm) -> Outcome {
 
     // _clean_and_replace_segments with a single segment
     let mut seg = t;
-    if opts.cleanup && !is_blank(&seg) {
+    let cleaned = opts.cleanup && !is_blank(&seg);
+    if cleaned {
         let r = clean_ex(
             &seg,
             &opts.effective_vocabulary(),
@@ -193,9 +194,15 @@ pub fn clean_text(text: &str, opts: &Options, llm: &dyn Llm) -> Outcome {
         out.cleanup_error = r.llm_error;
     }
     // Like legacy replacements, dictionary corrections apply with cleanup off too.
-    if (!opts.replacements.is_empty() || !opts.dictionary.is_empty()) && !is_blank(&seg) {
-        let (s, n) =
-            crate::pipeline::apply_replacements(&seg, &opts.dictionary, &opts.replacements);
+    if crate::pipeline::has_replacements(&opts.dictionary, &opts.replacements, cleaned)
+        && !is_blank(&seg)
+    {
+        let (s, n) = crate::pipeline::apply_replacements(
+            &seg,
+            &opts.dictionary,
+            &opts.replacements,
+            cleaned,
+        );
         seg = s;
         out.replacements_fired = n;
     }

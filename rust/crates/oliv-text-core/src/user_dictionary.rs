@@ -122,6 +122,16 @@ impl UserDictionary {
         self.vocabulary.is_empty()
     }
 
+    /// Some enabled entry rewrites what was heard.
+    pub fn has_corrections(&self) -> bool {
+        !self.corrections.is_empty()
+    }
+
+    /// Some enabled word is reachable through Thai numerals (`SHA256`).
+    pub fn has_numerals(&self) -> bool {
+        !self.numerals.is_empty()
+    }
+
     /// Enabled words, starred first. `initial_prompt` truncates from the end,
     /// so this order keeps starred words in the STT prompt.
     pub fn vocabulary(&self) -> &[String] {

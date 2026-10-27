@@ -52,7 +52,8 @@ pub fn clean(
     let mut cleaned = Vec::new();
     let vocabulary = opts.effective_vocabulary();
     for mut segment in segments {
-        if opts.cleanup && !is_blank(&segment) {
+        let ran_cleanup = opts.cleanup && !is_blank(&segment);
+        if ran_cleanup {
             let r = crate::pipeline::clean_ex(
                 &segment,
                 &vocabulary,
@@ -74,9 +75,15 @@ pub fn clean(
                 out.outcome.cleanup_error = r.llm_error;
             }
         }
-        if (!opts.replacements.is_empty() || !opts.dictionary.is_empty()) && !is_blank(&segment) {
-            let (s, n) =
-                crate::pipeline::apply_replacements(&segment, &opts.dictionary, &opts.replacements);
+        if crate::pipeline::has_replacements(&opts.dictionary, &opts.replacements, ran_cleanup)
+            && !is_blank(&segment)
+        {
+            let (s, n) = crate::pipeline::apply_replacements(
+                &segment,
+                &opts.dictionary,
+                &opts.replacements,
+                ran_cleanup,
+            );
             segment = s;
             out.outcome.replacements_fired += n;
         }

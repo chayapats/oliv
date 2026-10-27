@@ -73,6 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         controller.verbatimApps = settings.verbatimApps
         controller.removeFillers = settings.removeFillers
         controller.dictionaryEntries = settings.dictionaryEntries
+        controller.legacySnippets = settings.legacySnippets
         controller.formatCommands = settings.formatCommands
         controller.thaiFormat = settings.thaiFormat
         controller.showHUD = settings.showRecordingIndicator
@@ -121,6 +122,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         controller.verbatimApps = settings.verbatimApps
         controller.removeFillers = settings.removeFillers
         controller.dictionaryEntries = settings.dictionaryEntries
+        controller.legacySnippets = settings.legacySnippets
         controller.formatCommands = settings.formatCommands
         controller.thaiFormat = settings.thaiFormat
         controller.showHUD = settings.showRecordingIndicator

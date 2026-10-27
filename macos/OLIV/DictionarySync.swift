@@ -149,6 +149,18 @@ final class DictionarySync: ObservableObject {
         /// Another account starts over with a full upload, so its snapshot
         /// cannot replace this Mac's entries without merging them first.
         var account: String?
+        /// Entries the server refused (account full, or a conflict that did
+        /// not resolve): kept on this Mac, shown in Settings, and offered
+        /// again at the next launch or API change. Never silently dropped.
+        var held: [DictionaryEntry] = []
+
+        /// A fresh start (another account, or a server that lost sync
+        /// support): the next exchange uploads every local entry, and only
+        /// deletions still need sending, since an upload cannot express them.
+        func restarted(account: String?, serverSupportsDictionary: Bool? = nil) -> State {
+            State(pending: pending.filter { if case .delete = $0 { return true } else { return false } },
+                  serverSupportsDictionary: serverSupportsDictionary, account: account)
+        }
     }
 
     /// Stable, non-reversible identity of a server + key.
@@ -163,10 +175,17 @@ final class DictionarySync: ObservableObject {
     static let retryDelays: [TimeInterval] = [30, 60, 120, 300]
 
     @Published private(set) var status: Status = .localOnly
-    /// Words the server refused on the last sync, for the Settings notice.
+    /// Words the server refused: entries held on this Mac, then duplicates
+    /// of an entry it already had (merged) on the last sync.
     @Published private(set) var rejectedWords: [String] = []
+    private var mergedDuplicates: [String] = [] {
+        didSet { updateRejectedWords() }
+    }
     private(set) var state: State {
-        didSet { persist() }
+        didSet {
+            persist()
+            if state.held != oldValue.held { updateRejectedWords() }
+        }
     }
 
     private let defaults: UserDefaults
@@ -181,6 +200,8 @@ final class DictionarySync: ObservableObject {
     /// The first `inFlight` pending operations are in the request being sent;
     /// they are left untouched until it answers.
     private var inFlight = 0
+    /// Refused-as-duplicate entries already retried once in this run.
+    private var retriedDuplicates = Set<String>()
 
     init(defaults: UserDefaults = .standard, autoSync: Bool = true,
          makeRemote: @escaping (OLIVAPIConfiguration) -> DictionaryRemote = { OLIVAPIClient(configuration: $0) }) {
@@ -193,12 +214,22 @@ final class DictionarySync: ObservableObject {
         } else {
             state = State()
         }
+        updateRejectedWords()
+    }
+
+    private func updateRejectedWords() {
+        rejectedWords = state.held.map(\.word) + mergedDuplicates
     }
 
     /// The OLIV API applies its own copy, so requests can leave
-    /// vocabulary/replacements out. False until the server has confirmed it.
+    /// vocabulary/replacements out — only while the server is known to hold
+    /// exactly this Mac's dictionary: sync supported, this account's state,
+    /// the local entries uploaded, and nothing queued, in flight or held.
     var serverAppliesDictionary: Bool {
-        settings?.olivAPIConfiguration != nil && state.serverSupportsDictionary == true
+        guard let configuration = settings?.olivAPIConfiguration else { return false }
+        return state.serverSupportsDictionary == true
+            && state.account == Self.accountID(configuration)
+            && state.uploadedLocal && state.pending.isEmpty && state.held.isEmpty
     }
 
     /// Start following `settings`: local edits are queued, then synced.
@@ -211,6 +242,11 @@ final class DictionarySync: ObservableObject {
     /// The API URL/key changed (or the app started): sync now.
     func configurationChanged() {
         failures = 0
+        // Offer held entries again (once per launch / API change, not in a loop).
+        if !state.held.isEmpty {
+            state.pending = Self.compact(state.pending + state.held.map { .upsert($0) })
+            state.held = []
+        }
         schedule(after: 0)
     }
 
@@ -230,15 +266,30 @@ final class DictionarySync: ObservableObject {
     func recordEdit(from old: [DictionaryEntry], to new: [DictionaryEntry]) {
         let ops = DictionaryOp.diff(from: old, to: new)
         guard !ops.isEmpty else { return }
-        let sending = state.pending.prefix(inFlight)
-        state.pending = Array(sending) + Self.compact(state.pending.dropFirst(inFlight) + ops)
+        var next = state
+        // A held entry the user edited goes back in the queue; deleted, it is gone.
+        let touched = Set(ops.map(\.entryID))
+        next.held.removeAll { touched.contains($0.id) }
+        let sending = next.pending.prefix(inFlight)
+        next.pending = Array(sending) + Self.compact(next.pending.dropFirst(inFlight) + ops)
+        state = next
         schedule(after: Self.editDelay)
     }
 
-    /// Keep only the last operation per entry, in the order of last change.
+    /// Merge back-to-back operations on the same entry (the last wins), and
+    /// nothing else: the server applies operations in order under a
+    /// uniqueness rule, so reordering across entries could turn a valid
+    /// rename-then-reuse ("A: Foo→Bar", "B: Foo") into a rejected duplicate.
     static func compact(_ ops: [DictionaryOp]) -> [DictionaryOp] {
-        var seen = Set<String>()
-        return ops.reversed().filter { seen.insert($0.entryID).inserted }.reversed()
+        var out: [DictionaryOp] = []
+        for op in ops {
+            if let last = out.last, last.entryID == op.entryID {
+                out[out.count - 1] = op
+            } else {
+                out.append(op)
+            }
+        }
+        return out
     }
 
     private func schedule(after delay: TimeInterval) {
@@ -275,16 +326,14 @@ final class DictionarySync: ObservableObject {
                 // First sync, or state saved before accounts were recorded.
                 state.account = account
             } else if state.account != account {
-                // Everything pending is already in the local list, which the
-                // fresh state uploads in full.
-                state = State(account: account)
-                rejectedWords = []
+                state = state.restarted(account: account)
+                mergedDuplicates = []
             }
-            await exchange(with: makeRemote(configuration), settings: settings)
+            await exchange(with: makeRemote(configuration), account: account, settings: settings)
         } while runAgain && status != .unsupported
     }
 
-    private func exchange(with remote: DictionaryRemote, settings: OLIVSettings) async {
+    private func exchange(with remote: DictionaryRemote, account: String, settings: OLIVSettings) async {
         // The first sync merges this Mac's existing entries into the server's.
         let upload = state.uploadedLocal ? [] : settings.dictionaryEntries.map { DictionaryOp.upsert($0) }
         state.pending = Self.compact(state.pending)
@@ -292,35 +341,76 @@ final class DictionarySync: ObservableObject {
         defer { inFlight = 0 }
         let ops = Self.compact(upload + state.pending)
         status = .syncing
+        let result: Result<DictionarySnapshot, Error>
         do {
-            let snapshot = try await remote.dictionary(ops: ops.isEmpty ? nil : ops)
-            // Edits made while the request was in flight stay queued.
-            state.pending.removeFirst(inFlight)
-            state.revision = snapshot.revision
-            state.uploadedLocal = true
-            state.serverSupportsDictionary = true
-            failures = 0
-            let refused = Set(snapshot.rejected.map(\.id))
-            rejectedWords = ops.compactMap { op in
-                guard case .upsert(let e) = op, refused.contains(e.id) else { return nil }
-                return e.word
-            }
-            settings.replaceDictionaryFromServer(DictionaryOp.apply(state.pending, to: snapshot.entries))
-            status = state.pending.isEmpty ? .synced(Date()) : .waiting
-            if !state.pending.isEmpty { runAgain = true }
-        } catch OLIVAPIError.unsupported {
-            // Nothing to send to a server that cannot keep it; a later upgrade
-            // starts again with a full upload.
-            state = State(serverSupportsDictionary: false, account: state.account)
-            status = .unsupported
-        } catch OLIVAPIError.http(let code) where code == 401 || code == 403 {
-            status = .failed(OLIVAPIError.http(code).errorDescription ?? "The API key was rejected.")
+            result = .success(try await remote.dictionary(ops: ops.isEmpty ? nil : ops))
         } catch {
+            result = .failure(error)
+        }
+        // The URL/key changed while waiting: this answer belongs to another
+        // account. Leave everything queued and run again for the current one.
+        guard settings.olivAPIConfiguration.map(Self.accountID) == account else {
+            runAgain = true
+            return
+        }
+        switch result {
+        case .success(let snapshot):
+            apply(snapshot, sent: ops, settings: settings)
+        case .failure(OLIVAPIError.unsupported):
+            // Nothing to send to a server that cannot keep it; a later upgrade
+            // starts again with a full upload (deletions kept).
+            state = state.restarted(account: account, serverSupportsDictionary: false)
+            mergedDuplicates = []
+            status = .unsupported
+        case .failure(OLIVAPIError.http(let code)) where code == 401 || code == 403:
+            status = .failed(OLIVAPIError.http(code).errorDescription ?? "The API key was rejected.")
+        case .failure:
             status = .waiting
             let delay = Self.retryDelays[min(failures, Self.retryDelays.count - 1)]
             failures += 1
             schedule(after: delay)
         }
+    }
+
+    private func apply(_ snapshot: DictionarySnapshot, sent ops: [DictionaryOp], settings: OLIVSettings) {
+        var next = state
+        // Edits made while the request was in flight stay queued.
+        next.pending.removeFirst(inFlight)
+        next.revision = snapshot.revision
+        next.uploadedLocal = true
+        next.serverSupportsDictionary = true
+        failures = 0
+        // A refused upsert is only settled when the server already holds the
+        // same word + correction (a duplicate from another device: merged).
+        // Anything else stays on this Mac: a duplicate whose conflict this
+        // batch released is retried once; the rest (account full) is held.
+        let refused = Set(snapshot.rejected.map(\.id))
+        let reasons = Dictionary(snapshot.rejected.map { ($0.id, $0.reason) }, uniquingKeysWith: { a, _ in a })
+        let serverKeys = Set(snapshot.entries.map { $0.dedupeKey() })
+        var merged: [String] = []
+        var refusedEntries: [String: DictionaryEntry] = [:]
+        for case .upsert(let entry) in ops where refused.contains(entry.id) {
+            refusedEntries[entry.id] = entry
+        }
+        for entry in refusedEntries.values.sorted(by: { $0.word < $1.word }) {
+            if serverKeys.contains(entry.dedupeKey()) {
+                merged.append(entry.word)
+            } else if reasons[entry.id] == "duplicate", !retriedDuplicates.contains(entry.id) {
+                retriedDuplicates.insert(entry.id)
+                next.pending.append(.upsert(entry))
+            } else {
+                retriedDuplicates.remove(entry.id)
+                next.held.removeAll { $0.id == entry.id }
+                next.held.append(entry)
+            }
+        }
+        if next.pending.isEmpty { retriedDuplicates = [] }
+        state = next
+        mergedDuplicates = merged
+        let held = state.held.filter { h in !snapshot.entries.contains { $0.id == h.id } }
+        settings.replaceDictionaryFromServer(DictionaryOp.apply(state.pending, to: snapshot.entries) + held)
+        status = state.pending.isEmpty ? .synced(Date()) : .waiting
+        if !state.pending.isEmpty { runAgain = true }
     }
 
     private func persist() {

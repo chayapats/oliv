@@ -41,6 +41,7 @@ final class OLIVSettings: ObservableObject {
         static let legacyVocabulary = "oliv.vocabulary"   // pre-Dictionary [String]; migrated once, then removed
         static let legacyDictionaryBackup = "oliv.legacyDictionaryBackup" // JSON copy of both, kept for recovery
         static let dictionaryEntries = "oliv.dictionaryEntries" // Dictionary JSON [DictionaryEntry]
+        static let legacySnippets = "oliv.legacySnippets"  // [String:String] 0.2.0 replacements a Dictionary entry cannot hold
         static let dictionaryAutoLearn = "oliv.dictionaryAutoLearn" // undo→redictate suggestions toggle
         static let autoLearnCandidates = "oliv.autoLearnCandidates" // inbox JSON [AutoLearnCandidate]
         static let formatCommands = "oliv.formatCommands" // B4 spoken formatting-command toggle
@@ -183,10 +184,25 @@ final class OLIVSettings: ObservableObject {
     /// reported to `onDictionaryEdit` so `DictionarySync` can send it on.
     @Published var dictionaryEntries: [DictionaryEntry] {
         didSet {
-            persistDictionaryEntries()
+            // The sync outbox first: if the app dies in between, relaunch
+            // replays the queued edit instead of letting the server copy
+            // overwrite a saved-but-unqueued one.
             if !applyingServerDictionary { onDictionaryEdit?(oldValue, dictionaryEntries) }
+            persistDictionaryEntries()
             onChange?()
         }
+    }
+
+    /// 0.2.0 replacements that a Dictionary entry cannot hold exactly (long
+    /// snippets, symbol-only output, meaningful surrounding whitespace). They
+    /// keep working as the legacy replacement table — spoken phrase → exact
+    /// output — on this Mac only, and can be removed from the Dictionary page.
+    @Published var legacySnippets: [String: String] {
+        didSet { defaults.set(legacySnippets, forKey: Key.legacySnippets); onChange?() }
+    }
+
+    func removeLegacySnippet(spoken: String) {
+        legacySnippets.removeValue(forKey: spoken)
     }
 
     /// (old, new) after each user edit of `dictionaryEntries`; not called for
@@ -365,11 +381,15 @@ final class OLIVSettings: ObservableObject {
         if let data = defaults.data(forKey: Key.dictionaryEntries),
            let decoded = try? JSONDecoder().decode([DictionaryEntry].self, from: data) {
             dictionaryEntries = decoded
+            legacySnippets = defaults.dictionary(forKey: Key.legacySnippets) as? [String: String] ?? [:]
         } else {
-            dictionaryEntries = DictionaryEntry.migrate(
+            let migrated = DictionaryEntry.migrate(
                 vocabulary: defaults.array(forKey: Key.legacyVocabulary) as? [String] ?? [],
                 replacements: defaults.dictionary(forKey: Key.legacyReplacements) as? [String: String] ?? [:])
+            dictionaryEntries = migrated.entries
+            legacySnippets = migrated.kept
             persistDictionaryEntries()
+            defaults.set(migrated.kept, forKey: Key.legacySnippets)
         }
         retireLegacyDictionaryStores()
         // Auto-learn inbox: load persisted proposals (legacy installs have

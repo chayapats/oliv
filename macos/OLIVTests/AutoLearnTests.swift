@@ -365,6 +365,27 @@ final class AutoLearnTests: XCTestCase {
         XCTAssertEqual(c?.correction, "SHAสองห้าหก")
     }
 
+    func testAddWordNumeralRuleNeedsTheWordsOwnDigits() {
+        XCTAssertNil(AutoLearn.proposeCorrectionForNewWord(
+            word: "SHA256", recentTexts: ["use SHA สอง now"]))
+        XCTAssertNil(AutoLearn.proposeCorrectionForNewWord(
+            word: "SHA256", recentTexts: ["รหัสSHAสองห้าครับ"]))
+        XCTAssertEqual(AutoLearn.proposeCorrectionForNewWord(
+            word: "SHA256", recentTexts: ["ใช้ SHA สองร้อยห้าสิบหก"])?.correction, "SHA สองร้อยห้าสิบหก")
+        XCTAssertEqual(AutoLearn.proposeCorrectionForNewWord(
+            word: "H100", recentTexts: ["การ์ด H หนึ่งศูนย์ศูนย์"])?.correction, "H หนึ่งศูนย์ศูนย์")
+    }
+
+    func testThaiNumeralReadings() {
+        XCTAssertEqual(AutoLearn.thaiNumeralReadings("สองห้าหก"), ["256"])
+        XCTAssertEqual(AutoLearn.thaiNumeralReadings("สองร้อยห้าสิบหก"), ["256"])
+        XCTAssertEqual(AutoLearn.thaiNumeralReadings("ยี่สิบเอ็ด"), ["21"])
+        XCTAssertEqual(AutoLearn.thaiNumeralReadings("สองล้านห้าแสน"), ["2500000"])
+        XCTAssertEqual(AutoLearn.thaiNumeralReadings("สองจุดห้า"), [])
+        XCTAssertEqual(AutoLearn.thaiNumeralReadings(String(repeating: "ล้าน", count: 12)), [],
+                       "overflow is not a number, not a crash")
+    }
+
     func testAddWordNumeralRuleNeedsNumeralsAfterPrefix() {
         XCTAssertNil(AutoLearn.proposeCorrectionForNewWord(
             word: "SHA256", recentTexts: ["SHA อย่างดี"]))

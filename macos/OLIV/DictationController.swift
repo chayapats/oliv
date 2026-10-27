@@ -75,6 +75,8 @@ final class DictationController {
     /// The personal Dictionary (live-applied from Settings). Local engines get
     /// it per dictate; the OLIV API applies its own synced copy.
     var dictionaryEntries: [DictionaryEntry] = []
+    /// 0.2.0 replacements kept outside the Dictionary (OLIVSettings.legacySnippets).
+    var legacySnippets: [String: String] = [:]
     /// Whether the server applies the dictionary itself, and where to report
     /// the revision a dictation used. Wired by the coordinator.
     weak var dictionarySync: DictionarySync?
@@ -604,7 +606,10 @@ final class DictationController {
             frontmostBundleID: frontmostBundleID())
         let options = DictationOptions(
             cleanup: cleanup, removeFillers: removeFillers,
-            replacements: deriveForServer ? DictionaryEntry.replacements(from: entries) : [:],
+            // Snippets kept from 0.2.0 apply on every engine, after the
+            // dictionary (a dictionary correction wins the same phrase).
+            replacements: (deriveForServer ? DictionaryEntry.replacements(from: entries) : [:])
+                .merging(self.legacySnippets) { dictionary, _ in dictionary },
             vocabulary: deriveForServer ? DictionaryEntry.vocabulary(from: entries) : [],
             formatCommands: formatCommands && !remote,
             thaiFormat: Self.effectiveThaiFormat(setting: thaiFormat, cleanup: cleanup),

@@ -106,3 +106,48 @@ fn stt_prompt_lists_starred_dictionary_words_first() {
         Some("Koolify, Grafana, Kafka".to_string())
     );
 }
+
+/// Both entry points: the API-style `clean_text` and the sidecar's `local::clean`.
+fn both(text: &str, o: &Options, llm: &dyn Llm) -> [String; 2] {
+    [
+        clean_text(text, o, llm).final_text,
+        oliv_pipeline::local::clean(text, None, o, false, llm)
+            .outcome
+            .final_text,
+    ]
+}
+
+#[test]
+fn each_correction_applies_once() {
+    // A chain migrated from 0.2.0 replacements: one pass, like the legacy table.
+    let o = opts(json!({
+        "thai_format": false,
+        "dictionary": [{"word": "bar", "correction": "foo"}, {"word": "baz", "correction": "bar"}],
+    }))
+    .unwrap();
+    assert_eq!(both("say foo", &o, &NoLlm), ["say bar", "say bar"]);
+
+    // A word that contains what was heard is not expanded twice.
+    let o = opts(json!({
+        "thai_format": false,
+        "dictionary": [{"word": "ประเทศไทย", "correction": "ไทย"}],
+    }))
+    .unwrap();
+    for out in both("ไปไทยไหม", &o, &Fixed("ไปประเทศไทยไหม"))
+    {
+        assert_eq!(out.matches("ประเทศ").count(), 1, "{out}");
+    }
+}
+
+#[test]
+fn vocabulary_only_leaves_verbatim_text_alone() {
+    let o = opts(json!({
+        "cleanup": false,
+        "thai_format": false,
+        "dictionary": [{"word": "SHA256"}, {"word": "Grafana"}],
+    }))
+    .unwrap();
+    for text in ["ไทย ไทย", "ใช้ SHA สองห้าหก"] {
+        assert_eq!(both(text, &o, &NoLlm), [text, text]);
+    }
+}

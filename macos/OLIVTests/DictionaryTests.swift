@@ -142,6 +142,44 @@ final class DictionaryTests: XCTestCase {
         XCTAssertEqual(parsed.entries[2].source, .import)
     }
 
+    func testCSVRoundTripsQuotedLineBreaksAndQuotes() throws {
+        let entries = [DictionaryEntry(word: "first\nsecond", correction: "say"),
+                       DictionaryEntry(word: "He said \"hi\", twice", correction: "line one\r\nline two")]
+        let csv = DictionaryEntry.serializeCSV(entries)
+        let parsed = try DictionaryEntry.parseCSV(csv)
+        XCTAssertEqual(parsed.skipped, 0)
+        XCTAssertEqual(parsed.entries.map(\.word), entries.map(\.word))
+        XCTAssertEqual(parsed.entries.map(\.correction), entries.map(\.correction))
+        // CRLF files and blank lines between records.
+        let crlf = try DictionaryEntry.parseCSV("word,correction\r\nGrafana,\r\n\r\nKafka,kafkah\r\n")
+        XCTAssertEqual(crlf.entries.map(\.word), ["Grafana", "Kafka"])
+        // An unterminated quote is one skipped record, not a crash.
+        let broken = try DictionaryEntry.parseCSV("word,correction\nGrafana,\n\"open,x\n")
+        XCTAssertEqual(broken.entries.map(\.word), ["Grafana"])
+        XCTAssertEqual(broken.skipped, 1)
+    }
+
+    func testValidationMatchesTheRustMatcher() {
+        // Rust counts Unicode scalars: 60 Thai syllables of 2 scalars is 120.
+        let thai = String(repeating: "กิ", count: 60)
+        XCTAssertEqual(thai.count, 60)
+        XCTAssertFalse(DictionaryEntry.isValidWord(thai))
+        XCTAssertTrue(DictionaryEntry.isValidWord(String(repeating: "กิ", count: 50)))
+        XCTAssertFalse(DictionaryEntry.isValidCorrection(thai))
+        // No letter or digit: emoji (with a variation selector) and lone marks.
+        XCTAssertFalse(DictionaryEntry.isValidWord("❤️"))
+        XCTAssertFalse(DictionaryEntry.isValidWord("\u{0301}"))
+        XCTAssertTrue(DictionaryEntry.isValidWord("❤️ OLIV"))
+        XCTAssertTrue(DictionaryEntry.isValidWord("๕๖"))
+    }
+
+    func testDedupeUsesFullCaseFolding() {
+        XCTAssertEqual(DictionaryEntry.dedupeKey(for: "Straße"), DictionaryEntry.dedupeKey(for: "STRASSE"))
+        XCTAssertEqual(DictionaryEntry.dedupeKey(for: "ﬁle"), DictionaryEntry.dedupeKey(for: "FILE"))
+        XCTAssertEqual(DictionaryEntry.dedupeKey(for: "σίσυφος"), DictionaryEntry.dedupeKey(for: "ΣΊΣΥΦΟΣ"))
+        XCTAssertNotEqual(DictionaryEntry.dedupeKey(for: "ไทย"), DictionaryEntry.dedupeKey(for: "ไท"))
+    }
+
     func testCSVSkipsInvalidAndDuplicateRows() throws {
         let csv = "word,correction\nGrafana,grafannah\n   \n!!!,x\nGrafana,grafannah\nKubernetes,\n"
         let parsed = try DictionaryEntry.parseCSV(csv)
@@ -189,9 +227,10 @@ final class DictionaryTests: XCTestCase {
     // MARK: Migration
 
     func testMigrationFoldsLegacyStores() {
-        let migrated = DictionaryEntry.migrate(
+        let (migrated, kept) = DictionaryEntry.migrate(
             vocabulary: ["Grafana", "grafana", "  ", "!!!", "Kubernetes"],
             replacements: ["my email": "me@example.com", "koobernetes": "Kubernetes"])
+        XCTAssertEqual(kept, [:])
         // "grafana" dup + blank + punctuation dropped; "koobernetes"→Kubernetes
         // upgrades the word-only Kubernetes entry in place.
         XCTAssertEqual(migrated.map(\.word),
@@ -200,6 +239,31 @@ final class DictionaryTests: XCTestCase {
         XCTAssertEqual(migrated[1].correction, "koobernetes")
         XCTAssertEqual(migrated[2].correction, "my email")
         XCTAssertTrue(migrated.allSatisfy { $0.source == .manual })
+    }
+
+    func testMigrationKeepsSnippetsTheDictionaryCannotHold() {
+        let long = String(repeating: "Signature line. ", count: 10)
+        let (migrated, kept) = DictionaryEntry.migrate(
+            vocabulary: ["grafana"],
+            replacements: ["grafannah": "Grafana", "dash": "—", "sig": long,
+                           "spaced": " hello ", "addr": "1 Main St\nSpringfield"])
+        // The replacement's spelling wins when it upgrades a vocabulary word;
+        // an inner line break fits an entry as is.
+        XCTAssertEqual(migrated.map(\.word), ["Grafana", "1 Main St\nSpringfield"])
+        XCTAssertEqual(migrated.map(\.correction), ["grafannah", "addr"])
+        // Everything else keeps its exact output as a legacy snippet.
+        XCTAssertEqual(kept, ["dash": "—", "sig": long, "spaced": " hello "])
+    }
+
+    func testLegacySnippetsSurviveRelaunchAndCanBeRemoved() {
+        defaults.set(["dash": "—", "my email": "me@example.com"], forKey: "oliv.replacements")
+        let s = makeSettings()
+        XCTAssertEqual(s.dictionaryEntries.map(\.word), ["me@example.com"])
+        XCTAssertEqual(s.legacySnippets, ["dash": "—"])
+        let again = makeSettings()
+        XCTAssertEqual(again.legacySnippets, ["dash": "—"], "kept across launches")
+        again.removeLegacySnippet(spoken: "dash")
+        XCTAssertEqual(makeSettings().legacySnippets, [:])
     }
 
     func testInitMigratesLegacyOnceThenRetiresTheOldStores() {

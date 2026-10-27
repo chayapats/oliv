@@ -63,21 +63,25 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
         s.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// True when the string carries at least one non-decoration character.
-    /// Whitespace / punctuation / symbol / control-only strings ("" , "!!!",
-    /// "…") are rejected; letters, digits, CJK/Thai script, and emoji-mixed
-    /// words are accepted.
+    /// True when the string carries at least one letter or digit (Thai
+    /// included) — the same rule as Rust's `user_dictionary::clean_field`
+    /// (`char::is_alphanumeric() || is_thai`), so nothing saved here is
+    /// silently dropped by the matcher. Punctuation-, symbol-, emoji- and
+    /// mark-only strings are rejected.
     static func hasWordContent(_ s: String) -> Bool {
-        let ignored = CharacterSet.whitespacesAndNewlines
-            .union(.punctuationCharacters)
-            .union(.symbols)
-            .union(.controlCharacters)
-        return s.unicodeScalars.contains { !ignored.contains($0) }
+        s.unicodeScalars.contains { scalar in
+            scalar.properties.isAlphabetic || scalar.properties.numericType != nil
+                || (0x0E00...0x0E7F).contains(scalar.value)
+        }
     }
+
+    /// Field length as Rust counts it (Unicode scalars, not grapheme
+    /// clusters: a Thai syllable with a vowel and tone mark is 3).
+    static func fieldLength(_ s: String) -> Int { s.unicodeScalars.count }
 
     static func isValidWord(_ word: String) -> Bool {
         let t = trimmed(word)
-        return !t.isEmpty && t.count <= maxFieldLength && hasWordContent(t)
+        return !t.isEmpty && fieldLength(t) <= maxFieldLength && hasWordContent(t)
     }
 
     /// nil (or blank, normalized to nil by callers) = vocabulary-only = valid.
@@ -85,7 +89,7 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
         guard let c = correction else { return true }
         let t = trimmed(c)
         if t.isEmpty { return true }
-        return t.count <= maxFieldLength && hasWordContent(t)
+        return fieldLength(t) <= maxFieldLength && hasWordContent(t)
     }
 
     var isValid: Bool {
@@ -94,17 +98,18 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
 
     /// Past the soft cap — the UI shows a "long, but will save" hint.
     var needsLengthWarning: Bool {
-        word.count > Self.warnFieldLength
-            || (correction?.count ?? 0) > Self.warnFieldLength
+        Self.fieldLength(word) > Self.warnFieldLength
+            || Self.fieldLength(correction ?? "") > Self.warnFieldLength
     }
 
     /// Dedupe key for a word, the same rule as the server
     /// (`user_dictionary::dedupe_key`): anything containing Thai compares
-    /// exactly, everything else case-insensitively.
+    /// exactly, everything else by full Unicode case folding (Straße and
+    /// STRASSE are one word, as in Rust's `casefold`).
     static func dedupeKey(for word: String) -> String {
         let t = trimmed(word)
         let hasThai = t.unicodeScalars.contains { (0x0E00...0x0E7F).contains($0.value) }
-        return hasThai ? t : t.lowercased()
+        return hasThai ? t : t.folding(options: .caseInsensitive, locale: nil)
     }
 
     /// Full identity of an entry: word + correction (one correction per entry).
@@ -156,9 +161,17 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// vocabulary terms first (word-only), then replacements (spoken→word
     /// becomes correction→word, sorted by spoken phrase for determinism). A
     /// replacement whose word matches an earlier word-only entry upgrades that
-    /// entry instead of duplicating it. Invalid/duplicate rows are skipped.
+    /// entry (taking the replacement's spelling) instead of duplicating it.
+    ///
+    /// Snippets a dictionary entry cannot hold exactly — output over the
+    /// field limit, without a letter or digit ("dash" → "—"), or with
+    /// surrounding whitespace/newlines that trimming would change — are
+    /// returned in `kept` unchanged; they keep working as the legacy
+    /// replacement table (`OLIVSettings.legacySnippets`).
     static func migrate(vocabulary: [String],
-                        replacements: [String: String]) -> [DictionaryEntry] {
+                        replacements: [String: String])
+        -> (entries: [DictionaryEntry], kept: [String: String]) {
+        var kept: [String: String] = [:]
         var entries: [DictionaryEntry] = []
         var fullKeys = Set<String>()
         var wordOnlyIndex: [String: Int] = [:]  // word key → entries index (nil-correction only)
@@ -173,7 +186,11 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
         }
         for spoken in replacements.keys.sorted() {
             guard let rep = replacements[spoken] else { continue }
-            guard let pair = normalized(word: rep, correction: spoken) else { continue }
+            guard trimmed(rep) == rep, let pair = normalized(word: rep, correction: spoken) else {
+                // 0.2.0 stored any non-blank spoken phrase + output verbatim.
+                if !trimmed(spoken).isEmpty, !trimmed(rep).isEmpty { kept[spoken] = rep }
+                continue
+            }
             let candidate = DictionaryEntry(word: pair.word, correction: pair.correction,
                                             source: .manual)
             let full = candidate.dedupeKey()
@@ -181,6 +198,7 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
             // Upgrade a word-only entry with the same word instead of doubling.
             if let idx = wordOnlyIndex[dedupeKey(for: pair.word)],
                entries[idx].correction == nil {
+                entries[idx].word = pair.word
                 entries[idx].correction = pair.correction
                 fullKeys.insert(full)
                 wordOnlyIndex.removeValue(forKey: dedupeKey(for: pair.word))
@@ -189,7 +207,7 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
             fullKeys.insert(full)
             entries.append(candidate)
         }
-        return entries
+        return (entries, kept)
     }
 
     // MARK: CSV (word,correction header, ≤1000 rows)
@@ -207,25 +225,25 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// file over maxCSVBytes.
     static func parseCSV(_ text: String) throws -> (entries: [DictionaryEntry], skipped: Int) {
         guard text.utf8.count <= maxCSVBytes else { throw CSVError.tooLarge(limit: maxCSVBytes) }
-        var lines = text.components(separatedBy: .newlines)
-        // Tolerate a trailing newline, but an all-blank file is still empty.
-        guard lines.contains(where: { !trimmed($0).isEmpty }) else { throw CSVError.empty }
-        // Header is the first non-blank line.
-        guard let headerIdx = lines.firstIndex(where: { !trimmed($0).isEmpty }) else {
-            throw CSVError.empty
+        // Records, not physical lines: a quoted field may span line breaks.
+        // A blank record (an empty line) is ignored; an unterminated quote
+        // makes the last record unparseable (skipped).
+        var records = parseCSVRecords(text).filter { record in
+            !(record.fields.count == 1 && trimmed(record.fields[0]).isEmpty && !record.quoted)
         }
-        let header = parseCSVLine(lines[headerIdx])?.map { trimmed($0).lowercased() } ?? []
-        guard header.count >= 2, header[0] == "word", header[1] == "correction" else {
+        guard !records.isEmpty else { throw CSVError.empty }
+        // Header is the first non-blank record.
+        let header = records.removeFirst()
+        let names = header.valid ? header.fields.map { trimmed($0).lowercased() } : []
+        guard names.count >= 2, names[0] == "word", names[1] == "correction" else {
             throw CSVError.badHeader
         }
-        lines.removeSubrange(...headerIdx)
-        let rows = lines.filter { !trimmed($0).isEmpty }
-        guard rows.count <= maxCSVRows else { throw CSVError.tooManyRows(limit: maxCSVRows) }
+        guard records.count <= maxCSVRows else { throw CSVError.tooManyRows(limit: maxCSVRows) }
         var entries: [DictionaryEntry] = []
         var seen = Set<String>()
         var skipped = 0
-        for row in rows {
-            let fields = parseCSVLine(row) ?? []
+        for record in records {
+            let fields = record.valid ? record.fields : []
             guard !fields.isEmpty else { skipped += 1; continue }
             let word = trimmed(fields[0])
             let correction: String? = fields.count > 1 ? trimmed(fields[1]) : nil
@@ -247,6 +265,69 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
             out += "\n" + escapeCSVField(e.word) + "," + escapeCSVField(e.correction ?? "")
         }
         return out + "\n"
+    }
+
+    struct CSVRecord {
+        var fields: [String]
+        /// False when the text ended inside a quoted field.
+        var valid: Bool
+        /// Some field was quoted (`""` is a record, not a blank line).
+        var quoted: Bool
+    }
+
+    /// RFC 4180 over the whole text: CRLF, LF or CR end a record unless
+    /// inside quotes, where line breaks are part of the field.
+    static func parseCSVRecords(_ text: String) -> [CSVRecord] {
+        var records: [CSVRecord] = []
+        var fields: [String] = []
+        var current = ""
+        var inQuotes = false
+        var quoted = false
+        var fieldStarted = false
+        let chars = Array(text.unicodeScalars)
+        var i = 0
+        func endRecord() {
+            fields.append(current)
+            records.append(CSVRecord(fields: fields, valid: true, quoted: quoted))
+            fields = []; current = ""; quoted = false; fieldStarted = false
+        }
+        while i < chars.count {
+            let ch = chars[i]
+            if inQuotes {
+                if ch == "\"" {
+                    if i + 1 < chars.count, chars[i + 1] == "\"" {
+                        current.unicodeScalars.append("\"")
+                        i += 2
+                        continue
+                    }
+                    inQuotes = false
+                } else {
+                    current.unicodeScalars.append(ch)
+                }
+            } else if ch == "\"", !fieldStarted {
+                inQuotes = true
+                quoted = true
+                fieldStarted = true
+            } else if ch == "," {
+                fields.append(current)
+                current = ""
+                fieldStarted = false
+            } else if ch == "\r" || ch == "\n" {
+                if ch == "\r", i + 1 < chars.count, chars[i + 1] == "\n" { i += 1 }
+                endRecord()
+            } else {
+                current.unicodeScalars.append(ch)
+                fieldStarted = true
+            }
+            i += 1
+        }
+        if inQuotes {
+            fields.append(current)
+            records.append(CSVRecord(fields: fields, valid: false, quoted: true))
+        } else if fieldStarted || !fields.isEmpty || !current.isEmpty {
+            endRecord()
+        }
+        return records
     }
 
     /// One RFC-4180 line: quotes double internal quotes; fields containing a
@@ -290,8 +371,8 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
     }
 
     static func escapeCSVField(_ field: String) -> String {
-        if field.contains(",") || field.contains("\"")
-            || field.contains("\n") || field.contains("\r") {
+        // By scalar: "\r\n" is ONE Character, so `contains("\n")` misses it.
+        if field.unicodeScalars.contains(where: { [",", "\"", "\n", "\r"].contains($0) }) {
             return "\"" + field.replacingOccurrences(of: "\"", with: "\"\"") + "\""
         }
         return field

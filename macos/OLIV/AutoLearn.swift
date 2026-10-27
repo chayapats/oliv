@@ -149,7 +149,7 @@ enum AutoLearn {
             // No same-script near-miss — but an alphanumeric term
             // (SHA256, GPT4) is often spoken as letters + Thai numerals.
             if let parts = alphaNumericParts(target),
-               let phrase = findSpokenNumeralPhrase(prefix: parts.prefix,
+               let phrase = findSpokenNumeralPhrase(prefix: parts.prefix, digits: parts.digits,
                                                     recentTexts: recentTexts) {
                 return makeCandidate(word: target, correction: phrase,
                                      reason: AutoLearnCandidate.reasonAddWord)
@@ -202,11 +202,50 @@ enum AutoLearn {
         return out
     }
 
+    /// What a run of Thai numeral words can mean as digits: read digit by
+    /// digit ("สองห้าหก" → 256, "หนึ่งศูนย์ศูนย์" → 100) and as a positional
+    /// number ("สองร้อยห้าสิบหก" → 256, "ยี่สิบเอ็ด" → 21). Empty when the
+    /// run is not a number (or uses จุด, which an integer suffix cannot match).
+    static func thaiNumeralReadings(_ s: String) -> Set<String> {
+        guard let words = segmentThaiNumerals(s), !words.contains("จุด") else { return [] }
+        let digit: [String: Int] = ["ศูนย์": 0, "หนึ่ง": 1, "เอ็ด": 1, "สอง": 2, "ยี่": 2, "สาม": 3,
+                                    "สี่": 4, "ห้า": 5, "หก": 6, "เจ็ด": 7, "แปด": 8, "เก้า": 9]
+        let unit: [String: Int] = ["สิบ": 10, "ร้อย": 100, "พัน": 1_000, "หมื่น": 10_000, "แสน": 100_000]
+        var readings = Set<String>()
+        if words.allSatisfy({ digit[$0] != nil && $0 != "เอ็ด" && $0 != "ยี่" }) {
+            readings.insert(words.map { String(digit[$0]!) }.joined())
+        }
+        var total = 0, block = 0, pending: Int?
+        var valid = true
+        for w in words {
+            if let d = digit[w] {
+                if pending != nil { valid = false; break }
+                pending = d
+            } else if let u = unit[w] {
+                block += (pending ?? 1) * u
+                pending = nil
+            } else if w == "ล้าน" {
+                let (scaled, overflow) = (total + block + (pending ?? (block == 0 ? 1 : 0)))
+                    .multipliedReportingOverflow(by: 1_000_000)
+                if overflow { valid = false; break }  // "ล้านล้านล้าน…": no digits of ours
+                total = scaled
+                block = 0
+                pending = nil
+            }
+        }
+        if valid, words.contains(where: { unit[$0] != nil || $0 == "ล้าน" }) {
+            readings.insert(String(total + block + (pending ?? 0)))
+        }
+        return readings
+    }
+
     /// Find "<letter-prefix> + Thai numerals" in recent transcripts for an
     /// alphanumeric word: spaced ("SHA สองห้าหก") or glued ("SHAสองห้าหก").
-    /// Returns the exact spoken span to map, or nil.
-    static func findSpokenNumeralPhrase(prefix: String,
+    /// The numerals must say the word's own digits (SHA256 never maps "SHA
+    /// สอง"). Returns the exact spoken span to map, or nil.
+    static func findSpokenNumeralPhrase(prefix: String, digits: String,
                                        recentTexts: [String]) -> String? {
+        let says = { (run: String) in thaiNumeralReadings(run).contains(digits) }
         let p = prefix.lowercased()
         for rawText in recentTexts {
             let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -216,7 +255,7 @@ enum AutoLearn {
                 for (i, token) in tokens.enumerated() {
                     guard token.lowercased() == p,
                           i + 1 < tokens.count,
-                          segmentThaiNumerals(tokens[i + 1]) != nil else { continue }
+                          says(tokens[i + 1]) else { continue }
                     return token + " " + tokens[i + 1]
                 }
             } else {
@@ -232,7 +271,7 @@ enum AutoLearn {
                         probe.append(ch)
                         // No early break: "สองห" fails but "สองห้า"
                         // matches — keep the longest fully-segmenting run.
-                        if segmentThaiNumerals(probe) != nil {
+                        if says(probe) {
                             best = probe
                         }
                     }

@@ -250,6 +250,27 @@ struct DictionarySettingsView: View {
                 }
             }
 
+            if !settings.legacySnippets.isEmpty {
+                SettingsCard(title: "Older snippets · \(settings.legacySnippets.count)", icon: "text.quote",
+                             subtitle: "Replacements from before the Dictionary that it cannot hold exactly (long text, symbols, or spacing). They still work on this Mac.") {
+                    let spokenKeys = settings.legacySnippets.keys.sorted()
+                    ForEach(spokenKeys, id: \.self) { spoken in
+                        if spoken != spokenKeys.first { Divider() }
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(spoken).font(.system(size: 13, weight: .medium))
+                                Text(settings.legacySnippets[spoken] ?? "")
+                                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                                    .lineLimit(2).truncationMode(.tail)
+                            }
+                            Spacer()
+                            Button("Remove") { settings.removeLegacySnippet(spoken: spoken) }
+                                .buttonStyle(.borderless)
+                        }
+                    }
+                }
+            }
+
             SettingsCard(title: "Import & export", icon: "arrow.up.arrow.down") {
                 HStack(spacing: 10) {
                     Button("Import CSV…") { showImporter = true }

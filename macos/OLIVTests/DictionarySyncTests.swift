@@ -13,6 +13,8 @@ final class FakeDictionaryServer: DictionaryRemote, @unchecked Sendable {
     var revision = 0
     var calls: [[DictionaryOp]?] = []
     var failure: Error?
+    /// Upserts of new entries past this are rejected with `limit`.
+    var limit = 1000
     /// Runs while a request is "in flight" (to simulate concurrent edits).
     var duringRequest: (() async -> Void)?
 
@@ -36,13 +38,15 @@ final class FakeDictionaryServer: DictionaryRemote, @unchecked Sendable {
                 }
                 if let i = entries.firstIndex(where: { $0.id == entry.id }) {
                     if entries[i] != entry { entries[i] = entry; changed = true }
+                } else if entries.count >= limit {
+                    rejected.append(.init(id: entry.id, reason: "limit"))
                 } else {
                     entries.append(entry); changed = true
                 }
             }
         }
         if changed { revision += 1 }
-        return DictionarySnapshot(revision: revision, maxEntries: 1000, entries: entries, rejected: rejected)
+        return DictionarySnapshot(revision: revision, maxEntries: limit, entries: entries, rejected: rejected)
     }
 }
 
@@ -90,10 +94,125 @@ final class DictionarySyncTests: XCTestCase {
         XCTAssertEqual(DictionaryOp.diff(from: [a, b], to: [b]), [.delete(id: "a")])
     }
 
-    func testCompactKeepsTheLastOperationPerEntry() {
+    func testCompactMergesOnlyBackToBackOperationsOnOneEntry() {
         let a = DictionaryEntry(id: "a", word: "A")
-        let ops: [DictionaryOp] = [.upsert(a), .upsert(DictionaryEntry(id: "b", word: "B")), .delete(id: "a")]
-        XCTAssertEqual(DictionarySync.compact(ops), [.upsert(DictionaryEntry(id: "b", word: "B")), .delete(id: "a")])
+        let b = DictionaryEntry(id: "b", word: "B")
+        var a2 = a
+        a2.starred = true
+        XCTAssertEqual(DictionarySync.compact([.upsert(a), .upsert(a2), .upsert(b)]), [.upsert(a2), .upsert(b)])
+        let interleaved: [DictionaryOp] = [.upsert(a), .upsert(b), .delete(id: "a")]
+        XCTAssertEqual(DictionarySync.compact(interleaved), interleaved, "order across entries is kept")
+    }
+
+    func testRenameThenReuseTheOldWordSyncsBothEntries() async {
+        let settings = makeSettings()
+        let sync = makeSync()
+        sync.attach(to: settings)
+        settings.dictionaryEntries = [DictionaryEntry(id: "a", word: "Foo")]
+        await sync.syncNow()
+        // Offline burst: rename A, reuse its old word for B, then star A.
+        settings.dictionaryEntries[0].word = "Bar"
+        settings.dictionaryEntries.append(DictionaryEntry(id: "b", word: "Foo"))
+        settings.dictionaryEntries[0].starred = true
+        await sync.syncNow()
+        XCTAssertEqual(Set(server.entries.map(\.word)), ["Bar", "Foo"])
+        XCTAssertEqual(Set(settings.dictionaryEntries.map(\.word)), ["Bar", "Foo"])
+        XCTAssertTrue(sync.rejectedWords.isEmpty)
+    }
+
+    func testAFullAccountKeepsRefusedEntriesOnThisMac() async {
+        let settings = makeSettings()
+        server.limit = 1
+        let sync = makeSync()
+        sync.attach(to: settings)
+        settings.addDictionaryEntry(word: "Grafana", correction: nil)
+        await sync.syncNow()
+        settings.addDictionaryEntry(word: "Signature", correction: "my signature")
+        await sync.syncNow()
+        XCTAssertEqual(server.entries.map(\.word), ["Grafana"])
+        XCTAssertEqual(settings.dictionaryEntries.map(\.word), ["Grafana", "Signature"], "nothing is lost")
+        XCTAssertEqual(settings.dictionaryEntries.last?.correction, "my signature")
+        XCTAssertEqual(sync.rejectedWords, ["Signature"])
+        XCTAssertFalse(sync.serverAppliesDictionary, "requests carry the full dictionary meanwhile")
+
+        // A later sync (another device's edit) still keeps it; so does relaunch.
+        await sync.syncNow()
+        XCTAssertEqual(settings.dictionaryEntries.map(\.word), ["Grafana", "Signature"])
+        let relaunched = makeSync()
+        relaunched.attach(to: settings)
+        XCTAssertTrue(relaunched.state.held.isEmpty, "offered again at launch")
+        server.limit = 10
+        await relaunched.syncNow()
+        XCTAssertEqual(server.entries.map(\.word), ["Grafana", "Signature"])
+        XCTAssertTrue(relaunched.rejectedWords.isEmpty)
+    }
+
+    func testDeletionsSurviveAKeyChangeAndAnUnsupportedSpell() async {
+        let settings = makeSettings()
+        let sync = makeSync()
+        sync.attach(to: settings)
+        settings.addDictionaryEntry(word: "Kept", correction: nil)
+        settings.addDictionaryEntry(word: "Gone", correction: nil)
+        await sync.syncNow()
+        // Deleted while the key was rejected, then the key is replaced.
+        server.failure = OLIVAPIError.http(401)
+        settings.dictionaryEntries.removeAll { $0.word == "Gone" }
+        await sync.syncNow()
+        server.failure = nil
+        settings.olivAPIKey = "oliv-rotated-key"
+        await sync.syncNow()
+        XCTAssertEqual(server.entries.map(\.word), ["Kept"])
+        XCTAssertEqual(settings.dictionaryEntries.map(\.word), ["Kept"])
+
+        // Deleted while the server briefly lost sync support (404), which recovers.
+        settings.addDictionaryEntry(word: "Temp", correction: nil)
+        await sync.syncNow()
+        server.failure = OLIVAPIError.unsupported
+        settings.dictionaryEntries.removeAll { $0.word == "Temp" }
+        await sync.syncNow()
+        XCTAssertEqual(sync.status, .unsupported)
+        server.failure = nil
+        await sync.syncNow()
+        XCTAssertEqual(server.entries.map(\.word), ["Kept"])
+        XCTAssertEqual(settings.dictionaryEntries.map(\.word), ["Kept"])
+    }
+
+    func testServerAppliesDictionaryOnlyWhenItHoldsThisMacsCopy() async {
+        let settings = makeSettings()
+        let sync = makeSync()
+        sync.attach(to: settings)
+        XCTAssertFalse(sync.serverAppliesDictionary, "not confirmed yet")
+        await sync.syncNow()
+        XCTAssertTrue(sync.serverAppliesDictionary)
+        settings.addDictionaryEntry(word: "Grafana", correction: "grafannah")
+        XCTAssertFalse(sync.serverAppliesDictionary, "an edit is still queued")
+        await sync.syncNow()
+        XCTAssertTrue(sync.serverAppliesDictionary)
+        settings.olivAPIKey = "oliv-other-key"
+        XCTAssertFalse(sync.serverAppliesDictionary, "another account has not been synced")
+    }
+
+    func testAnAnswerForTheOldAccountIsIgnored() async {
+        let settings = makeSettings()
+        let sync = makeSync()
+        sync.attach(to: settings)
+        settings.addDictionaryEntry(word: "Mine", correction: nil)
+        await sync.syncNow()
+        let other = FakeDictionaryServer()
+        other.entries = [DictionaryEntry(id: "x", word: "Theirs")]
+        // The key changes while the old account's request is in flight; its
+        // (empty) answer must not replace the dictionary.
+        server.entries = []
+        let current = Box(server!)
+        let switching = DictionarySync(defaults: defaults, autoSync: false, makeRemote: { _ in current.value })
+        switching.attach(to: settings)
+        server.duringRequest = { @MainActor in
+            settings.olivAPIKey = "oliv-other-key"
+            current.value = other
+        }
+        await switching.syncNow()
+        XCTAssertEqual(Set(settings.dictionaryEntries.map(\.word)), ["Mine", "Theirs"])
+        XCTAssertEqual(Set(other.entries.map(\.word)), ["Mine", "Theirs"])
     }
 
     func testWireFormMatchesTheServerContract() {
@@ -266,4 +385,10 @@ final class DictionarySyncTests: XCTestCase {
         XCTAssertEqual(snap.rejected, [.init(id: "b", reason: "limit")])
         XCTAssertThrowsError(try DictionarySnapshot(["entries": []]), "revision is required")
     }
+}
+
+/// A mutable reference for fakes swapped mid-test.
+final class Box<T>: @unchecked Sendable {
+    var value: T
+    init(_ value: T) { self.value = value }
 }
