@@ -5,12 +5,13 @@ All notable user-facing changes to OLIV. The format loosely follows
 the matching `## [X.Y.Z]` section (falling back to `## [Unreleased]`) into the
 Sparkle appcast's release notes, so keep entries short and end-user readable.
 
-## [Unreleased]
+## [0.2.1] — 2026-10-27
 - **One Dictionary for your words.** Vocabulary and Replacements are now a
   single Dictionary: a word, plus an optional correction for what you say or
   what OLIV mishears. Star the words that matter most, turn entries on/off,
   search, bulk delete, and import/export CSV. Your existing lists move over
-  automatically.
+  automatically; replacements a dictionary entry can't hold (long snippets,
+  symbols) stay as "Older snippets" and keep working.
 - **Synced across devices.** With the OLIV API, the Dictionary is kept on your
   server and shared with your other devices; edits made offline sync later.
 - **Smarter matching.** Corrections ignore letter case and never cut a Thai word
