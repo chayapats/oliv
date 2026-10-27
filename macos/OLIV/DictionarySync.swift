@@ -68,8 +68,8 @@ enum DictionaryOp: Codable, Equatable, Sendable {
 private extension DictionaryEntry {
     /// Equal in every field the server stores (usageCount is device-local).
     func syncsSame(as other: DictionaryEntry) -> Bool {
-        word == other.word && correction == other.correction && enabled == other.enabled
-            && starred == other.starred && source == other.source
+        DictionaryEntry.sameText(word, other.word) && DictionaryEntry.sameText(correction, other.correction)
+            && enabled == other.enabled && starred == other.starred && source == other.source
     }
 }
 

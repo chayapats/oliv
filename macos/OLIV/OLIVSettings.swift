@@ -556,8 +556,12 @@ final class OLIVSettings: ObservableObject {
                $0.correction == nil
                    && DictionaryEntry.dedupeKey(for: $0.word) == DictionaryEntry.dedupeKey(for: pair.word)
            }) {
-            dictionaryEntries[idx].correction = pair.correction
-            return dictionaryEntries[idx]
+            // One mutation: the spelling just entered wins, the id and flags stay.
+            var upgraded = dictionaryEntries[idx]
+            upgraded.word = pair.word
+            upgraded.correction = pair.correction
+            dictionaryEntries[idx] = upgraded
+            return upgraded
         }
         dictionaryEntries.append(candidate)
         return candidate

@@ -266,9 +266,11 @@ enum AutoLearn {
             } else {
                 // Spaceless: find the prefix, then take the longest following
                 // run that fully segments into Thai numerals.
-                let lower = text.lowercased()
-                var search = lower.startIndex
-                while let r = lower.range(of: p, range: search..<lower.endIndex) {
+                // Search the original text case-insensitively: indices from a
+                // lowercased copy do not belong to it ("İ" lowercases to two
+                // scalars).
+                var search = text.startIndex
+                while let r = text.range(of: prefix, options: .caseInsensitive, range: search..<text.endIndex) {
                     let after = String(text[r.upperBound...])
                     var best: String?
                     var probe = ""
@@ -281,10 +283,7 @@ enum AutoLearn {
                         }
                     }
                     if let hit = best {
-                        let startOffset = text.distance(from: text.startIndex, to: r.lowerBound)
-                        let start = text.index(text.startIndex, offsetBy: startOffset)
-                        let end = text.index(start, offsetBy: p.count + hit.count)
-                        return String(text[start..<end])
+                        return String(text[r]) + hit
                     }
                     search = r.upperBound
                 }

@@ -93,6 +93,8 @@ final class DictionaryTests: XCTestCase {
         XCTAssertNotNil(upgraded)
         XCTAssertEqual(s.dictionaryEntries.count, 2, "upgrade must not append")
         XCTAssertEqual(s.dictionaryEntries.first(where: { $0.id == w?.id })?.correction, "grafannah")
+        XCTAssertEqual(s.dictionaryEntries.first(where: { $0.id == w?.id })?.word, "GRAFANA",
+                       "the spelling just entered wins")
 
         // Update by id; collisions and bad ids fail.
         XCTAssertTrue(s.updateDictionaryEntry(id: pair!.id, word: "k8s", correction: "kates"))

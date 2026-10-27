@@ -47,6 +47,37 @@ struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Sendable {
         self.usageCount = usageCount
     }
 
+    // MARK: Equality — by Unicode scalar, like Rust and the server
+
+    /// Swift `String ==` treats canonically equivalent text (é vs e + ◌́) as
+    /// equal; Rust does not, and matches them differently. Comparing scalars
+    /// keeps a normalization-only edit visible to sync and to snapshots.
+    static func sameText(_ a: String?, _ b: String?) -> Bool {
+        switch (a, b) {
+        case (nil, nil): return true
+        case let (x?, y?): return x.unicodeScalars.elementsEqual(y.unicodeScalars)
+        default: return false
+        }
+    }
+
+    static func == (a: DictionaryEntry, b: DictionaryEntry) -> Bool {
+        sameText(a.id, b.id) && sameText(a.word, b.word) && sameText(a.correction, b.correction)
+            && a.enabled == b.enabled && a.starred == b.starred
+            && a.source == b.source && a.usageCount == b.usageCount
+    }
+
+    func hash(into hasher: inout Hasher) {
+        for s in [id, word, correction ?? "\u{0}"] {
+            for scalar in s.unicodeScalars { hasher.combine(scalar.value) }
+            hasher.combine(-1)
+        }
+        hasher.combine(correction == nil)
+        hasher.combine(enabled)
+        hasher.combine(starred)
+        hasher.combine(source)
+        hasher.combine(usageCount)
+    }
+
     // MARK: Limits (spec §3)
 
     /// Hard per-field cap. Longer input is rejected, never truncated silently.

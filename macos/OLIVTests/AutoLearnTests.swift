@@ -376,6 +376,14 @@ final class AutoLearnTests: XCTestCase {
             word: "H100", recentTexts: ["การ์ด H หนึ่งศูนย์ศูนย์"])?.correction, "H หนึ่งศูนย์ศูนย์")
     }
 
+    func testSpacelessNumeralSearchSurvivesExpandingCaseMappings() {
+        let text = String(repeating: "İ", count: 30) + "SHAสองห้าหก"
+        XCTAssertEqual(AutoLearn.proposeCorrectionForNewWord(word: "SHA256", recentTexts: [text])?.correction,
+                       "SHAสองห้าหก")
+        XCTAssertEqual(AutoLearn.proposeCorrectionForNewWord(word: "SHA256", recentTexts: ["ßßßshaสองห้าหก"])?.correction,
+                       "shaสองห้าหก")
+    }
+
     func testThaiNumeralReadings() {
         XCTAssertEqual(AutoLearn.thaiNumeralReadings("สองห้าหก"), ["256"])
         XCTAssertEqual(AutoLearn.thaiNumeralReadings("สองร้อยห้าสิบหก"), ["256"])

@@ -408,6 +408,30 @@ final class DictionarySyncTests: XCTestCase {
         XCTAssertTrue(sync.state.pending.isEmpty)
     }
 
+    func testANormalizationOnlyEditSyncsBothWays() async {
+        let settings = makeSettings()
+        let sync = makeSync()
+        sync.attach(to: settings)
+        settings.addDictionaryEntry(word: "Résumé", correction: "re\u{301}zume")
+        await sync.syncNow()
+        let nfc = "r\u{E9}zume", id = settings.dictionaryEntries[0].id
+        // Out: an NFD → NFC edit is an edit, and survives a later refresh.
+        settings.dictionaryEntries[0].correction = nfc
+        XCTAssertEqual(sync.state.pending.count, 1)
+        await sync.syncNow()
+        server.entries.append(DictionaryEntry(id: "other", word: "Kafka"))
+        await sync.syncNow()
+        XCTAssertEqual(settings.dictionaryEntries.first { $0.id == id }?.correction.map { Array($0.unicodeScalars) },
+                       Array(nfc.unicodeScalars))
+        // In: a server change that only renormalizes is applied locally.
+        let nfd = "re\u{301}zume"
+        server.entries[0].correction = nfd
+        server.revision += 1
+        await sync.syncNow()
+        XCTAssertEqual(settings.dictionaryEntries.first { $0.id == id }?.correction.map { Array($0.unicodeScalars) },
+                       Array(nfd.unicodeScalars))
+    }
+
     func testAQueuedEditMissingLocallyAfterACrashIsReplayed() async {
         let settings = makeSettings()
         let sync = makeSync()
