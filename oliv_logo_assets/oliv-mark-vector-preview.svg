@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="OLIV olive wave logo mark">
+  <rect width="1024" height="1024" fill="#fdfaf0"/>
+  <defs>
+    <mask id="oliveCutouts">
+      <rect width="1024" height="1024" fill="black"/>
+      <ellipse cx="512" cy="548" rx="244" ry="338" fill="white"/>
+      <path d="M258 545 C300 545 302 518 335 535 C365 551 356 607 393 607 C432 607 421 456 474 456 C526 456 500 642 555 642 C611 642 594 508 646 508 C695 508 680 572 735 580 C755 583 772 583 790 583" fill="none" stroke="black" stroke-width="92" stroke-linecap="round" stroke-linejoin="round"/>
+      <ellipse cx="548" cy="250" rx="74" ry="28" fill="black" transform="rotate(13 548 250)"/>
+    </mask>
+  </defs>
+  <ellipse cx="512" cy="548" rx="244" ry="338" fill="#25261b" mask="url(#oliveCutouts)"/>
+  <circle cx="640" cy="581" r="34" fill="#9ba43a"/>
+</svg>

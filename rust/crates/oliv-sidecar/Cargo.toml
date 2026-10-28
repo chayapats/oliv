@@ -1,0 +1,13 @@
+[package]
+name = "oliv-sidecar"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license = "MIT"
+
+[dependencies]
+oliv-text = { path = "../oliv-text" }
+oliv-transport = { path = "../oliv-transport" }
+serde_json = { version = "1", features = ["preserve_order"] }
+base64 = "0.22"
