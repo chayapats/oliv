@@ -174,7 +174,17 @@ bash scripts/build_app.sh   # → build/OLIV.app
 bash scripts/test.sh        # Rust, native runtime and Swift tests
 ```
 
-Repository layout: `macos/` contains the Swift app and MLX inference, `rust/` the text, transport and sidecar crates, and `benchmark/` the native evaluation tools. See [CONTRIBUTING.md](CONTRIBUTING.md) and [benchmark/README.md](benchmark/README.md) to run the benchmark on your own recordings.
+Repository layout:
+
+| Path | What it is |
+|---|---|
+| `macos/` | The Mac app: Swift UI and on-device MLX inference |
+| `rust/` | Shared crates, including `oliv-text-core`, the text pipeline every OLIV client and the server use |
+| `server/` | Self-hostable OLIV server: run STT + cleanup on your own GPU machine and point clients at it ([server/README.md](server/README.md)) |
+| `desktop/` | Linux (Hyprland/Wayland) and Windows client for an OLIV server ([desktop/README.md](desktop/README.md)) |
+| `benchmark/` | Native evaluation tools |
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [benchmark/README.md](benchmark/README.md) to run the benchmark on your own recordings.
 
 ## Contributing
 

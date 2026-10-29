@@ -1,0 +1,25 @@
+# Linux: ~/.config/oliv/config.toml — copy this file there, then `chmod 600` it
+# Windows: %APPDATA%\oliv\config.toml — install-client.ps1 sets a private ACL.
+# (it holds your individual API key). The daemon reads it again for every dictation.
+
+[server]
+# Base URL of your own self-hosted OLIV server (oliv-api). This is a placeholder.
+# Public endpoints require HTTPS with a valid certificate; plain http:// is only
+# accepted for loopback, private LAN (RFC1918) and CGNAT (100.64.0.0/10) addresses.
+url = "https://oliv.example.com"
+# A per-person/device API key with scope `dictate`, issued by the server operator.
+# Use a separately revocable key per device; never share or commit the real file.
+token = "PUT-YOUR-INDIVIDUAL-KEY-HERE"
+# Total upload + API response deadline (10..180 seconds; default 120).
+timeout_seconds = 120
+
+[dictate]
+# Every pass is on unless turned off here.
+cleanup = true
+remove_fillers = true
+thai_format = true
+# Words the cleanup should spell your way (sent with every request).
+vocabulary = []
+
+# Spoken form = what to type, applied in this order after cleanup.
+[replacements]

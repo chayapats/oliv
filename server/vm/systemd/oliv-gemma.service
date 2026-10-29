@@ -1,0 +1,20 @@
+[Unit]
+Description=OLIV gemma with automatic recovery
+StartLimitIntervalSec=0
+
+[Service]
+Type=forking
+WorkingDirectory=%h/oliv
+Environment=OLIV_SYSTEMD_LAUNCH=1 OLIV_HAVE_LOCK=1
+ExecStart=%h/oliv/start.sh gemma
+ExecStartPost=/usr/bin/python3 %h/oliv/service_health.py gemma
+PIDFile=%h/oliv/run/llama.pid
+Restart=always
+RestartSec=5
+TimeoutStartSec=150
+TimeoutStopSec=20
+KillMode=control-group
+UMask=0077
+
+[Install]
+WantedBy=default.target

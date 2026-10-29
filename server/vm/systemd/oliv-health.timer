@@ -1,0 +1,8 @@
+[Unit]
+Description=Check OLIV health every 30 seconds
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=30
+AccuracySec=1
+[Install]
+WantedBy=timers.target

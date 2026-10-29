@@ -1,0 +1,41 @@
+# Voice audio is personal data: never commit it (eval clips, recordings, archives).
+*.wav
+*.flac
+*.mp3
+*.m4a
+*.ogg
+*.opus
+*.webm
+*.zip
+# Eval data is brought by each contributor; only the eval code is tracked.
+eval/**/*.jsonl
+eval/**/*.jsonl.gz
+eval/*/clips/
+eval/_dl/
+eval/cache/
+eval/results/
+
+# Rust
+target/
+artifacts/
+
+# Secrets
+*.token
+*.pem
+*.key
+.env
+.env.*
+vm/cloudflared/
+api-keys.json
+api-keys.json.*
+.api-keys.*
+
+# Python
+__pycache__/
+.venv*/
+
+# Private persistent usage history
+usage/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm

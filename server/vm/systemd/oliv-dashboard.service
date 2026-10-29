@@ -1,0 +1,17 @@
+[Unit]
+Description=OLIV dashboard with automatic recovery
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=%h/oliv
+ExecStart=/usr/bin/python3 -u %h/oliv/dashboard.py
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+UMask=0077
+StandardOutput=append:%h/oliv/logs/dashboard.log
+StandardError=append:%h/oliv/logs/dashboard.log
+
+[Install]
+WantedBy=default.target

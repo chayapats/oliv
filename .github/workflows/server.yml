@@ -1,0 +1,63 @@
+name: Server
+
+on:
+  push:
+    paths:
+      - 'server/**'
+      - 'rust/crates/oliv-text-core/**'
+      - 'rust/Cargo.toml'
+      - '.github/workflows/server.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+      - 'rust/crates/oliv-text-core/**'
+      - 'rust/Cargo.toml'
+      - '.github/workflows/server.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: server-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  server:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+          rustup default stable
+      - name: Format and lint
+        run: |
+          cargo fmt --manifest-path server/oliv-api/Cargo.toml --all -- --check
+          cargo clippy --locked --manifest-path server/oliv-api/Cargo.toml --all-targets -- -D warnings
+      # Also builds the debug oliv-keys binary the Python key/usage tests use.
+      - name: Offline pipeline, HTTP, limits and key lifecycle tests
+        run: cargo test --locked --manifest-path server/oliv-api/Cargo.toml --all-targets
+      - name: Server configuration, tunnel and deployment guards
+        env:
+          CI: '1'
+        run: |
+          python3 -m unittest discover -s server/vm -p 'test_*.py'
+          python3 -m unittest discover -s server/eval -p 'test_*.py'
+          bash -n server/deploy/deploy.sh server/deploy/deploy-in-container.sh server/vm/start.sh server/vm/stop.sh server/vm/dashboard.sh server/scripts/build-release.sh
+      - name: Reproducible release build (pinned image)
+        run: server/scripts/build-release.sh
+      - name: Smoke-test portable key CLI
+        run: server/oliv-api/target/release/oliv-keys --help
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oliv-api-linux-musl
+          path: |
+            server/oliv-api/target/release/oliv-api
+            server/oliv-api/target/release/oliv-keys
+            server/docs/PUBLIC-API.md
+          if-no-files-found: error
+          retention-days: 14

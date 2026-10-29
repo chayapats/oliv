@@ -1,0 +1,48 @@
+[package]
+name = "oliv-api"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT"
+
+[lib]
+name = "oliv_pipeline"
+path = "src/lib.rs"
+
+[dependencies]
+# Shared Thai/English text core, also used by the Mac app. Lives in this
+# monorepo; the server is not a member of the rust/ workspace and keeps its own
+# Cargo.lock so the Mac release build is unaffected.
+oliv-text-core = { path = "../../rust/crates/oliv-text-core" }
+num-bigint = "0.4"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+unicode-general-category = "1"
+ureq = { version = "3.4", default-features = false, features = ["json"] }
+base64 = "0.22"
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+tokio = { version = "1", features = ["rt-multi-thread", "net", "sync", "time"] }
+sha2 = "0.10"
+subtle = "2.6"
+getrandom = "0.2"
+fs2 = "0.4"
+libc = "0.2"
+toml = { version = "0.9", default-features = false, features = ["parse", "serde"] }
+rusqlite = { version = "0.38", features = ["bundled"] }
+
+[dev-dependencies]
+flate2 = "1"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+# The golden suite runs ~50k tokenizer cases; optimize dependencies (fancy-regex
+# above all) even in test builds.
+[profile.dev.package."*"]
+opt-level = 3
