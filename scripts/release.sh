@@ -61,6 +61,12 @@ NOTARY_PROFILE="oliv-notary"
 if [ -f "$ROOT/release.local.env" ]; then
   set -a; . "$ROOT/release.local.env"; set +a
 fi
+# A baked-in default reaches every new install, so it must be one the app
+# accepts from anywhere: an https URL with a host and no credentials.
+if [ -n "${OLIV_DEFAULT_API_URL:-}" ] &&
+   ! [[ "$OLIV_DEFAULT_API_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[^[:space:]@]*)?$ ]]; then
+  die "OLIV_DEFAULT_API_URL must be an https:// URL with a host, got '$OLIV_DEFAULT_API_URL'"
+fi
 
 # --------------------------------------------------------------------------- #
 # 0. Args + preconditions.
