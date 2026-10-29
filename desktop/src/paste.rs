@@ -63,22 +63,38 @@ pub fn chord_lua(mods: &str, key: &str) -> String {
 /// not stall the worker (and every recording queued behind it), so the command
 /// is killed after `CMD_TIMEOUT`. Only a paste in progress waits here.
 fn output(cmd: &mut Command) -> Result<Vec<u8>, String> {
+    run(cmd.stdout(Stdio::piped()), None)
+}
+
+/// Spawn `cmd` (stdout already configured), feed it `input` if any, and wait
+/// at most `CMD_TIMEOUT`, killing it after that. Both pipes are serviced on
+/// helper threads so neither a full pipe nor a stalled reader blocks us.
+fn run(cmd: &mut Command, input: Option<&[u8]>) -> Result<Vec<u8>, String> {
     let name = format!("{:?}", cmd.get_program());
     let mut child = cmd
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
+        .stdin(if input.is_some() {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stderr(Stdio::null())
         .spawn()
         .map_err(|e| format!("{name}: {e}"))?;
-    let mut out = child
-        .stdout
-        .take()
-        .ok_or_else(|| format!("{name}: no stdout"))?;
+    let writer = match (input, child.stdin.take()) {
+        (Some(data), Some(mut stdin)) => {
+            let data = data.to_vec();
+            // Dropping stdin when done sends EOF.
+            Some(std::thread::spawn(move || stdin.write_all(&data)))
+        }
+        _ => None,
+    };
     // Read concurrently: a large image would fill the pipe and block the child.
-    let reader = std::thread::spawn(move || {
-        let mut b = Vec::new();
-        let _ = out.read_to_end(&mut b);
-        b
+    let reader = child.stdout.take().map(|mut out| {
+        std::thread::spawn(move || {
+            let mut b = Vec::new();
+            let _ = out.read_to_end(&mut b);
+            b
+        })
     });
     let t0 = Instant::now();
     let status = loop {
@@ -86,13 +102,19 @@ fn output(cmd: &mut Command) -> Result<Vec<u8>, String> {
             Some(s) => break s,
             None if t0.elapsed() < CMD_TIMEOUT => std::thread::sleep(Duration::from_millis(5)),
             None => {
+                // The helper threads end once the child's pipe ends close.
                 let _ = child.kill();
                 let _ = child.wait();
                 return Err(format!("{name} timed out"));
             }
         }
     };
-    let data = reader.join().unwrap_or_default();
+    if let Some(Ok(Err(e))) = writer.map(|w| w.join()) {
+        return Err(format!("{name}: {e}"));
+    }
+    let data = reader
+        .map(|r| r.join().unwrap_or_default())
+        .unwrap_or_default();
     if !status.success() {
         return Err(format!("{name} failed: {status}"));
     }
@@ -102,28 +124,20 @@ fn output(cmd: &mut Command) -> Result<Vec<u8>, String> {
 /// Put `data` on the clipboard as `mime`. wl-copy forks a server and returns;
 /// its stdout/stderr go to /dev/null so it never holds our pipes open.
 pub fn copy(data: &[u8], mime: &str) -> Result<(), String> {
-    let mut child = Command::new("wl-copy")
-        .args(["--type", mime])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .map_err(|e| format!("wl-copy: {e}"))?;
-    let w = child.stdin.take().map(|mut s| s.write_all(data));
-    let status = child.wait().map_err(|e| format!("wl-copy: {e}"))?;
-    match w {
-        Some(Err(e)) => Err(format!("wl-copy: {e}")),
-        _ if !status.success() => Err(format!("wl-copy failed: {status}")),
-        _ => Ok(()),
-    }
+    run(
+        Command::new("wl-copy")
+            .args(["--type", mime])
+            .stdout(Stdio::null()),
+        Some(data),
+    )
+    .map(|_| ())
 }
 
 fn clear() {
-    let _ = Command::new("wl-copy")
-        .arg("--clear")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status();
+    let _ = run(
+        Command::new("wl-copy").arg("--clear").stdout(Stdio::null()),
+        None,
+    );
 }
 
 /// The current clipboard as (type, bytes), or None when it is empty.
@@ -227,6 +241,23 @@ mod tests {
         assert!(output(&mut Command::new("false")).is_err());
         let t0 = Instant::now();
         let e = output(Command::new("sleep").arg("10")).unwrap_err();
+        assert!(e.contains("timed out"), "{e}");
+        assert!(t0.elapsed() < CMD_TIMEOUT + Duration::from_secs(1));
+    }
+
+    #[test]
+    fn input_is_fed_and_a_stalled_reader_times_out() {
+        let echoed = run(Command::new("cat").stdout(Stdio::piped()), Some(b"OLIV")).unwrap();
+        assert_eq!(echoed, b"OLIV");
+        // A child that never reads its stdin: the write blocks once the pipe
+        // fills, and must not block the caller past the deadline.
+        let t0 = Instant::now();
+        let big = vec![0u8; 4 << 20];
+        let e = run(
+            Command::new("sleep").arg("10").stdout(Stdio::null()),
+            Some(&big),
+        )
+        .unwrap_err();
         assert!(e.contains("timed out"), "{e}");
         assert!(t0.elapsed() < CMD_TIMEOUT + Duration::from_secs(1));
     }

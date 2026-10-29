@@ -4,7 +4,8 @@
 //! pool and fonts exist only while a view is visible.
 //!
 //! What to show is derived from three facts, highest priority first:
-//! recording, jobs in flight, a notice that has not expired.
+//! recording, an error that has not expired, jobs in flight, any other notice
+//! that has not expired (same rules as the Windows overlay).
 
 use std::collections::VecDeque;
 use std::os::fd::{AsRawFd, RawFd};
@@ -154,6 +155,14 @@ impl Model {
         }
         if self.level.is_some() {
             Some(Want::Recording)
+        } else if self
+            .notice
+            .as_ref()
+            .is_some_and(|(kind, _, _)| *kind == Kind::Error)
+        {
+            // Capture failures can still queue the audio collected before the
+            // error. Keep that error visible while the partial clip processes.
+            Some(Want::Notice)
         } else if self.jobs > 0 {
             Some(Want::Processing)
         } else if self.notice.is_some() {
@@ -172,7 +181,17 @@ impl Model {
             Msg::RecEnd => self.level = None,
             Msg::JobQueued => self.jobs += 1,
             Msg::JobDone => self.jobs = self.jobs.saturating_sub(1),
-            Msg::Notice(k, t) => self.notice = Some((k, t, now + NOTICE_FOR)),
+            Msg::Notice(k, t) => {
+                let active_error = self
+                    .notice
+                    .as_ref()
+                    .is_some_and(|(previous, _, until)| *previous == Kind::Error && now < *until);
+                // A quick no-speech/result notice must not erase the capture
+                // error before the user can read it. New errors replace errors.
+                if k == Kind::Error || !active_error {
+                    self.notice = Some((k, t, now + NOTICE_FOR));
+                }
+            }
         }
     }
 
@@ -492,6 +511,29 @@ mod tests {
         m.apply(Msg::RecEnd, t0);
         m.apply(Msg::JobDone, t0);
         assert_eq!(m.want(t0), Some(Want::Notice), "notice waited its turn");
+    }
+
+    #[test]
+    fn error_shows_over_processing_and_survives_info_notices() {
+        let t0 = Instant::now();
+        let mut m = Model::default();
+        m.apply(Msg::JobQueued, t0);
+        m.apply(Msg::Notice(Kind::Error, "mic".into()), t0);
+        assert_eq!(
+            m.want(t0),
+            Some(Want::Notice),
+            "error is not hidden by processing"
+        );
+        m.apply(Msg::Notice(Kind::Info, "no speech".into()), t0);
+        assert!(matches!(m.notice, Some((Kind::Error, _, _))));
+        assert_eq!(m.want(t0 + NOTICE_FOR), Some(Want::Processing));
+        m.apply(Msg::Notice(Kind::Info, "done".into()), t0 + NOTICE_FOR);
+        assert!(matches!(m.notice, Some((Kind::Info, _, _))));
+        assert_eq!(
+            m.want(t0 + NOTICE_FOR),
+            Some(Want::Processing),
+            "info still waits"
+        );
     }
 
     #[test]

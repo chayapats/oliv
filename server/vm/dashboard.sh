@@ -6,6 +6,16 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$ROOT/run" "$ROOT/logs"
 cmd="${1:-start}"
 
+# Use the service manager once installed (the unit runs dashboard.py directly).
+# Otherwise stopping the unit's process would let Restart=always race a
+# detached replacement for the port.
+if [[ "$cmd" == start || "$cmd" == stop ]] && [[ -f "$ROOT/systemd/oliv-dashboard.service" ]] &&
+   systemctl --user cat oliv-dashboard.service >/dev/null 2>&1; then
+  systemctl --user "$cmd" oliv-dashboard.service
+  echo "dashboard ${cmd} via oliv-dashboard.service"
+  exit
+fi
+
 is_dashboard_pid() {
   local pid="$1" executable
   local -a args=()

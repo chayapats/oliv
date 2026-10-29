@@ -180,6 +180,44 @@ class KeyHttpFixture(KeyFixture):
             connection.close()
 
 
+class ModelControlHttpTests(KeyHttpFixture):
+    """Model-control POSTs a cross-site page could send never reach an action."""
+
+    def post_service(self, headers, body=b'{"service":"api","action":"stop"}'):
+        connection = http.client.HTTPConnection(*self.server.server_address, timeout=2)
+        try:
+            connection.request("POST", "/api/service", body=body, headers=headers)
+            response = connection.getresponse()
+            return response.status, json.loads(response.read())
+        finally:
+            connection.close()
+
+    def test_simple_and_cross_site_posts_are_rejected(self):
+        json_admin = {"X-OLIV-Admin": "1", "Content-Type": "application/json"}
+        cases = [({"Content-Type": "text/plain"}, 403),
+                 ({"X-OLIV-Admin": "1", "Content-Type": "text/plain"}, 415),
+                 ({"Content-Type": "application/json"}, 403),
+                 ({**json_admin, "Sec-Fetch-Site": "cross-site"}, 403),
+                 ({**json_admin, "Sec-Fetch-Site": "same-site"}, 403)]
+        with patch.object(dashboard, "service_action") as action:
+            for headers, expected in cases:
+                self.assertEqual(self.post_service(headers)[0], expected, headers)
+            action.assert_not_called()
+
+    def test_dashboard_page_request_reaches_the_action(self):
+        headers = {"X-OLIV-Admin": "1", "Content-Type": "application/json",
+                   "Sec-Fetch-Site": "same-origin"}
+        with patch.object(dashboard, "service_action", return_value=(200, {"ok": True})) as action:
+            self.assertEqual(self.post_service(headers), (200, {"ok": True}))
+        action.assert_called_once_with("api", "stop")
+
+    def test_cross_site_key_request_is_rejected(self):
+        headers = {"X-OLIV-Admin": "1", "Content-Type": "application/json", "Sec-Fetch-Site": "cross-site"}
+        status, _, _ = self.request("POST", "/api/keys/create", {"name": "x"}, headers)
+        self.assertEqual(status, 403)
+        self.assertEqual(self.manager.keys(), [])
+
+
 class KeyHttpTests(KeyHttpFixture):
     def test_real_http_lifecycle_marker_and_no_store_without_secret_logs(self):
         headers = {"X-OLIV-Admin": "1", "Content-Type": "application/json"}

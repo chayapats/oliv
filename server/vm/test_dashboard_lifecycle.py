@@ -91,6 +91,20 @@ readonly -f kill sleep
         self.assertEqual(signals, ["310031"])
         self.assertTrue((self.root / "run/dashboard.pid").exists())
 
+    def test_installed_unit_is_driven_through_systemd(self):
+        (self.root / "systemd").mkdir()
+        (self.root / "systemd/oliv-dashboard.service").touch()
+        stub = self.base / "stub"
+        stub.mkdir()
+        (stub / "systemctl").write_text('#!/bin/bash\nprintf "systemctl %s\\n" "$*" >> "$TEST_SIGNAL_LOG"\n')
+        (stub / "systemctl").chmod(0o755)
+        self.env["PATH"] = f"{stub}:{self.env['PATH']}"
+        self.process(310041, ["python3", "-u", str(self.root / "dashboard.py")])
+        result, signals = self.run_stop(310041)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(signals, ["systemctl --user cat oliv-dashboard.service",
+                                   "systemctl --user stop oliv-dashboard.service"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -726,10 +726,33 @@ class Handler(BaseHTTPRequestHandler):
             return
         self.send_json(404, {"ok": False, "error": "not found"})
 
+    def cross_site_rejection(self, path):
+        """Every POST changes or exercises the machine, so refuse ones a browser
+        could send from another site. The admin marker is a custom header, so a
+        cross-site page needs a CORS preflight, which this server never grants;
+        a simple text/plain POST can't carry it. Sec-Fetch-Site also rejects
+        cross-site requests from browsers that report it. Returns a reason, or
+        None when the request is acceptable."""
+        if self.headers.get("Sec-Fetch-Site", "same-origin").lower() not in ("same-origin", "none"):
+            return 403, "cross-site requests are not accepted"
+        if self.headers.get_all("X-OLIV-Admin", []) != ["1"]:
+            return 403, "admin request marker is required"
+        if path != "/api/whisper/test":
+            types = self.headers.get_all("Content-Type", [])
+            if len(types) != 1 or types[0].split(";")[0].strip().lower() != "application/json":
+                return 415, "Content-Type must be application/json"
+        return None
+
     def do_POST(self):
         path = urlparse(self.path).path
         if path == "/api/keys" or path.startswith("/api/keys/"):
             self.handle_keys(path)
+            return
+        rejection = self.cross_site_rejection(path)
+        if rejection is not None:
+            # The body is never read, so don't reuse the connection.
+            self.close_connection = True
+            self.send_json(rejection[0], {"ok": False, "error": rejection[1]})
             return
         try:
             if path == "/api/whisper/test":
@@ -787,6 +810,8 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if self.command != "POST" or path not in ("/api/keys/create", "/api/keys/revoke", "/api/keys/usage"):
                 raise KeyAdminError(404, "not_found", "Key route not found")
+            if self.headers.get("Sec-Fetch-Site", "same-origin").lower() not in ("same-origin", "none"):
+                raise KeyAdminError(403, "admin_required", "Cross-site requests are not accepted")
             if self.headers.get_all("X-OLIV-Admin", []) != ["1"]:
                 raise KeyAdminError(403, "admin_required", "Admin request marker is required")
             types = self.headers.get_all("Content-Type", [])

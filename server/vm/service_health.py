@@ -8,15 +8,29 @@ import time
 import urllib.request
 from pathlib import Path
 
+import oliv_config
+
 ROOT = Path(__file__).resolve().parent
 PORTS = {"gemma": 8081, "whisper": 8082, "api": 8083, "api-tunnel": 20247,
          "dashboard": 8090}
 
 
+def probe_host(name):
+    """oliv-api may bind a private overlay IP instead of loopback; the rest
+    are locked to loopback."""
+    if name != "api":
+        return "127.0.0.1"
+    try:
+        return oliv_config.load()["api"]["host"]
+    except oliv_config.ConfigError:
+        return "127.0.0.1"
+
+
 def healthy(name):
     path = "/ready" if name.endswith("tunnel") else "/health"
+    url = f"http://{probe_host(name)}:{PORTS[name]}{path}"
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{PORTS[name]}{path}", timeout=3) as response:
+        with urllib.request.urlopen(url, timeout=3) as response:
             return response.status == 200
     except (OSError, ValueError, http.client.HTTPException):
         return False
