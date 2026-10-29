@@ -10,7 +10,7 @@
 **Hold a key, speak Thai mixed with English, and OLIV types it into any app.**<br>
 Offline dictation for Apple Silicon. Free and open source.
 
-[![Latest release](https://img.shields.io/github/v/release/chayapats/oliv?color=57761f&label=release)](https://github.com/chayapats/oliv/releases/latest) [![macOS 14+ on Apple Silicon](https://img.shields.io/badge/macOS%2014%2B-Apple%20Silicon-241f11?logo=apple)](#install) [![MIT license](https://img.shields.io/github/license/chayapats/oliv?color=57761f)](LICENSE) [![Downloads](https://img.shields.io/github/downloads/chayapats/oliv/total?color=57761f)](https://github.com/chayapats/oliv/releases)
+[![Latest release](https://img.shields.io/github/v/release/chayapats/oliv?color=57761f&label=release)](https://github.com/chayapats/oliv/releases/latest) [![macOS 14+ on Apple Silicon](https://img.shields.io/badge/macOS%2014%2B-Apple%20Silicon-241f11?logo=apple)](#install) [![MIT license](https://img.shields.io/github/license/chayapats/oliv?color=57761f)](LICENSE) [![Downloads](https://img.shields.io/github/downloads/chayapats/oliv/total?color=57761f)](https://github.com/chayapats/oliv/releases) [![Greptile: The War on Bugs](https://www.greptile.com/badge.svg)](https://www.greptile.com/?utm_source=oss_badge&utm_medium=readme&utm_campaign=greptile_for_open_source)
 
 <a href="https://github.com/chayapats/oliv/releases/latest/download/OLIV.dmg"><img src="https://img.shields.io/badge/Download_for_macOS-OLIV.dmg_·_27_MB-57761f?style=for-the-badge&logo=apple&logoColor=white" alt="Download OLIV for macOS (OLIV.dmg, 27 MB)" height="44"></a>
 

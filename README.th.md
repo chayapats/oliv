@@ -10,7 +10,7 @@
 **กดปุ่มค้างไว้ พูดไทยปนอังกฤษ แล้ว OLIV จะพิมพ์ลงแอปที่คุณใช้อยู่ให้**<br>
 แปลงเสียงเป็นข้อความแบบออฟไลน์บน Apple Silicon ใช้ฟรีและเป็นโอเพนซอร์ส
 
-[![Latest release](https://img.shields.io/github/v/release/chayapats/oliv?color=57761f&label=release)](https://github.com/chayapats/oliv/releases/latest) [![macOS 14+ on Apple Silicon](https://img.shields.io/badge/macOS%2014%2B-Apple%20Silicon-241f11?logo=apple)](#ติดตั้ง) [![MIT license](https://img.shields.io/github/license/chayapats/oliv?color=57761f)](LICENSE) [![Downloads](https://img.shields.io/github/downloads/chayapats/oliv/total?color=57761f)](https://github.com/chayapats/oliv/releases)
+[![Latest release](https://img.shields.io/github/v/release/chayapats/oliv?color=57761f&label=release)](https://github.com/chayapats/oliv/releases/latest) [![macOS 14+ on Apple Silicon](https://img.shields.io/badge/macOS%2014%2B-Apple%20Silicon-241f11?logo=apple)](#ติดตั้ง) [![MIT license](https://img.shields.io/github/license/chayapats/oliv?color=57761f)](LICENSE) [![Downloads](https://img.shields.io/github/downloads/chayapats/oliv/total?color=57761f)](https://github.com/chayapats/oliv/releases) [![Greptile: The War on Bugs](https://www.greptile.com/badge.svg)](https://www.greptile.com/?utm_source=oss_badge&utm_medium=readme&utm_campaign=greptile_for_open_source)
 
 <a href="https://github.com/chayapats/oliv/releases/latest/download/OLIV.dmg"><img src="https://img.shields.io/badge/%E0%B8%94%E0%B8%B2%E0%B8%A7%E0%B8%99%E0%B9%8C%E0%B9%82%E0%B8%AB%E0%B8%A5%E0%B8%94%E0%B8%AA%E0%B8%B3%E0%B8%AB%E0%B8%A3%E0%B8%B1%E0%B8%9A_macOS-OLIV.dmg_·_27_MB-57761f?style=for-the-badge&logo=apple&logoColor=white" alt="ดาวน์โหลด OLIV สำหรับ macOS (OLIV.dmg ขนาด 27 MB)" height="44"></a>
 
