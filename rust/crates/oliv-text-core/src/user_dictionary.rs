@@ -122,16 +122,6 @@ impl UserDictionary {
         self.vocabulary.is_empty()
     }
 
-    /// Some enabled entry rewrites what was heard.
-    pub fn has_corrections(&self) -> bool {
-        !self.corrections.is_empty()
-    }
-
-    /// Some enabled word is reachable through Thai numerals (`SHA256`).
-    pub fn has_numerals(&self) -> bool {
-        !self.numerals.is_empty()
-    }
-
     /// Enabled words, starred first. `initial_prompt` truncates from the end,
     /// so this order keeps starred words in the STT prompt.
     pub fn vocabulary(&self) -> &[String] {
@@ -176,59 +166,6 @@ impl UserDictionary {
         let mut keys: Vec<&Key> = self.corrections.iter().chain(&legacy).collect();
         // Stable: equal lengths keep dictionary-before-legacy order.
         keys.sort_by_key(|k| std::cmp::Reverse(k.chars.len()));
-        apply_keys(text, &keys)
-    }
-
-    /// The pre-LLM correction pass when a legacy `replacements` table runs
-    /// after cleanup: dictionary corrections, longest key first, but a legacy
-    /// key's source that is at least as long keeps its span (claimed, left
-    /// unchanged) for the post pass, as one longest-match plan over both
-    /// tables would. Also returns the outputs it wrote, for
-    /// [`Self::apply_after_cleanup`].
-    pub fn apply_corrections_before(
-        &self,
-        text: &str,
-        legacy: &[(String, String)],
-    ) -> (String, usize, Vec<String>) {
-        if self.corrections.is_empty() {
-            return (text.to_string(), 0, Vec::new());
-        }
-        let guards: Vec<Key> = legacy
-            .iter()
-            .filter(|(k, _)| !k.is_empty())
-            .map(|(k, _)| Key::guard(k))
-            .collect();
-        let mut keys: Vec<&Key> = self.corrections.iter().chain(&guards).collect();
-        // Stable: on equal length the dictionary entry wins, as in apply_with_legacy.
-        keys.sort_by_key(|k| std::cmp::Reverse(k.chars.len()));
-        apply_keys_traced(text, &keys)
-    }
-
-    /// The post-cleanup pass: corrections merged with the legacy table, one
-    /// longest-match plan, except inside the exact outputs the pre-LLM pass
-    /// wrote (`produced`): those are never corrected again (no `foo→bar→baz`,
-    /// no `ไทย→ประเทศไทย` twice), while anything the cleanup model newly
-    /// produced — including a different spelling of an output — is.
-    pub fn apply_after_cleanup(
-        &self,
-        text: &str,
-        legacy: &[(String, String)],
-        produced: &[String],
-    ) -> (String, usize) {
-        if produced.is_empty() {
-            return self.apply_with_legacy(text, legacy);
-        }
-        let mut seen = HashSet::new();
-        let mut guards: Vec<Key> = produced
-            .iter()
-            .filter(|p| !p.is_empty() && seen.insert(p.as_str()))
-            .map(|p| Key::guard(p))
-            .collect();
-        guards.sort_by_key(|k| std::cmp::Reverse(k.chars.len()));
-        let legacy: Vec<Key> = legacy.iter().map(|(k, v)| Key::legacy(k, v)).collect();
-        let mut rest: Vec<&Key> = self.corrections.iter().chain(&legacy).collect();
-        rest.sort_by_key(|k| std::cmp::Reverse(k.chars.len()));
-        let keys: Vec<&Key> = guards.iter().chain(rest).collect();
         apply_keys(text, &keys)
     }
 
@@ -309,9 +246,6 @@ struct Key {
     /// spacing. Legacy replacement keys: exact, no boundary, always spaced
     /// (the Python-parity `apply_table` behavior).
     user: bool,
-    /// Claims its matches without changing them (protects a correction's
-    /// output from later keys).
-    guard: bool,
 }
 
 impl Key {
@@ -320,7 +254,6 @@ impl Key {
             chars: heard.chars().collect(),
             value: word.to_string(),
             user: true,
-            guard: false,
         }
     }
 
@@ -329,30 +262,13 @@ impl Key {
             chars: heard.chars().collect(),
             value: word.to_string(),
             user: false,
-            guard: false,
-        }
-    }
-
-    /// Exact (case-sensitive, no boundary rule); claims, never changes.
-    fn guard(word: &str) -> Self {
-        Key {
-            chars: word.chars().collect(),
-            value: word.to_string(),
-            user: false,
-            guard: true,
         }
     }
 }
 
 fn apply_keys(text: &str, keys: &[&Key]) -> (String, usize) {
-    let (t, n, _) = apply_keys_traced(text, keys);
-    (t, n)
-}
-
-/// [`apply_keys`], also returning the values it wrote (one per replacement).
-fn apply_keys_traced(text: &str, keys: &[&Key]) -> (String, usize, Vec<String>) {
     if text.is_empty() || keys.is_empty() {
-        return (text.to_string(), 0, Vec::new());
+        return (text.to_string(), 0);
     }
     let tokens = token_spans(text);
     let splits_thai_word = |p: usize| {
@@ -383,9 +299,6 @@ fn apply_keys_traced(text: &str, keys: &[&Key]) -> (String, usize, Vec<String>) 
                 continue;
             }
             claimed[i..j].iter_mut().for_each(|c| *c = true);
-            if key.guard {
-                continue;
-            }
             // Already exactly right (e.g. the post-LLM pass re-meeting its own
             // output): keep the span claimed, but change and count nothing.
             if key.user && t[i..j].iter().copied().eq(key.value.chars()) {
@@ -401,8 +314,7 @@ fn apply_keys_traced(text: &str, keys: &[&Key]) -> (String, usize, Vec<String>) 
         }
     }
     let n = spans.len();
-    let written = spans.iter().map(|s| s.value.to_string()).collect();
-    (splice(&t, spans), n, written)
+    (splice(&t, spans), n)
 }
 
 /// A Latin-edged match must not continue a longer Latin/digit run on either
