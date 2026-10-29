@@ -1,0 +1,23 @@
+[package]
+name = "oliv-text-core"
+description = "Deterministic Thai/English text core shared by the OLIV Mac app and the OLIV server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license = "MIT AND Apache-2.0"
+
+[lib]
+name = "oliv_text_core"
+
+[dependencies]
+caseless = "0.2"
+fancy-regex = "0.14"
+num-bigint = "0.4"
+regex = "1"
+unicode-general-category = "1"
+unicode-normalization = "0.1"
+
+[dev-dependencies]
+flate2 = "1"
+serde_json = { version = "1", features = ["preserve_order"] }

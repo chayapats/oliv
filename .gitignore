@@ -1,0 +1,50 @@
+# --- Reject accidental legacy environments and bytecode ---
+.venv*/
+*/.venv*/
+__pycache__/
+*.pyc
+
+# --- Build products (recreate: scripts/build_app.sh) ---
+build/
+rust/target/
+macos/DerivedData/
+
+# --- Generated Xcode project (source of truth = macos/project.yml; xcodegen generate) ---
+macos/OLIV.xcodeproj/
+
+# --- PRIVATE eval data: voice recordings and their transcripts. Never publish.
+#     The benchmark harness code is public; the data is not. A contributor
+#     records their own set per benchmark/data/manifest.example.jsonl.
+#     benchmark/ is allowlisted: anything not listed here stays local. ---
+benchmark/*
+!benchmark/.gitignore
+!benchmark/.env.example
+!benchmark/README.md
+!benchmark/contextasr.md
+!benchmark/run_eval_full.sh
+!benchmark/data/
+benchmark/data/*
+!benchmark/data/manifest.example.jsonl
+!benchmark/data/manifest_d2.jsonl
+!benchmark/data/manifest_holdout.jsonl
+/*_report.html
+
+# --- Release artifacts / secrets ---
+dist/
+*.dmg
+*.p12
+*.pem
+*.key
+
+# --- OS noise ---
+.DS_Store
+
+# --- Local-only notes and tools (not part of the public release) ---
+/*PLAN*.md
+docs/superpowers/
+tools/*
+!tools/dmg/
+
+# Native Swift package build products
+**/.build/
+**/.swiftpm/
