@@ -174,7 +174,17 @@ bash scripts/build_app.sh   # → build/OLIV.app
 bash scripts/test.sh        # เทสต์ Rust, native runtime และ Swift
 ```
 
-โครงสร้างโปรเจกต์: `macos/` คือแอป Swift และส่วน inference ด้วย MLX, `rust/` คือ crate สำหรับข้อความ การรับส่งข้อมูล และ sidecar, `benchmark/` คือเครื่องมือวัดผลแบบ native อ่านวิธีรัน benchmark กับเสียงของคุณเองได้ที่ [CONTRIBUTING.md](CONTRIBUTING.md) และ [benchmark/README.md](benchmark/README.md)
+โครงสร้างโปรเจกต์:
+
+| Path | คืออะไร |
+|---|---|
+| `macos/` | แอป Mac: UI ด้วย Swift และ inference ในเครื่องด้วย MLX |
+| `rust/` | crate ที่ใช้ร่วมกัน รวมถึง `oliv-text-core` ซึ่งเป็น pipeline ข้อความที่ทุก client และ server ใช้ |
+| `server/` | OLIV server สำหรับ self-host: รัน STT และ cleanup บนเครื่อง GPU ของคุณเอง แล้วให้ client ส่ง request มา ([server/README.md](server/README.md)) |
+| `desktop/` | client สำหรับ Linux (Hyprland/Wayland) และ Windows ที่ต่อกับ OLIV server ([desktop/README.md](desktop/README.md)) |
+| `benchmark/` | เครื่องมือวัดผลแบบ native |
+
+อ่านวิธีรัน benchmark กับเสียงของคุณเองได้ที่ [CONTRIBUTING.md](CONTRIBUTING.md) และ [benchmark/README.md](benchmark/README.md)
 
 ## ร่วมพัฒนา
 

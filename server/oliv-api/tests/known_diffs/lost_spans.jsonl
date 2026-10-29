@@ -1,0 +1,29 @@
+{"args": [" known-good pairs: ", "known-go"], "kwargs": {"allow_asr_repair": false}, "oliv": ["known-good", "pairs"], "out": ["pairs"], "why": "§11"}
+{"args": [" known-good pairs: ", " known-go"], "kwargs": {}, "oliv": ["known-good", "pairs"], "out": ["pairs"], "why": "§11"}
+{"args": ["Let me check the locks and get back to you", "completely unrelated"], "kwargs": {}, "oliv": ["me", "check", "the", "locks", "and", "get", "back", "to", "you"], "out": ["Let", "me", "check", "the", "locks", "and", "get", "back", "to", "you"], "why": "§11"}
+{"args": ["Please review my changes and let me know if anything looks wrong.", "completely unrelated"], "kwargs": {}, "oliv": ["Please", "review", "my", "changes", "and", "me", "know", "if", "anything", "looks", "wrong"], "out": ["Please", "review", "my", "changes", "and", "let", "me", "know", "if", "anything", "looks", "wrong"], "why": "§11"}
+{"args": ["a", "completely unrelated"], "kwargs": {}, "oliv": [], "out": ["a"], "why": "§11"}
+{"args": ["a\n\nb", "completely unrelated"], "kwargs": {"allow_asr_repair": true}, "oliv": ["b"], "out": ["a", "b"], "why": "§11"}
+{"args": ["a\n\nb", "completely unrelated"], "kwargs": {}, "oliv": ["b"], "out": ["a", "b"], "why": "§11"}
+{"args": ["a\nb", "completely unrelated"], "kwargs": {"allow_asr_repair": true}, "oliv": ["b"], "out": ["a", "b"], "why": "§11"}
+{"args": ["a\nb", "completely unrelated"], "kwargs": {}, "oliv": ["b"], "out": ["a", "b"], "why": "§11"}
+{"args": ["a ", "completely unrelated"], "kwargs": {}, "oliv": [], "out": ["a"], "why": "§11"}
+{"args": ["a clip with 0.5s of real speech is NOT silence", "completely unrelated"], "kwargs": {}, "oliv": ["clip", "with", "s", "of", "real", "speech", "is", "NOT", "silence"], "out": ["a", "clip", "with", "s", "of", "real", "speech", "is", "NOT", "silence"], "why": "§11"}
+{"args": ["a new paragraph b", "completely unrelated"], "kwargs": {}, "oliv": ["new", "paragraph", "b"], "out": ["a", "new", "paragraph", "b"], "why": "§11"}
+{"args": ["a soft but real voice must not be cut", "completely unrelated"], "kwargs": {}, "oliv": ["soft", "but", "real", "voice", "must", "not", "be", "cut"], "out": ["a", "soft", "but", "real", "voice", "must", "not", "be", "cut"], "why": "§11"}
+{"args": ["available() True with a key set", "completely unrelated"], "kwargs": {}, "oliv": ["available", "True", "with", "key", "set"], "out": ["available", "True", "with", "a", "key", "set"], "why": "§11"}
+{"args": ["build_backend constructs with a key", "build_backend con"], "kwargs": {}, "oliv": ["constructs", "with", "key"], "out": ["constructs", "with", "a", "key"], "why": "§11"}
+{"args": ["build_backend constructs with a key", "completely unrelated"], "kwargs": {}, "oliv": ["build_backend", "constructs", "with", "key"], "out": ["build_backend", "constructs", "with", "a", "key"], "why": "§11"}
+{"args": ["cleanup:false must not start a loader", "cleanup:false must"], "kwargs": {}, "oliv": ["not", "start", "loader"], "out": ["not", "start", "a", "loader"], "why": "§11"}
+{"args": ["cleanup:false must not start a loader", "completely unrelated"], "kwargs": {}, "oliv": ["cleanup", "false", "must", "not", "start", "loader"], "out": ["cleanup", "false", "must", "not", "start", "a", "loader"], "why": "§11"}
+{"args": ["no commands at all", "completely unrelated"], "kwargs": {}, "oliv": ["no", "commands", "all"], "out": ["no", "commands", "at", "all"], "why": "§11"}
+{"args": ["no fillers at all", "completely unrelated"], "kwargs": {}, "oliv": ["no", "fillers", "all"], "out": ["no", "fillers", "at", "all"], "why": "§11"}
+{"args": ["one 30ms transient is not an utterance", "one 30ms transient "], "kwargs": {}, "oliv": ["is", "not", "utterance"], "out": ["not", "an", "utterance"], "why": "§11"}
+{"args": ["prime failure left a partial publish", "prime failure left"], "kwargs": {}, "oliv": ["partial", "publish"], "out": ["a", "partial", "publish"], "why": "§11"}
+{"args": ["prime failure left a partial publish", "completely unrelated"], "kwargs": {}, "oliv": ["prime", "failure", "left", "partial", "publish"], "out": ["prime", "failure", "left", "a", "partial", "publish"], "why": "§11"}
+{"args": ["test premise: garble must be a non-word", "test premise: garbl"], "kwargs": {}, "oliv": ["must", "be", "non-word"], "out": ["must", "be", "a", "non-word"], "why": "§11"}
+{"args": ["test premise: garble must be a non-word", "completely unrelated"], "kwargs": {}, "oliv": ["test", "premise", "garble", "must", "be", "non-word"], "out": ["test", "premise", "garble", "must", "be", "a", "non-word"], "why": "§11"}
+{"args": ["ค่า latency P นาย นาย เกิน threshold", "completely unrelated"], "kwargs": {}, "oliv": ["latency", "threshold"], "out": ["latency", "P", "threshold"], "why": "§11"}
+{"args": ["ซูม (short/ambiguous) stays for LLM: ", "ซูม (short/ambiguo"], "kwargs": {}, "oliv": ["short/ambiguous", "stays", "for", "LLM"], "out": ["stays", "for", "LLM"], "why": "§11"}
+{"args": ["พุช (short/ambiguous) stays for LLM: ", "พุช (short/ambiguo"], "kwargs": {}, "oliv": ["short/ambiguous", "stays", "for", "LLM"], "out": ["stays", "for", "LLM"], "why": "§11"}
+{"args": ["ลีด (short/ambiguous) stays for LLM: ", "ลีด (short/ambiguo"], "kwargs": {}, "oliv": ["short/ambiguous", "stays", "for", "LLM"], "out": ["stays", "for", "LLM"], "why": "§11"}

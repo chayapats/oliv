@@ -1,0 +1,5 @@
+{"args": ["ER, well"], "kwargs": {}, "oliv": [", well", 1], "out": ["well", 1], "why": "§7"}
+{"args": ["Um... right"], "kwargs": {}, "oliv": ["... right", 1], "out": ["right", 1], "why": "§7"}
+{"args": ["uh, okay"], "kwargs": {}, "oliv": [", okay", 1], "out": ["okay", 1], "why": "§7"}
+{"args": ["อืมมาก"], "kwargs": {}, "oliv": ["อืมมาก", 0], "out": ["มาก", 1], "why": "§7"}
+{"args": ["เอ่อสวัสดีครับ"], "kwargs": {}, "oliv": ["เอ่อสวัสดีครับ", 0], "out": ["สวัสดีครับ", 1], "why": "§7"}

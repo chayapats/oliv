@@ -1,0 +1,8 @@
+[Unit]
+Description=Recover unresponsive active OLIV services
+[Service]
+Type=oneshot
+WorkingDirectory=%h/oliv
+ExecStart=/usr/bin/python3 %h/oliv/service_health.py recover
+TimeoutStartSec=60
+UMask=0077

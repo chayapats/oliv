@@ -1,0 +1,23 @@
+{"args": ["push 谢谢 code", "push 谢谢 code"], "kwargs": {}, "oliv": ["push 谢谢 code", "ok"], "out": ["push 谢谢 code", "ok+script"], "why": "§13"}
+{"args": ["push 谢谢 code", "OUT: push 谢谢 code"], "kwargs": {}, "oliv": ["OUT: push 谢谢 code", "ok"], "out": ["OUT: push 谢谢 code", "ok+script"], "why": "§13"}
+{"args": ["ประชุม 会议 บ่ายสอง", "ประชุม 会议 บ่ายสอง"], "kwargs": {}, "oliv": ["ประชุม 会议 บ่ายสอง", "ok"], "out": ["ประชุม 会议 บ่ายสอง", "ok+script"], "why": "§13"}
+{"args": ["ประชุม 会议 บ่ายสอง", "OUT: ประชุม 会议 บ่ายสอง"], "kwargs": {}, "oliv": ["OUT: ประชุม 会议 บ่ายสอง", "ok"], "out": ["OUT: ประชุม 会议 บ่ายสอง", "ok+script"], "why": "§13"}
+{"args": ["ประชุม 会议 บ่ายสอง", "ประชุม 会议 บ่ายสอง invented translation"], "kwargs": {}, "oliv": ["ประชุม 会议 บ่ายสอง invented translation", "ok"], "out": ["ประชุม 会议 บ่ายสอง invented translation", "ok+script"], "why": "§13"}
+{"args": ["ありがとう", "ありがとう"], "kwargs": {}, "oliv": ["ありがとう", "ok"], "out": ["ありがとう", "ok+script"], "why": "§13"}
+{"args": ["ありがとう", "あり"], "kwargs": {}, "oliv": ["あり", "ok"], "out": ["あり", "ok+script"], "why": "§13"}
+{"args": ["日本語", "日本語"], "kwargs": {}, "oliv": ["日本語", "ok"], "out": ["日本語", "ok+script"], "why": "§13"}
+{"args": ["日本語", "日"], "kwargs": {}, "oliv": ["日", "ok"], "out": ["日", "ok+script"], "why": "§13"}
+{"args": ["请不吝点赞订阅", "请不吝点赞订阅"], "kwargs": {}, "oliv": ["请不吝点赞订阅", "ok"], "out": ["请不吝点赞订阅", "ok+script"], "why": "§13"}
+{"args": ["请不吝点赞订阅", "请不吝"], "kwargs": {}, "oliv": ["请不吝", "ok"], "out": ["请不吝", "ok+script"], "why": "§13"}
+{"args": ["谢谢", "谢谢"], "kwargs": {}, "oliv": ["谢谢", "ok"], "out": ["谢谢", "ok+script"], "why": "§13"}
+{"args": ["谢谢", "谢"], "kwargs": {}, "oliv": ["谢", "ok"], "out": ["谢", "ok+script"], "why": "§13"}
+{"args": ["谢谢 ครับ", "谢谢 ครับ"], "kwargs": {}, "oliv": ["谢谢 ครับ", "ok"], "out": ["谢谢 ครับ", "ok+script"], "why": "§13"}
+{"args": ["谢谢 ครับ", "OUT: 谢谢 ครับ"], "kwargs": {}, "oliv": ["OUT: 谢谢 ครับ", "ok"], "out": ["OUT: 谢谢 ครับ", "ok+script"], "why": "§13"}
+{"args": ["谢谢 ประชุมบ่ายสอง", "谢谢 ประชุมบ่ายสอง"], "kwargs": {}, "oliv": ["谢谢 ประชุมบ่ายสอง", "ok"], "out": ["谢谢 ประชุมบ่ายสอง", "ok+script"], "why": "§13"}
+{"args": ["谢谢 ประชุมบ่ายสอง", "谢谢 ประชุ"], "kwargs": {}, "oliv": ["谢谢 ประชุ", "ok"], "out": ["谢谢 ประชุ", "ok+script"], "why": "§13"}
+{"args": ["谢谢 ประชุมบ่ายสอง", "OUT: 谢谢 ประชุมบ่ายสอง"], "kwargs": {}, "oliv": ["OUT: 谢谢 ประชุมบ่ายสอง", "ok"], "out": ["OUT: 谢谢 ประชุมบ่ายสอง", "ok+script"], "why": "§13"}
+{"args": ["谢谢 ประชุมบ่ายสอง", "谢谢 ประชุมบ่ายสอง invented translation"], "kwargs": {}, "oliv": ["谢谢 ประชุมบ่ายสอง invented translation", "ok"], "out": ["谢谢 ประชุมบ่ายสอง invented translation", "ok+script"], "why": "§13"}
+{"args": ["谢谢观看", "谢谢观看"], "kwargs": {}, "oliv": ["谢谢观看", "ok"], "out": ["谢谢观看", "ok+script"], "why": "§13"}
+{"args": ["谢谢观看", "谢谢"], "kwargs": {}, "oliv": ["谢谢", "ok"], "out": ["谢谢", "ok+script"], "why": "§13"}
+{"args": ["감사합니다", "감사합니다"], "kwargs": {}, "oliv": ["감사합니다", "ok"], "out": ["감사합니다", "ok+script"], "why": "§13"}
+{"args": ["감사합니다", "감사"], "kwargs": {}, "oliv": ["감사", "ok"], "out": ["감사", "ok+script"], "why": "§13"}

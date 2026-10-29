@@ -1,0 +1,10 @@
+# Cargo build output (CARGO_TARGET_DIR defaults to desktop/target).
+/target/
+
+# Recorded speech and real configs hold private data; never commit them.
+*.wav
+/config.toml
+
+# Locally built Windows release packages.
+/oliv-windows-x64-*.zip
+/oliv-windows-x64-*.zip.sha256

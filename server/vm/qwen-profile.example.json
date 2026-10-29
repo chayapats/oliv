@@ -1,0 +1,68 @@
+{
+  "_comment": [
+    "Template for qwen-profile.json, read by qwen_asr.py when config.toml sets asr_profile = \"qwen3asr\".",
+    "Copy to qwen-profile.json (gitignored, operator-owned; deploy.sh never ships it) and fill in absolute paths and sha256 values.",
+    "qwen_asr.py refuses to start if any sha256 differs. It requires --host 127.0.0.1 --port 8087 and -ngl 99,",
+    "-c >= 4096 x the -np slot count, and -np equal to [api].asr_concurrency in config.toml.",
+    "Bring your own Qwen3-ASR GGUF (decoder + audio projector) for llama-server; none is distributed with OLIV."
+  ],
+  "model": "Qwen3-ASR Q8_0",
+  "model_id": "qwen3-asr-q8_0",
+  "config": {
+    "model": "/path/to/oliv/models/qwen/qwen3-asr/model-Q8_0.gguf",
+    "model_sha256": "REPLACE_WITH_SHA256_OF_MODEL",
+    "projector": "/path/to/oliv/models/qwen/qwen3-asr/projector-Q8_0.gguf",
+    "projector_sha256": "REPLACE_WITH_SHA256_OF_PROJECTOR",
+    "server_binary": "/path/to/oliv/bin/llama-b11223/llama-server",
+    "server_binary_sha256": "REPLACE_WITH_SHA256_OF_LLAMA_SERVER",
+    "server_argv": [
+      "/path/to/oliv/bin/llama-b11223/llama-server",
+      "-m",
+      "/path/to/oliv/models/qwen/qwen3-asr/model-Q8_0.gguf",
+      "--mmproj",
+      "/path/to/oliv/models/qwen/qwen3-asr/projector-Q8_0.gguf",
+      "-ngl",
+      "99",
+      "-c",
+      "8192",
+      "-b",
+      "128",
+      "-ub",
+      "128",
+      "-np",
+      "2",
+      "-t",
+      "3",
+      "-ctk",
+      "q8_0",
+      "-ctv",
+      "q8_0",
+      "-fa",
+      "on",
+      "--cache-ram",
+      "0",
+      "--no-cache-prompt",
+      "--jinja",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "8087"
+    ],
+    "kind": "qwen",
+    "system_prompt": "",
+    "seed": 42,
+    "temperature": 0,
+    "max_tokens_policy": "min(2400,96+int(duration_s)*20)",
+    "prompt_cache": false,
+    "response_cache": false,
+    "itn": false,
+    "precision": "Q8_0decoder/audio/projector/KV",
+    "binary_files": [
+      {
+        "path": "/path/to/oliv/bin/llama-b11223/libllama.so",
+        "sha256": "REPLACE_WITH_SHA256 (optional pins of shared libraries next to llama-server)"
+      }
+    ]
+  },
+  "root": "/path/to/oliv"
+}

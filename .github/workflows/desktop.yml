@@ -1,0 +1,446 @@
+name: Desktop client
+
+# Linux + Windows dictation client in desktop/. The server has its own workflow.
+on:
+  push:
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/desktop.yml'
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/desktop.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows:
+    name: Native Windows build and offline tests (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-2022, windows-2025]
+    # https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      CARGO_BUILD_TARGET: x86_64-pc-windows-msvc
+      RUSTFLAGS: '-C target-feature=+crt-static'
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Rust components
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+          if ($LASTEXITCODE -ne 0) { throw 'rustup failed' }
+          rustup default stable
+          if ($LASTEXITCODE -ne 0) { throw 'rustup default failed' }
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Test without production credentials or audio
+        id: unit_tests
+        continue-on-error: true
+        timeout-minutes: 5
+        run: cargo test --locked --all-targets
+      - name: Native desktop and daemon regression tests
+        id: desktop_tests
+        continue-on-error: true
+        timeout-minutes: 5
+        run: cargo test --locked native_ -- --ignored --test-threads=1
+      - name: Build native release
+        run: cargo build --locked --release
+      - name: Installer and CLI smoke test (Windows PowerShell 5.1)
+        shell: powershell
+        timeout-minutes: 5
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Do not touch the runner's real config, user data, or startup registry.
+          $sandbox = Join-Path $env:RUNNER_TEMP 'oliv installer test'
+          $env:APPDATA = Join-Path $sandbox 'Roaming'
+          $env:LOCALAPPDATA = Join-Path $sandbox 'Local'
+          $install = Join-Path $env:LOCALAPPDATA 'Programs\Oliv'
+          $sourceExe = Join-Path $env:GITHUB_WORKSPACE 'desktop\target\x86_64-pc-windows-msvc\release\oliv.exe'
+          $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+          New-Item -ItemType Directory -Path $sandbox -Force | Out-Null
+          function Read-SharedLog {
+              param([string]$Path)
+              $timer = [Diagnostics.Stopwatch]::StartNew()
+              while ($true) {
+                  $stream = $null
+                  $reader = $null
+                  try {
+                      # Start-Process gives descendants inheritable ReadWrite log
+                      # handles. ReadAllText's Read-only sharing conflicts with a
+                      # detached daemon that inherited the launcher's log handles.
+                      $stream = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+                      $reader = [IO.StreamReader]::new($stream)
+                      return $reader.ReadToEnd().Trim()
+                  } catch [IO.IOException] {
+                      if ($timer.ElapsedMilliseconds -ge 5000) { throw "Cannot read process log ${Path}: $($_.Exception.Message)" }
+                  } finally {
+                      if ($reader) { $reader.Dispose() }
+                      elseif ($stream) { $stream.Dispose() }
+                  }
+                  Start-Sleep -Milliseconds 100
+              }
+          }
+          function Invoke-Bounded {
+              param([string]$Executable, [string[]]$Arguments, [switch]$AllowFailure)
+              $id = [Guid]::NewGuid().ToString('N')
+              $stdout = Join-Path $sandbox "$id.stdout.log"
+              $stderr = Join-Path $sandbox "$id.stderr.log"
+              Write-Host "Run: $Executable $($Arguments -join ' ')"
+              $process = Start-Process -FilePath $Executable -ArgumentList $Arguments -PassThru -WindowStyle Hidden `
+                  -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+              try {
+                  $null = $process.Handle
+                  if (-not $process.WaitForExit(20000)) {
+                      $process.Kill()
+                      $null = $process.WaitForExit(5000)
+                      throw "Timed out: $Executable $Arguments"
+                  }
+                  # This Windows Start-Process returns a Process backed by native
+                  # file handles, with no asynchronous pipe-reader event handlers.
+                  # Its signaled exit is sufficient; don't wait for descendants.
+                  $exitCode = $process.ExitCode
+              } finally {
+                  $process.Dispose()
+              }
+              $result = [PSCustomObject]@{
+                  ExitCode = $exitCode
+                  Output = Read-SharedLog $stdout
+                  Error = Read-SharedLog $stderr
+              }
+              if ($result.ExitCode -ne 0 -and -not $AllowFailure) {
+                  throw "$Executable $Arguments failed ($($result.ExitCode)): $($result.Error) $($result.Output)"
+              }
+              return $result
+          }
+          function Invoke-Script {
+              param([string]$File, [string[]]$Arguments = @(), [switch]$ExpectFailure)
+              $scriptArgs = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', ('"{0}"' -f $File))
+              $result = Invoke-Bounded $powershell ($scriptArgs + $Arguments) -AllowFailure:$ExpectFailure
+              if ($ExpectFailure -and $result.ExitCode -eq 0) { throw "Expected $File to report failure" }
+              if ($result.Output) { Write-Host $result.Output }
+          }
+          function Assert-PrivateAcl {
+              param([string]$Path)
+              $acl = Get-Acl -LiteralPath $Path
+              if (-not $acl.AreAccessRulesProtected) { throw "ACL inherits permissions: $Path" }
+              $allowed = @([Security.Principal.WindowsIdentity]::GetCurrent().User.Value, 'S-1-5-18')
+              $rules = @($acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]))
+              foreach ($rule in $rules) {
+                  if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin $allowed) {
+                      throw "Unexpected access for $($rule.IdentityReference.Value): $Path"
+                  }
+              }
+              foreach ($sid in $allowed) {
+                  if (-not @($rules | Where-Object {
+                      $_.AccessControlType -eq 'Allow' -and $_.IdentityReference.Value -eq $sid -and
+                      ($_.FileSystemRights -band [Security.AccessControl.FileSystemRights]::FullControl) -eq [Security.AccessControl.FileSystemRights]::FullControl
+                  }).Count) { throw "Required private ACL missing for ${sid}: $Path" }
+              }
+          }
+          function Wait-Daemon {
+              for ($attempt = 0; $attempt -lt 15; $attempt++) {
+                  $result = Invoke-Bounded $exe @('status', '--json') -AllowFailure
+                  if ($result.ExitCode -eq 0) {
+                      $status = $result.Output | ConvertFrom-Json
+                      if ($status.ok -and $status.state -eq 'idle') { return }
+                      throw "Unexpected daemon state: $($result.Output)"
+                  }
+                  Start-Sleep -Milliseconds 200
+              }
+              $log = Join-Path $env:LOCALAPPDATA 'oliv\daemon.stderr.log'
+              if (Test-Path -LiteralPath $log) { Write-Host (Read-SharedLog $log) }
+              throw "Daemon did not become ready: $($result.Error)"
+          }
+          function Get-InstalledDaemon {
+              $found = @(Get-CimInstance Win32_Process -Filter "Name = 'oliv.exe'" | Where-Object {
+                  $_.ExecutablePath -eq $exe -and $_.CommandLine -match '^\s*(?:"[^"]*"|\S+)\s+(?:"daemon"|daemon)\s*$'
+              })
+              if ($found.Count -ne 1) { throw "Expected one installed daemon, found $($found.Count)" }
+              return Get-Process -Id $found[0].ProcessId
+          }
+          function Invoke-RawPipe {
+              param([byte[]]$Bytes, [bool]$ExpectedOk = $true, [switch]$ExpectDisconnect)
+              $pipeName = 'oliv-' + [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+              $pipe = [IO.Pipes.NamedPipeClientStream]::new('.', $pipeName, [IO.Pipes.PipeDirection]::InOut, [IO.Pipes.PipeOptions]::Asynchronous)
+              $reader = $null
+              try {
+                  $pipe.Connect(5000)
+                  $write = $pipe.WriteAsync($Bytes, 0, $Bytes.Length)
+                  if (-not $write.Wait(5000)) { throw 'Raw pipe write timed out' }
+                  $reader = [IO.StreamReader]::new($pipe, [Text.Encoding]::UTF8, $true, 1024, $true)
+                  $read = $reader.ReadLineAsync()
+                  try {
+                      if (-not $read.Wait(5000)) { throw 'Raw pipe reply timed out' }
+                  } catch [AggregateException] {
+                      if ($ExpectDisconnect -and $_.Exception.InnerException -is [IO.IOException]) { return }
+                      throw
+                  }
+                  $line = $read.Result
+                  if ($ExpectDisconnect) {
+                      if ($null -ne $line) { throw "Invalid/incomplete command received a reply: $line" }
+                  } else {
+                      if (-not $line) { throw 'Raw pipe closed without a reply' }
+                      $reply = $line | ConvertFrom-Json
+                      if ($reply.ok -ne $ExpectedOk) { throw "Unexpected raw pipe reply: $line" }
+                  }
+              } finally {
+                  if ($reader) { $reader.Dispose() }
+                  $pipe.Dispose()
+              }
+          }
+          $installer = Join-Path $env:GITHUB_WORKSPACE 'desktop\deploy\install-client.ps1'
+          $installArgs = @('-BinaryPath', ('"{0}"' -f $sourceExe), '-NoStart', '-NoAutoStart')
+          Invoke-Script $installer $installArgs
+          $exe = Join-Path $install 'oliv.exe'
+          $null = Invoke-Bounded $exe @('--help')
+          $null = Invoke-Bounded $exe @('history', '--json')
+          # Existing token/config and saved dictations must survive an upgrade.
+          # A failed accidental request could reach only loopback; never record.
+          $config = Join-Path $env:APPDATA 'oliv\config.toml'
+          $configText = "[server]`nurl = `"http://127.0.0.1:9`"`ntoken = `"ci-placeholder-not-a-real-token`"`n# Preserve this user configuration`n"
+          [IO.File]::WriteAllText($config, $configText, (New-Object Text.UTF8Encoding($false)))
+          Assert-PrivateAcl (Split-Path -Parent $config)
+          Assert-PrivateAcl (Join-Path $env:LOCALAPPDATA 'oliv')
+          Assert-PrivateAcl $config
+          # Simulate a config copied with its own protected, overbroad ACL.
+          $copiedAcl = Get-Acl -LiteralPath $config
+          $copiedAcl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new(
+              [Security.Principal.SecurityIdentifier]::new('S-1-1-0'), 'Read', 'Allow'))
+          Set-Acl -LiteralPath $config -AclObject $copiedAcl
+          $hash = (Get-FileHash -LiteralPath $config).Hash
+          $history = Join-Path $env:LOCALAPPDATA 'oliv\history.jsonl'
+          [IO.File]::WriteAllText($history, '{"final":"installer sentinel"}' + "`n")
+          # Harmless finite sleeper with the same filename in a different directory.
+          # Neither upgrade nor uninstall may stop this unrelated process.
+          $otherDir = Join-Path $sandbox 'other checkout'
+          New-Item -ItemType Directory -Path $otherDir -Force | Out-Null
+          $otherExe = Join-Path $otherDir 'oliv.exe'
+          Add-Type -TypeDefinition 'public static class OlivUnrelatedProcess { public static void Main() { System.Threading.Thread.Sleep(240000); } }' `
+              -OutputAssembly $otherExe -OutputType ConsoleApplication
+          $other = Start-Process -FilePath $otherExe -PassThru -WindowStyle Hidden
+          $null = $other.Handle
+          try {
+              $launcher = Join-Path $install 'start-oliv.ps1'
+              Invoke-Script $launcher
+              Wait-Daemon
+              $daemon = Get-InstalledDaemon
+              $null = $daemon.Handle
+              # Launching a second time must leave exactly the same daemon alive.
+              Invoke-Script $launcher
+              if ((Get-InstalledDaemon).Id -ne $daemon.Id) { throw 'Launcher replaced the daemon' }
+              $null = Invoke-Bounded $exe @('cancel')
+              Wait-Daemon
+              # Send command and ACK in one write to exercise buffered ACK reads.
+              $statusAndAck = [Text.Encoding]::UTF8.GetBytes("status`n" + [char]1)
+              Invoke-RawPipe $statusAndAck
+              $timer = [Diagnostics.Stopwatch]::StartNew()
+              Invoke-RawPipe $statusAndAck
+              if ($timer.ElapsedMilliseconds -ge 1800) { throw 'Buffered ACK delayed the following client until the server timeout' }
+              Invoke-RawPipe ([Text.Encoding]::UTF8.GetBytes("unknown`n" + [char]1)) -ExpectedOk $false
+              Invoke-RawPipe ([Text.Encoding]::UTF8.GetBytes('status' + (' ' * 250) + "`n" + [char]1)) -ExpectedOk $false
+              Invoke-RawPipe ([byte[]]@(255, 254, 10, 1)) -ExpectDisconnect
+              Invoke-RawPipe ([Text.Encoding]::UTF8.GetBytes('status')) -ExpectDisconnect
+              Wait-Daemon
+              Invoke-Script $installer $installArgs
+              if (-not $daemon.WaitForExit(5000)) { throw 'Upgrade did not stop its old daemon' }
+              if ($other.HasExited) { throw 'Upgrade stopped an unrelated oliv.exe' }
+              if ((Get-FileHash -LiteralPath $config).Hash -ne $hash) { throw 'Upgrade changed existing config' }
+              Assert-PrivateAcl $config
+              if ((Invoke-Bounded $exe @('last')).Output -ne 'installer sentinel') { throw 'Upgrade lost saved history' }
+              # A damaged configuration must fail visibly and remain untouched.
+              [IO.File]::WriteAllText($config, '[server', (New-Object Text.UTF8Encoding($false)))
+              $damagedHash = (Get-FileHash -LiteralPath $config).Hash
+              Invoke-Script $launcher -ExpectFailure
+              if ((Get-FileHash -LiteralPath $config).Hash -ne $damagedHash) { throw 'Failed startup changed the damaged config' }
+              if (@(Get-Process -Name oliv -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exe }).Count) {
+                  throw 'Damaged config left an installed daemon running'
+              }
+              [IO.File]::WriteAllText($config, $configText, (New-Object Text.UTF8Encoding($false)))
+              Invoke-Script $launcher
+              Wait-Daemon
+              $daemon = Get-InstalledDaemon
+              $null = $daemon.Handle
+              Invoke-Script (Join-Path $install 'uninstall-client.ps1')
+              if (-not $daemon.WaitForExit(5000)) { throw 'Uninstall did not stop its daemon' }
+              if ($other.HasExited) { throw 'Uninstall stopped an unrelated oliv.exe' }
+              if (Test-Path -LiteralPath $exe) { throw 'Uninstall left the executable behind' }
+              if ((Get-FileHash -LiteralPath $config).Hash -ne $hash) { throw 'Uninstall changed config' }
+              if (-not (Test-Path -LiteralPath $history)) { throw 'Uninstall deleted history' }
+              # Explicit user-data removal is a separate, opt-in operation.
+              Invoke-Script (Join-Path $env:GITHUB_WORKSPACE 'desktop\deploy\uninstall-client.ps1') @('-InstallDir', ('"{0}"' -f $install), '-RemoveUserData')
+              if (Test-Path -LiteralPath (Join-Path $env:APPDATA 'oliv')) { throw 'Opt-in removal left config behind' }
+              if (Test-Path -LiteralPath (Join-Path $env:LOCALAPPDATA 'oliv')) { throw 'Opt-in removal left data behind' }
+          } finally {
+              if (-not $other.HasExited) { $other.Kill(); $null = $other.WaitForExit(5000) }
+              $other.Dispose()
+              # Also clean up our own daemon if an assertion failed earlier.
+              foreach ($process in @(Get-Process -Name oliv -ErrorAction SilentlyContinue)) {
+                  if ($process.Path -eq $exe) { Stop-Process -InputObject $process -Force }
+              }
+          }
+      - name: Startup registry registration and removal (Windows PowerShell 5.1)
+        shell: powershell
+        timeout-minutes: 2
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sandbox = Join-Path $env:RUNNER_TEMP 'oliv startup test'
+          $env:APPDATA = Join-Path $sandbox 'Roaming'
+          $env:LOCALAPPDATA = Join-Path $sandbox 'Local'
+          $install = Join-Path $env:LOCALAPPDATA 'Programs\Oliv'
+          $sourceExe = Join-Path $env:GITHUB_WORKSPACE 'desktop\target\x86_64-pc-windows-msvc\release\oliv.exe'
+          $runName = 'OlivWindows'
+          $sentinelName = 'OlivCiSentinel-' + [Guid]::NewGuid().ToString('N')
+          $runKey = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Microsoft\Windows\CurrentVersion\Run')
+          $hadPrevious = $runKey.GetValueNames() -contains $runName
+          if ($hadPrevious) {
+              $previousValue = $runKey.GetValue($runName, $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+              $previousKind = $runKey.GetValueKind($runName)
+          }
+          try {
+              # Scope mutations to one saved startup value and a unique sentinel.
+              $runKey.DeleteValue($runName, $false)
+              $runKey.SetValue($sentinelName, 'preserve unrelated startup', [Microsoft.Win32.RegistryValueKind]::String)
+              # Do not launch a daemon here; the previous step covers launch/IPC.
+              & .\deploy\install-client.ps1 -BinaryPath $sourceExe -NoStart
+              $registered = $runKey.GetValue($runName)
+              $launcherSuffix = ' -File "{0}"' -f (Join-Path $install 'start-oliv.ps1')
+              if (-not $registered -or -not $registered.EndsWith($launcherSuffix) -or $registered -notlike '*-WindowStyle Hidden*') {
+                  throw 'Startup registration does not launch the installed hidden wrapper'
+              }
+              if ($runKey.GetValue($sentinelName) -ne 'preserve unrelated startup') { throw 'Install changed unrelated startup values' }
+              # A second install must accept the existing value and keep it stable.
+              & .\deploy\install-client.ps1 -BinaryPath $sourceExe -NoStart
+              if ($runKey.GetValue($runName) -ne $registered) { throw 'Upgrade changed startup registration' }
+              & (Join-Path $install 'uninstall-client.ps1')
+              if ($runKey.GetValueNames() -contains $runName) { throw 'Uninstall left its startup value behind' }
+              if ($runKey.GetValue($sentinelName) -ne 'preserve unrelated startup') { throw 'Uninstall changed unrelated startup values' }
+              # Relative custom paths resolve from PowerShell's current location,
+              # including apostrophes and Thai characters (source stays ASCII for PS5).
+              $customName = 'Oliv user''s ' + [char]0x0E44 + [char]0x0E17 + [char]0x0E22
+              $customInstall = Join-Path $sandbox $customName
+              $installer = Join-Path $env:GITHUB_WORKSPACE 'desktop\deploy\install-client.ps1'
+              $uninstaller = Join-Path $env:GITHUB_WORKSPACE 'desktop\deploy\uninstall-client.ps1'
+              Push-Location $sandbox
+              try {
+                  & $installer -BinaryPath $sourceExe -InstallDir ('.\' + $customName) -NoStart
+                  if (-not (Test-Path -LiteralPath (Join-Path $customInstall 'oliv.exe'))) { throw 'Custom path resolved outside the PowerShell location' }
+                  $customStartup = $runKey.GetValue($runName)
+                  if (-not $customStartup.EndsWith((' -File "{0}"' -f (Join-Path $customInstall 'start-oliv.ps1')))) {
+                      throw 'Custom startup path lost its quoting or Unicode characters'
+                  }
+                  $otherInstall = Join-Path $sandbox 'conflicting installation'
+                  $rejected = $false
+                  try { & $installer -BinaryPath $sourceExe -InstallDir $otherInstall -NoStart }
+                  catch { $rejected = $true }
+                  if (-not $rejected) { throw 'Installer overwrote another installation startup entry' }
+                  if ($runKey.GetValue($runName) -ne $customStartup) { throw 'Rejected install changed startup registration' }
+                  if (Test-Path -LiteralPath $otherInstall) { throw 'Rejected install wrote an installation directory' }
+                  $config = Join-Path $env:APPDATA 'oliv\config.toml'
+                  [IO.File]::WriteAllText($config, "[server]`nurl = `"http://127.0.0.1:9`"`ntoken = `"ci-placeholder-not-a-real-token`"`n")
+                  & (Join-Path $customInstall 'start-oliv.ps1')
+                  $status = & (Join-Path $customInstall 'oliv.exe') status --json | ConvertFrom-Json
+                  if ($LASTEXITCODE -ne 0 -or -not $status.ok -or $status.state -ne 'idle') { throw 'Daemon failed to launch from the custom path' }
+                  $keepFile = Join-Path $customInstall 'user-added.txt'
+                  [IO.File]::WriteAllText($keepFile, 'preserve user-added file')
+                  & $uninstaller -InstallDir ('.\' + $customName)
+                  if (Test-Path -LiteralPath (Join-Path $customInstall 'oliv.exe')) { throw 'Custom uninstall left the executable behind' }
+                  if ([IO.File]::ReadAllText($keepFile) -ne 'preserve user-added file') { throw 'Custom uninstall deleted a user-added file' }
+                  if ($runKey.GetValueNames() -contains $runName) { throw 'Custom uninstall left its startup value behind' }
+                  if ($runKey.GetValue($sentinelName) -ne 'preserve unrelated startup') { throw 'Custom uninstall changed unrelated startup values' }
+              } finally {
+                  Pop-Location
+                  foreach ($process in @(Get-Process -Name oliv -ErrorAction SilentlyContinue)) {
+                      if ($process.Path -eq (Join-Path $customInstall 'oliv.exe')) { Stop-Process -InputObject $process -Force }
+                  }
+              }
+          } finally {
+              # Preserve any runner value byte-for-byte and with its original type.
+              if ($hadPrevious) { $runKey.SetValue($runName, $previousValue, $previousKind) }
+              else { $runKey.DeleteValue($runName, $false) }
+              $runKey.DeleteValue($sentinelName, $false)
+              $runKey.Dispose()
+          }
+      # Collect independent desktop/installer evidence even if a unit test fails,
+      # but never publish a passing job or package unless every suite succeeded.
+      - name: Require all native test suites to pass
+        if: ${{ !cancelled() }}
+        env:
+          UNIT_OUTCOME: ${{ steps.unit_tests.outcome }}
+          DESKTOP_OUTCOME: ${{ steps.desktop_tests.outcome }}
+        run: |
+          if ($env:UNIT_OUTCOME -ne 'success' -or $env:DESKTOP_OUTCOME -ne 'success') {
+              throw "Native tests failed: unit=$env:UNIT_OUTCOME desktop=$env:DESKTOP_OUTCOME"
+          }
+      - name: Package
+        run: |
+          $label = 'oliv-windows-x64-${{ matrix.runner }}'
+          $package = Join-Path $env:RUNNER_TEMP $label
+          New-Item -ItemType Directory -Path $package -Force | Out-Null
+          Copy-Item target/x86_64-pc-windows-msvc/release/oliv.exe $package
+          Copy-Item config.example.toml $package
+          Copy-Item deploy/install-client.ps1,deploy/uninstall-client.ps1 $package
+          Copy-Item docs/WINDOWS.md $package
+          if (Test-Path ../LICENSE) { Copy-Item ../LICENSE $package }
+          $os = Get-CimInstance Win32_OperatingSystem
+          $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
+          $isAdmin = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+          $version = "Commit: $env:GITHUB_SHA`nRunner label: ${{ matrix.runner }}`nRunner image: $env:ImageOS $env:ImageVersion`nOS: $($os.Caption) $($os.Version) build $($os.BuildNumber)`nRunner admin token: $isAdmin`nRust: $(rustc --version)`nTarget: $env:CARGO_BUILD_TARGET`nRust flags: $env:RUSTFLAGS"
+          Set-Content -Path (Join-Path $package 'BUILD.txt') -Value $version
+          Compress-Archive -Path "$package/*" -DestinationPath "$label.zip"
+          $hash = (Get-FileHash "$label.zip" -Algorithm SHA256).Hash.ToLowerInvariant()
+          Set-Content -Path "$label.zip.sha256" -Value "$hash  $label.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: oliv-windows-x64-${{ matrix.runner }}
+          # upload-artifact paths are relative to the workspace, not working-directory.
+          path: |
+            desktop/oliv-windows-x64-${{ matrix.runner }}.zip
+            desktop/oliv-windows-x64-${{ matrix.runner }}.zip.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+  linux:
+    name: Linux client build and offline tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev libwayland-dev libxkbcommon-dev libclang-dev pkg-config
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+          rustup default stable
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D warnings
+      - name: Linux client tests
+        run: cargo test --locked --all-targets

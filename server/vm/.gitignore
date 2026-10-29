@@ -1,0 +1,17 @@
+# Operator-owned runtime state on the server; never commit any of it.
+.tools/
+models/
+bin/
+run/
+logs/
+backups/
+.venv/
+api.token
+api-keys.json
+api-keys.json.*
+keys/
+usage/
+qwen-profile.json
+cloudflared/*.json
+cloudflared/*.pem
+cloudflared/*.yml
