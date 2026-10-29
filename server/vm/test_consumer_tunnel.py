@@ -101,6 +101,18 @@ class ConsumerTunnelTests(unittest.TestCase):
         self.assertEqual(self.tunnel.validate(), IDENT)
         self.assertEqual(other.read_bytes(), before)
 
+    def test_shared_non_private_metadata_beside_the_credentials_is_tolerated(self):
+        metadata = self.root / "cloudflared/access-app.json"
+        metadata.write_text(json.dumps([{"name": "app", "domain": "example.com"}]))
+        metadata.chmod(0o664)
+        (self.root / "cloudflared/broken.json").write_text("{not json")
+        self.assertEqual(self.tunnel.validate(), IDENT)
+        duplicate = self.root / "cloudflared/other-tunnel.json"
+        duplicate.write_text(json.dumps(self.credentials))
+        duplicate.chmod(0o664)
+        with self.assertRaises(consumer.Unsafe):
+            self.tunnel.validate()
+
     def test_rejects_credential_identity_alias_permissions_and_duplicates(self):
         self.write_json(self.tunnel.credentials, dict(self.credentials, TunnelID=OTHER))
         with self.assertRaises(consumer.Unsafe):

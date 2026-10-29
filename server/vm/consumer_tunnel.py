@@ -110,6 +110,27 @@ def read_json(path):
         raise Unsafe("malformed private JSON file") from None
 
 
+def peek_json(path, limit=16384):
+    """Best-effort parse of a neighbouring JSON file, used only to compare a
+    tunnel identity. Other tools keep shared, non-private metadata here (an
+    Access app description, say), so an unreadable, unsafe or malformed file
+    is not an error: it yields None."""
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
+        return None
+    with os.fdopen(fd, "rb") as source:
+        if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+            return None
+        data = source.read(limit + 1)
+    if len(data) > limit:
+        return None
+    try:
+        return json.loads(data)
+    except (UnicodeError, ValueError):
+        return None
+
+
 def tunnel_id(value):
     if not isinstance(value, str):
         raise Unsafe("invalid tunnel identity")
@@ -196,7 +217,7 @@ class ConsumerTunnel:
         for other in sorted(self.credentials.parent.glob("*.json")):
             if other in (self.config, self.credentials):
                 continue
-            other_credential = read_json(other)
+            other_credential = peek_json(other)
             if isinstance(other_credential, dict) and other_credential.get("TunnelID") == ident:
                 raise Unsafe("consumer tunnel must not reuse another tunnel's identity")
         try:
