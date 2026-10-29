@@ -48,3 +48,6 @@ tools/*
 # Native Swift package build products
 **/.build/
 **/.swiftpm/
+
+# Operator-only release settings (scripts/release.sh)
+/release.local.env

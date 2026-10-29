@@ -128,11 +128,16 @@ targets:
         SUPublicEDKey: Zi6oGPzaL/DjuhHqF3osDBCdNAjEjoYSjPGOH1MRAi4=
         # Let Sparkle schedule its own background update checks (default cadence).
         SUEnableAutomaticChecks: true
+        # Server URL prefilled in Settings ▸ Engines. Empty in source builds; an
+        # operator who hosts a server for their users sets OLIV_DEFAULT_API_URL
+        # for their release build (scripts/release.sh reads release.local.env).
+        OLIVDefaultAPIURL: "$(OLIV_DEFAULT_API_URL)"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.oliv.app
         MARKETING_VERSION: 0.2.2
         CURRENT_PROJECT_VERSION: 19
+        OLIV_DEFAULT_API_URL: ""
         # App icon from OLIV/Assets.xcassets (the "light" export set from
         # oliv_logo_assets/ — cream rounded square, transparent corners).
         # actool compiles it into Assets.car and merges CFBundleIconName

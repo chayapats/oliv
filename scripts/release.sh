@@ -55,6 +55,13 @@ ED_ACCOUNT="ed25519"
 GITHUB_OWNER="chayapats"
 NOTARY_PROFILE="oliv-notary"
 
+# Operator-only settings kept out of git (release.local.env is gitignored), e.g.
+#   OLIV_DEFAULT_API_URL=https://oliv.example.com
+# which build_app.sh bakes into Info.plist as the Settings default server URL.
+if [ -f "$ROOT/release.local.env" ]; then
+  set -a; . "$ROOT/release.local.env"; set +a
+fi
+
 # --------------------------------------------------------------------------- #
 # 0. Args + preconditions.
 # --------------------------------------------------------------------------- #
@@ -132,6 +139,9 @@ BUILT_SHORT="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$A
 BUILT_BUILD="$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$APP/Contents/Info.plist" 2>/dev/null || echo '?')"
 echo "    built app version: $BUILT_SHORT ($BUILT_BUILD)"
 [ "$BUILT_SHORT" = "$VERSION" ] || die "built app version '$BUILT_SHORT' != requested '$VERSION' (Info.plist mapping broken)."
+BUILT_API_URL="$(/usr/libexec/PlistBuddy -c 'Print OLIVDefaultAPIURL' "$APP/Contents/Info.plist" 2>/dev/null || true)"
+[ "$BUILT_API_URL" = "${OLIV_DEFAULT_API_URL:-}" ] || die "built default API URL '$BUILT_API_URL' != OLIV_DEFAULT_API_URL (Info.plist mapping broken)."
+echo "    default API URL: ${BUILT_API_URL:-none (users enter their own)}"
 
 # --------------------------------------------------------------------------- #
 # 3. Build the styled DMG with native Swift metadata and hdiutil.

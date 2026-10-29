@@ -2,9 +2,14 @@ import Foundation
 import Darwin
 
 struct OLIVAPIConfiguration: Equatable, CustomDebugStringConvertible {
-    /// No built-in server: the user enters the URL of their own (or their
-    /// operator's) OLIV server along with the API key.
-    static let defaultURL = ""
+    /// The URL prefilled in Settings. Source builds have none: the user enters
+    /// the URL of their own (or their operator's) OLIV server with the API key.
+    /// An operator's release build can bake one in (`OLIVDefaultAPIURL`).
+    static let defaultURL = defaultURL(from: Bundle.main.infoDictionary)
+
+    static func defaultURL(from info: [String: Any]?) -> String {
+        (info?["OLIVDefaultAPIURL"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
     static let defaultTimeout: TimeInterval = 120
     let baseURL: URL
     let apiKey: String

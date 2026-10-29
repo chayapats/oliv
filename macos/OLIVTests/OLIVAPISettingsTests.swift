@@ -33,6 +33,16 @@ final class OLIVAPISettingsTests: XCTestCase {
         XCTAssertFalse(settings.availableEngines.contains(.olivAPI))
     }
 
+    func testDefaultURLComesOnlyFromTheBuildsInfoPlist() {
+        XCTAssertEqual(OLIVAPIConfiguration.defaultURL(from: nil), "")
+        XCTAssertEqual(OLIVAPIConfiguration.defaultURL(from: [:]), "")
+        XCTAssertEqual(OLIVAPIConfiguration.defaultURL(from: ["OLIVDefaultAPIURL": ""]), "")
+        XCTAssertEqual(OLIVAPIConfiguration.defaultURL(from: ["OLIVDefaultAPIURL": 42]), "")
+        XCTAssertEqual(
+            OLIVAPIConfiguration.defaultURL(from: ["OLIVDefaultAPIURL": " https://oliv.example.com \n"]),
+            "https://oliv.example.com")
+    }
+
     func testAPIKeyUsesSeparateKeychainAccountAndSelectionPersists() {
         let keychain = InMemoryKeychain()
         let settings = OLIVSettings(defaults: defaults, keychain: keychain)

@@ -8,7 +8,7 @@ APP="$BUILD/OLIV.app"
 bash "$ROOT/scripts/check_native_sources.sh"
 bash "$ROOT/scripts/build_native.sh"
 xcodebuild -project "$ROOT/macos/OLIV.xcodeproj" -scheme OLIV -configuration Release \
-  -derivedDataPath "$DERIVED" build
+  -derivedDataPath "$DERIVED" OLIV_DEFAULT_API_URL="${OLIV_DEFAULT_API_URL:-}" build
 rm -rf "$APP"
 cp -R "$DERIVED/Build/Products/Release/OLIV.app" "$APP"
 RT="$APP/Contents/Resources/oliv-runtime"
