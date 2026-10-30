@@ -20,6 +20,10 @@ h1{font-size:34px;line-height:1.2;margin:18px 0 10px}
 .button{display:block;width:100%;border:0;border-radius:14px;padding:15px;font:inherit;font-weight:600;text-align:center;text-decoration:none;cursor:pointer;background:var(--olive);color:var(--card)}
 .button:disabled{opacity:.6}
 .key{word-break:break-all;font:14px/1.5 ui-monospace,Menlo,monospace;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 12px}
+#config{white-space:pre-wrap}
+.card h3{font-size:16px;margin:20px 0 4px}
+.card a{color:var(--olive)}
+#result .button{margin-bottom:8px}
 .note{font-size:14px;color:var(--soft)}
 [hidden]{display:none}
 </style>
@@ -28,7 +32,7 @@ h1{font-size:34px;line-height:1.2;margin:18px 0 10px}
 <main>
   <div class="brand">OLIV</div>
   <h1>พูดไทยปนอังกฤษ ได้ข้อความพร้อมใช้</h1>
-  <p class="lead">ลองฟรี 7 วัน ไม่ต้องสมัครสมาชิก ไม่ต้องตั้งค่าอะไร</p>
+  <p class="lead">ลองฟรี 7 วัน ไม่ต้องสมัครสมาชิก</p>
 
   <section class="card" id="iphone">
     <h2>บน iPhone</h2>
@@ -38,11 +42,18 @@ h1{font-size:34px;line-height:1.2;margin:18px 0 10px}
 
   <section class="card">
     <h2>บน Mac, Windows หรือ Linux</h2>
-    <p>รับ key ไปวางในหน้า Settings ของแอป OLIV ช่อง API key</p>
+    <p>รับ key แล้วทำตามขั้นตอนของเครื่องคุณ</p>
     <button class="button" id="get" type="button">รับ key ทดลอง</button>
     <div id="result" hidden>
+      <h3>Mac</h3>
+      <p>วาง key นี้ในแอป OLIV ที่ Settings ช่อง API key</p>
       <p class="key" id="key"></p>
-      <button class="button" id="copy" type="button">คัดลอก</button>
+      <button class="button" id="copy" type="button">คัดลอก key</button>
+      <h3>Windows หรือ Linux</h3>
+      <p><a href="https://github.com/chayapats/oliv/tree/main/desktop#readme">ติดตั้ง OLIV</a> แล้วใส่ 2 บรรทัดนี้ใต้ <code>[server]</code> ในไฟล์ตั้งค่า</p>
+      <p class="key" id="config"></p>
+      <button class="button" id="copyConfig" type="button">คัดลอกการตั้งค่า</button>
+      <p class="note">Windows: <code>%APPDATA%\oliv\config.toml</code><br>Linux: <code>~/.config/oliv/config.toml</code></p>
       <p class="note" id="limits"></p>
     </div>
     <p class="note" id="error" role="alert" hidden></p>
@@ -67,6 +78,7 @@ $("get").addEventListener("click", async () => {
     const reply = await response.json();
     if (!reply.ok) throw new Error(reply.error);
     $("key").textContent = reply.token;
+    $("config").textContent = `url = "${location.origin}"\ntoken = "${reply.token}"`;
     const until = new Date(reply.expires_at * 1000).toLocaleDateString("th-TH", {dateStyle: "long"});
     $("limits").textContent = `ใช้ได้ถึง ${until} วันละ ${reply.daily_requests} ครั้ง key นี้แสดงครั้งเดียว`;
     $("get").hidden = true;
@@ -77,10 +89,12 @@ $("get").addEventListener("click", async () => {
     $("get").disabled = false;
   }
 });
-$("copy").addEventListener("click", async () => {
-  await navigator.clipboard.writeText($("key").textContent);
-  $("copy").textContent = "คัดลอกแล้ว";
-});
+for (const [button, source] of [["copy", "key"], ["copyConfig", "config"]]) {
+  $(button).addEventListener("click", async () => {
+    await navigator.clipboard.writeText($(source).textContent);
+    $(button).textContent = "คัดลอกแล้ว";
+  });
+}
 </script>
 </body>
 </html>

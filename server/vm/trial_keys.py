@@ -32,7 +32,9 @@ HOST = "127.0.0.1"
 PORT = 8091
 NAME_PREFIX = "trial-"
 SCOPES = ["dictate", "clean"]
-PRUNE_AFTER_DAYS = 30
+# Short, so ended trials can't fill the store under limits that look safe. Worn-out
+# keys have nothing to keep: a deleted key gets the same 401 as an expired one.
+PRUNE_AFTER_DAYS = 1
 PRUNE_INTERVAL = 6 * 3600
 # oliv-keys refuses a 257th key. Stop early so the operator can always add one.
 STORE_CEILING = 200
@@ -189,6 +191,12 @@ class TrialIssuer:
         self.manager.cli("prune-trials", str(PRUNE_AFTER_DAYS))
         self.last_prune = self.clock()
 
+    def _refund(self, receipt):
+        try:
+            self.ledger.refund(receipt)
+        except OSError:
+            pass  # Over-counting by one is the safe direction.
+
     def issue(self, address, expires=float("inf")):
         with self.lock:
             # A client dropped at its deadline must not get a key it never sees.
@@ -205,6 +213,9 @@ class TrialIssuer:
             active = sum(key["status"] == "active" and key["trial"] for key in keys)
             if active >= settings["max_active"] or len(keys) >= STORE_CEILING:
                 raise Closed("full")
+            # The calls above can outlast the time this request had left.
+            if time.monotonic() >= expires:
+                raise Closed("expired")
             receipt = self.ledger.charge(address)
             try:
                 created = self.manager.create({
@@ -215,11 +226,13 @@ class TrialIssuer:
             except KeyAdminError as error:
                 # "incomplete" means a key may exist, so its count must stand.
                 if error.code != "key_creation_incomplete":
-                    try:
-                        self.ledger.refund(receipt)
-                    except OSError:
-                        pass  # Over-counting by one is the safe direction.
+                    self._refund(receipt)
                 raise
+            if time.monotonic() >= expires:
+                # Nobody is left to receive it. A failed revoke keeps the count.
+                self.manager.revoke({"id": created["key"]["id"]})
+                self._refund(receipt)
+                raise Closed("expired")
         return {"ok": True, "token": created["token"], "expires_at": created["key"]["expires_at"],
                 "requests_per_minute": settings["requests_per_minute"],
                 "daily_requests": settings["daily_requests"]}

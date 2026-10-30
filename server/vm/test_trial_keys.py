@@ -24,6 +24,7 @@ class FakeManager:
         self.created = []
         self.pruned = []
         self.existing = []
+        self.revoked = []
 
     def cli(self, *args):
         self.pruned.append(args)
@@ -38,6 +39,9 @@ class FakeManager:
                "expires_at": 1_000_000, "trial": trial}
         self.existing.append(key)
         return {"ok": True, "key": key, "token": f"token-{len(self.created)}"}
+
+    def revoke(self, posted):
+        self.revoked.append(posted["id"])
 
 
 class Fixture(unittest.TestCase):
@@ -83,7 +87,7 @@ class IssueTests(Fixture):
         self.assertEqual(options["scopes"], ["dictate", "clean"])
         self.assertEqual(options["requests_per_minute"], 6)
         self.assertEqual(reply["daily_requests"], 60)
-        self.assertEqual(self.manager.pruned, [("prune-trials", "30")])
+        self.assertEqual(self.manager.pruned, [("prune-trials", "1")])
 
     def test_client_and_daily_limits_then_next_day_reopens(self):
         self.issuer.issue("192.0.2.1")
@@ -161,6 +165,47 @@ class IssueTests(Fixture):
         self.assertEqual(self.manager.created, [])
         self.assertEqual(self.issuer.ledger.state["total"], 0)
 
+    def test_time_running_out_before_creation_charges_nothing(self):
+        listed = self.manager.keys
+        def slow():
+            time.sleep(0.02)
+            return listed()
+        self.manager.keys = slow
+        with self.assertRaises(Closed) as closed:
+            self.issuer.issue("192.0.2.1", expires=time.monotonic() + 0.01)
+        self.assertEqual(closed.exception.code, "expired")
+        self.assertEqual(self.manager.created, [])
+        self.assertEqual(self.issuer.ledger.state["total"], 0)
+
+    def _create_outlasting_the_deadline(self):
+        create = self.manager.create
+        def slow(options, trial=False):
+            time.sleep(0.02)
+            return create(options, trial)
+        self.manager.create = slow
+
+    def test_key_finished_after_the_client_left_is_revoked_and_refunded(self):
+        self._create_outlasting_the_deadline()
+        with self.assertRaises(Closed) as closed:
+            self.issuer.issue("192.0.2.1", expires=time.monotonic() + 0.01)
+        self.assertEqual(closed.exception.code, "expired")
+        self.assertEqual(self.manager.revoked, [self.manager.existing[0]["id"]])
+        self.assertEqual(self.issuer.ledger.state["total"], 0)
+
+    def test_failed_revoke_keeps_the_count(self):
+        self._create_outlasting_the_deadline()
+        def fail(_):
+            raise KeyAdminError(503, "x", "x")
+        self.manager.revoke = fail
+        with self.assertRaises(KeyAdminError):
+            self.issuer.issue("192.0.2.1", expires=time.monotonic() + 0.01)
+        self.assertEqual(self.issuer.ledger.state["total"], 1)
+
+    def test_ended_trials_cannot_fill_the_store_at_the_default_limits(self):
+        days_kept = trial_keys.PRUNE_AFTER_DAYS + trial_keys.PRUNE_INTERVAL / 86_400
+        ended = trial_keys.DEFAULTS["keys_per_day"] * days_kept
+        self.assertLess(trial_keys.DEFAULTS["max_active"] + ended, trial_keys.STORE_CEILING)
+
     def test_operator_keys_named_like_trials_do_not_count(self):
         self.manager.existing = [{"name": f"trial-{n}", "status": "active", "trial": False} for n in range(5)]
         self.issuer.issue("192.0.2.1")
@@ -232,10 +277,10 @@ class RealCLITests(unittest.TestCase):
             self.assertTrue(key["trial"])
             self.assertEqual(key["scopes"], ["dictate", "clean"])
             self.assertEqual(key["daily_requests"], 60)
-            manager.cli("prune-trials", "30")
+            manager.cli("prune-trials", str(trial_keys.PRUNE_AFTER_DAYS))
             self.assertEqual(len(manager.keys()), 1)
             manager.cli("revoke", key["id"])
-            manager.cli("prune-trials", "30")
+            manager.cli("prune-trials", str(trial_keys.PRUNE_AFTER_DAYS))
             self.assertEqual(manager.keys(), [])
 
 
@@ -304,6 +349,9 @@ class OverloadRecoveryTests(Fixture):
             self.addCleanup(connection.close)
             connection.sendall(b"POST /try/key HTTP/1.0\r\nX-Partial: 1\r\n")
             deadline = time.monotonic() + 3
+            # First until the server takes it, or this would end before it began.
+            while server.workers._value == trial_keys.MAX_WORKERS and time.monotonic() < deadline:
+                time.sleep(0.01)
             while server.workers._value != trial_keys.MAX_WORKERS and time.monotonic() < deadline:
                 time.sleep(0.05)
         self.assertEqual(self.manager.created, [])
@@ -353,6 +401,11 @@ class HTTPTests(Fixture):
         self.assertIn(b"https://testflight.apple.com/join/example", body)
         self.assertIn("default-src 'none'", headers["Content-Security-Policy"])
         self.assertEqual(headers["Cache-Control"], "no-store")
+
+    def test_desktop_steps_name_this_server_without_it_being_in_the_source(self):
+        page = (Path(trial_keys.__file__).parent / "trial.html").read_text(encoding="utf-8")
+        self.assertIn("location.origin", page)
+        self.assertIn("config.toml", page)
 
     def test_key_route_uses_the_edge_address_for_limits(self):
         for _ in range(2):
