@@ -1,4 +1,5 @@
 import SwiftUI
+import OlivCore
 
 struct CleanTextSheet: View {
     @Bindable var model: AppModel
@@ -8,6 +9,7 @@ struct CleanTextSheet: View {
         nonmutating set { model.cleanupDraft = newValue }
     }
     @FocusState private var editorIsFocused: Bool
+    private var tooLong: Bool { text.utf8.count > OlivOptions.maximumCleanupTextBytes }
 
     var body: some View {
         NavigationStack {
@@ -56,9 +58,10 @@ struct CleanTextSheet: View {
                                     .accessibilityIdentifier("cleanupTextEditor")
                             }
                             OlivDivider()
-                            Text("\(text.count.formatted()) characters")
+                            Text(tooLong ? "\(text.utf8.count.formatted()) of \(OlivOptions.maximumCleanupTextBytes.formatted()) bytes. Shorten the text to clean it."
+                                    : "\(text.count.formatted()) characters")
                                 .font(.caption)
-                                .foregroundStyle(OlivTheme.secondary)
+                                .foregroundStyle(tooLong ? Color.red : OlivTheme.secondary)
                         }
                     }
 
@@ -71,7 +74,7 @@ struct CleanTextSheet: View {
                         Label("Clean text", systemImage: "wand.and.stars")
                     }
                     .buttonStyle(OlivPrimaryButtonStyle())
-                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isBusy || !model.isConfigured)
+                    .disabled(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || tooLong || model.isBusy || !model.isConfigured)
                     .accessibilityIdentifier("submitCleanupButton")
 
                     Text(model.isConfigured ? "This text will be sent to your configured Oliv server when you tap Clean text." : "Connect your Oliv server in Settings before cleaning text.")

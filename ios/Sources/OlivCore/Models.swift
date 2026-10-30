@@ -19,6 +19,29 @@ public struct OlivOptions: Codable, Equatable, Sendable {
         self.replacements = replacements
     }
 
+    /// The server's request limits (oliv-api `validate_options`, `/v1/clean`).
+    /// Checked when saving, starting a capture and encoding a request, but not
+    /// when enqueuing a finished recording, so audio is never dropped over them.
+    public static let maximumEntries = 128
+    public static let maximumEntryBytes = 256
+    public static let maximumCleanupTextBytes = 8_192
+
+    public func validateServerLimits() throws {
+        let entries = Self.maximumEntries, bytes = Self.maximumEntryBytes
+        guard vocabulary.count <= entries else {
+            throw OlivError.invalidOptions("Vocabulary allows at most \(entries) entries; remove \(vocabulary.count - entries).")
+        }
+        if let long = vocabulary.first(where: { $0.utf8.count > bytes }) {
+            throw OlivError.invalidOptions("Shorten the vocabulary entry “\(long.prefix(24))…”; entries allow \(bytes) UTF-8 bytes.")
+        }
+        guard replacements.count <= entries else {
+            throw OlivError.invalidOptions("Replacements allow at most \(entries) rules; remove \(replacements.count - entries).")
+        }
+        if let long = replacements.first(where: { $0.spoken.utf8.count > bytes || $0.written.utf8.count > bytes }) {
+            throw OlivError.invalidOptions("Shorten the replacement for “\(long.spoken.prefix(24))”; each side allows \(bytes) UTF-8 bytes.")
+        }
+    }
+
     public func validate() throws {
         var sources = Set<String>()
         for rule in replacements {

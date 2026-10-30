@@ -168,6 +168,7 @@ final class AppModel {
         guard !isBusy else { message = "Finish this dictation before changing settings."; return }
         do {
             try settings.options.validate()
+            try settings.options.validateServerLimits()
             let entered = tokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
             if settings.requiresNewAPIKey == true && entered.isEmpty {
                 throw OlivError.invalidConfiguration("Enter your new individual API key. The retired shared token cannot be reused.")
@@ -271,6 +272,7 @@ final class AppModel {
         do {
             _ = try configuration()
             try settings.options.validate()
+            try settings.options.validateServerLimits()
         } catch {
             if fromIntent { CaptureDiagnostics.record(event: .setupRejected, error: error) }
             throw error
