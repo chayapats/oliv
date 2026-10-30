@@ -168,7 +168,7 @@ struct DictionarySettingsView: View {
                          subtitle: "Use the spelling you want to see in your transcript.") {
                 VStack(alignment: .leading, spacing: 7) {
                     Text("Word").font(.system(size: 12, weight: .medium))
-                    TextField("e.g. Grafana, ชยพัฒน์", text: $newWord)
+                    TextField("e.g. Grafana, บางแค", text: $newWord)
                         .textFieldStyle(.roundedBorder).onSubmit(addEntry)
                         .accessibilityLabel("Word")
                 }
