@@ -84,7 +84,7 @@ final class RealAudioBackgroundProbe {
     func start() { Task { await begin() } }
 
     private func begin() async {
-        guard phase != "recording" else { return }
+        guard phase != "recording", phase != "starting" else { return }
         // Tests must use an already-authorized device. This diagnostic never
         // requests a permission change or starts merely because its view opened.
         permissionGranted = capture.hasPermission
@@ -101,9 +101,12 @@ final class RealAudioBackgroundProbe {
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
                 attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
+            phase = "starting"
             try await capture.start(detectSpeech: true)
             phase = "recording"
         } catch {
+            // Stop already discarded a start that was waiting to retry.
+            guard phase == "starting" else { return }
             capture.discard()
             failure = "start_failed"
             phase = "failed"
@@ -152,6 +155,12 @@ final class RealAudioBackgroundProbe {
     }
 
     func finish(reason: String? = nil) {
+        if phase == "starting" {
+            capture.discard()
+            failure = reason ?? failure
+            phase = failure == "none" ? "stopped" : "failed"
+            return
+        }
         guard phase == "recording" else { return }
         sample()
         monitor?.cancel()
