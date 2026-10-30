@@ -41,11 +41,10 @@ enum PreviewEnvironment {
             model.settings.automaticActionButtonFinish = automaticKeyboardFixture
         }
         model.saveSettings()
-        model.isInSetup = false
+        model.finishSetup()
         model.isDemo = true
         if args.contains("--unconfigured") {
             model.settings.serverURL = ""
-            model.settings.finishedSetup = true
         }
         return model
     }

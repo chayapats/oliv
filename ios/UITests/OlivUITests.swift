@@ -80,7 +80,7 @@ final class OlivUITests: XCTestCase {
         // Use a short drag so revealing this action doesn't overshoot the navigation bar.
         let connection = app.buttons["testConnectionButton"]
         let scroll = app.scrollViews.firstMatch
-        for _ in 0..<4 where connection.frame.maxY >= app.buttons["saveSettingsButton"].frame.minY {
+        for _ in 0..<8 where connection.frame.maxY >= app.buttons["saveSettingsButton"].frame.minY {
             let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
             let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
             start.press(forDuration: 0.1, thenDragTo: end)

@@ -260,8 +260,8 @@ Set `"enabled": false` in `trial.json` to close sign-ups immediately; no restart
 is needed, and missing or invalid settings also close them. Existing trial keys
 keep working until they expire, or until you revoke them. The limits are what
 bound GPU use: at the defaults, at most 30 new keys a day, 100 active trial keys
-and 60 requests a day per key. Keys are named `trial-…`, stop working after
-`expires_in_days`, and are deleted 30 days later. The daily counters in
+and 60 requests a day per key. Trial keys are marked as such in the key store, stop working after
+`expires_in_days`, and are deleted 30 days later; no other key is ever deleted. The daily counters in
 `trial-ledger.json` hold keyed hashes, not addresses.
 
 ## API keys

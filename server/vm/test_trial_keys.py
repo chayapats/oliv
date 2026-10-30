@@ -4,8 +4,10 @@ import http.client
 import json
 import os
 import shutil
+import socket
 import tempfile
 import threading
+import time
 import unittest
 from http.server import ThreadingHTTPServer
 from pathlib import Path
@@ -29,10 +31,10 @@ class FakeManager:
     def keys(self):
         return list(self.existing)
 
-    def create(self, options):
+    def create(self, options, trial=False):
         self.created.append(options)
         key = {"id": f"{len(self.created):016x}", "name": options["name"], "status": "active",
-               "expires_at": 1_000_000}
+               "expires_at": 1_000_000, "trial": trial}
         self.existing.append(key)
         return {"ok": True, "key": key, "token": f"token-{len(self.created)}"}
 
@@ -103,22 +105,53 @@ class IssueTests(Fixture):
             restarted.issue("192.0.2.1")
 
     def test_active_trials_and_store_ceiling_stop_issuing(self):
-        self.manager.existing = [{"name": f"trial-{n}", "status": "active"} for n in range(5)]
+        self.manager.existing = [{"name": f"guest-{n}", "status": "active", "trial": True} for n in range(5)]
         with self.assertRaises(Closed) as closed:
             self.issuer.issue("192.0.2.1")
         self.assertEqual(closed.exception.code, "full")
-        self.manager.existing = [{"name": "operator", "status": "revoked"}] * trial_keys.STORE_CEILING
+        self.manager.existing = [{"name": "operator", "status": "revoked", "trial": False}] * trial_keys.STORE_CEILING
         with self.assertRaises(Closed):
             self.issuer.issue("192.0.2.1")
         self.assertEqual(self.manager.created, [])
 
     def test_failed_creation_charges_nothing(self):
-        def fail(_):
+        def fail(*_, **__):
             raise KeyAdminError(503, "x", "x")
         self.manager.create = fail
         with self.assertRaises(KeyAdminError):
             self.issuer.issue("192.0.2.1")
         self.assertEqual(self.issuer.ledger.state["total"], 0)
+
+    def test_operator_keys_named_like_trials_do_not_count(self):
+        self.manager.existing = [{"name": f"trial-{n}", "status": "active", "trial": False} for n in range(5)]
+        self.issuer.issue("192.0.2.1")
+        self.assertEqual(len(self.manager.created), 1)
+
+    def test_unsaved_ledger_issues_no_key(self):
+        def fail(_):
+            raise OSError("disk full")
+        self.issuer.ledger._write = fail
+        with self.assertRaises(OSError):
+            self.issuer.issue("192.0.2.1")
+        self.assertEqual(self.manager.created, [])
+        self.assertEqual(self.issuer.ledger.state["total"], 0)
+
+    def test_queued_request_sees_a_kill_switch_set_while_it_waited(self):
+        results = []
+
+        def request():
+            try:
+                results.append(self.issuer.issue("192.0.2.1"))
+            except Closed as closed:
+                results.append(closed.code)
+
+        with self.issuer.lock:
+            waiting = threading.Thread(target=request)
+            waiting.start()
+            self.settings({"enabled": False})
+        waiting.join(5)
+        self.assertEqual(results, ["closed"])
+        self.assertEqual(self.manager.created, [])
 
     def test_ledger_stores_no_addresses_and_is_private(self):
         self.issuer.issue("192.0.2.1")
@@ -130,6 +163,13 @@ class IssueTests(Fixture):
         path = self.root / "trial-ledger.json"
         path.write_text("{", encoding="utf-8")
         self.assertEqual(Ledger(path, lambda: self.now).state["total"], 0)
+        day = int(self.now // 86_400)
+        salt = "a" * 64
+        for total, clients in ((-7, {}), (1, {"b" * 32: "x"}), (1, {"not-a-hash": 1}),
+                               (0, {"b" * 32: 1}), (True, {})):
+            path.write_text(json.dumps({"day": day, "salt": salt, "total": total, "clients": clients}),
+                            encoding="utf-8")
+            self.assertEqual(Ledger(path, lambda: self.now).state["clients"], {}, (total, clients))
 
 
 class RealCLITests(unittest.TestCase):
@@ -150,7 +190,7 @@ class RealCLITests(unittest.TestCase):
             reply = TrialIssuer(root).issue("192.0.2.1")
             self.assertTrue(reply["token"].startswith("oliv_"))
             key = manager.keys()[0]
-            self.assertTrue(key["name"].startswith("trial-"))
+            self.assertTrue(key["trial"])
             self.assertEqual(key["scopes"], ["dictate", "clean"])
             self.assertEqual(key["daily_requests"], 60)
             manager.cli("prune-trials", "30")
@@ -158,6 +198,37 @@ class RealCLITests(unittest.TestCase):
             manager.cli("revoke", key["id"])
             manager.cli("prune-trials", "30")
             self.assertEqual(manager.keys(), [])
+
+
+class OverloadTests(Fixture):
+    def test_requests_beyond_the_worker_limit_are_refused_immediately(self):
+        release = threading.Event()
+
+        class Slow(trial_keys.Handler):
+            issuer = self.issuer
+
+            def do_GET(self):
+                release.wait(5)
+                super().do_GET()
+
+        server = trial_keys.BoundedServer(("127.0.0.1", 0), Slow)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        self.addCleanup(release.set)
+        held = []
+        for _ in range(trial_keys.MAX_WORKERS):
+            connection = socket.create_connection(("127.0.0.1", server.server_port), timeout=5)
+            connection.sendall(b"GET /try/health HTTP/1.0\r\n\r\n")
+            held.append(connection)
+            self.addCleanup(connection.close)
+        deadline = time.monotonic() + 3
+        while server.workers._value and time.monotonic() < deadline:
+            time.sleep(0.01)
+        refused = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+        self.addCleanup(refused.close)
+        refused.request("GET", "/try/health")
+        self.assertEqual(refused.getresponse().status, 503)
 
 
 class HTTPTests(Fixture):
@@ -201,6 +272,8 @@ class HTTPTests(Fixture):
 
     def test_closed_oversized_and_unknown_routes_never_issue(self):
         self.assertEqual(self.request("POST", "/try/key", headers={"Content-Length": "2000"}, body=b"x" * 2000)[0], 413)
+        for length in ("9" * 5000, "abc", "-1"):
+            self.assertEqual(self.request("POST", "/try/key", headers={"Content-Length": length})[0], 413)
         self.assertEqual(self.request("POST", "/try/other")[0], 404)
         self.assertEqual(self.request("GET", "/try/key")[0], 404)
         self.settings({"enabled": False})

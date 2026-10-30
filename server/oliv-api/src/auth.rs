@@ -21,7 +21,6 @@ const LOCK_NAME: &str = ".api-keys.lock";
 const MAX_STORE_BYTES: u64 = 1_048_576;
 const MAX_KEYS: usize = 256;
 const MAX_HEADER_BYTES: usize = 512;
-const TRIAL_NAME_PREFIX: &str = "trial-";
 const SCOPES: [&str; 3] = ["dictate", "clean", "status"];
 
 #[derive(Clone)]
@@ -140,6 +139,10 @@ pub struct KeyInfo {
     pub scopes: Vec<String>,
     pub requests_per_minute: u32,
     pub daily_requests: u32,
+    /// Issued by the free-trial service. Only these keys can ever be pruned;
+    /// absent for every other key, so existing stores keep their exact shape.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub trial: bool,
 }
 
 pub struct CreateKey {
@@ -148,6 +151,7 @@ pub struct CreateKey {
     pub scopes: Vec<String>,
     pub requests_per_minute: u32,
     pub daily_requests: u32,
+    pub trial: bool,
 }
 
 impl Default for CreateKey {
@@ -158,6 +162,7 @@ impl Default for CreateKey {
             scopes: vec!["dictate".into()],
             requests_per_minute: 10,
             daily_requests: 500,
+            trial: false,
         }
     }
 }
@@ -218,6 +223,7 @@ pub fn create_key(root: &Path, options: CreateKey, out: &Path) -> Result<KeyInfo
         scopes: options.scopes,
         requests_per_minute: options.requests_per_minute,
         daily_requests: options.daily_requests,
+        trial: options.trial,
     };
     validate_info(&info)?;
     let dir = PrivateDir::open(root)?;
@@ -293,17 +299,16 @@ pub fn revoke_key(root: &Path, id: &str) -> Result<(), String> {
 
 /// Removes trial keys that stopped working at least `grace_days` ago, so public
 /// sign-ups can't fill the store (revoked keys count towards `MAX_KEYS`). Only
-/// the `trial-` name prefix qualifies: operator keys are never deleted.
+/// keys created as trials qualify, whatever any other key is called.
 pub fn prune_trial_keys(root: &Path, grace_days: u32) -> Result<usize, String> {
     let cutoff = now()?.saturating_sub(u64::from(grace_days) * 86_400);
     let dir = PrivateDir::open(root)?;
     let _lock = dir.lock()?;
     let mut store = dir.read_store().map_err(StoreReadError::message)?;
     let before = store.keys.len();
-    store.keys.retain(|key| {
-        !(key.info.name.starts_with(TRIAL_NAME_PREFIX)
-            && (key.info.revoked || key.info.expires_at <= cutoff))
-    });
+    store
+        .keys
+        .retain(|key| !(key.info.trial && (key.info.revoked || key.info.expires_at <= cutoff)));
     let removed = before - store.keys.len();
     if removed > 0 {
         dir.write_store(&store).map_err(|e| e.message)?;
@@ -734,18 +739,27 @@ mod tests {
     #[test]
     fn prune_removes_only_finished_trial_keys() {
         let fixture = Fixture::new();
-        for name in ["trial-old", "trial-recent", "trial-live", "trial-revoked", "alice"] {
+        // The last two only look like trials: the name carries no authority.
+        for (name, trial) in [
+            ("old", true),
+            ("recent", true),
+            ("live", true),
+            ("revoked", true),
+            ("trial-expired-operator", false),
+            ("trial-revoked-operator", false),
+        ] {
             let options = CreateKey {
                 name: name.into(),
+                trial,
                 ..CreateKey::default()
             };
             create_key(&fixture.0, options, &fixture.0.join(format!("{name}.key"))).unwrap();
         }
-        let revoked = list_keys(&fixture.0).unwrap()[3].id.clone();
-        revoke_key(&fixture.0, &revoked).unwrap();
+        let keys = list_keys(&fixture.0).unwrap();
+        revoke_key(&fixture.0, &keys[3].id).unwrap();
+        revoke_key(&fixture.0, &keys[5].id).unwrap();
         let today = now().unwrap();
         fixture.edit(|store| {
-            // The operator's own key is older than any trial and must survive.
             for (index, age_days) in [(0, 40), (1, 5), (4, 40)] {
                 store["keys"][index]["info"]["created_at"] = 1.into();
                 store["keys"][index]["info"]["expires_at"] = (today - age_days * 86_400).into();
@@ -757,8 +771,33 @@ mod tests {
             .into_iter()
             .map(|key| key.name)
             .collect();
-        assert_eq!(names, ["trial-recent", "trial-live", "alice"]);
+        assert_eq!(
+            names,
+            [
+                "recent",
+                "live",
+                "trial-expired-operator",
+                "trial-revoked-operator"
+            ]
+        );
         assert_eq!(prune_trial_keys(&fixture.0, 30).unwrap(), 0);
+    }
+
+    #[test]
+    fn non_trial_keys_keep_their_stored_shape() {
+        let fixture = Fixture::new();
+        let out = fixture.0.join("a.key");
+        create_key(
+            &fixture.0,
+            CreateKey {
+                name: "a".into(),
+                ..CreateKey::default()
+            },
+            &out,
+        )
+        .unwrap();
+        let stored = std::fs::read_to_string(fixture.0.join(STORE_NAME)).unwrap();
+        assert!(!stored.contains("\"trial\""));
     }
 
     struct Fixture(PathBuf);

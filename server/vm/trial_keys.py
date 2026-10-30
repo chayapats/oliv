@@ -37,6 +37,9 @@ PRUNE_INTERVAL = 6 * 3600
 STORE_CEILING = 200
 MAX_BODY_BYTES = 1024
 MAX_CLIENTS_PER_DAY = 50_000
+MAX_WORKERS = 8
+SOCKET_TIMEOUT = 5
+CLIENT_HASH = re.compile(r"[0-9a-f]{32}\Z")
 DEFAULTS = {"enabled": True, "expires_in_days": 7, "requests_per_minute": 6,
             "daily_requests": 60, "keys_per_client_per_day": 2, "keys_per_day": 30,
             "max_active": 100, "testflight_url": ""}
@@ -87,15 +90,24 @@ class Ledger:
     def _read(self):
         try:
             state = json.loads(self.path.read_text(encoding="utf-8"))
-            if (isinstance(state, dict) and set(state) == {"day", "salt", "total", "clients"}
-                    and type(state["day"]) is int and isinstance(state["salt"], str)
-                    and re.fullmatch(r"[0-9a-f]{64}", state["salt"])
-                    and type(state["total"]) is int and isinstance(state["clients"], dict)):
+            if self._valid(state):
                 return state
         except (OSError, ValueError):
             pass
         # A lost ledger only restarts today's counts; max_active still applies.
         return self._fresh()
+
+    @staticmethod
+    def _valid(state):
+        def count(value):
+            return type(value) is int and value >= 0
+        return (isinstance(state, dict) and set(state) == {"day", "salt", "total", "clients"}
+                and count(state["day"]) and isinstance(state["salt"], str)
+                and re.fullmatch(r"[0-9a-f]{64}", state["salt"]) is not None
+                and count(state["total"]) and isinstance(state["clients"], dict)
+                and all(CLIENT_HASH.match(client) and count(used)
+                        for client, used in state["clients"].items())
+                and sum(state["clients"].values()) <= state["total"])
 
     def _fresh(self):
         return {"day": self._day(), "salt": secrets.token_hex(32), "total": 0, "clients": {}}
@@ -119,17 +131,29 @@ class Ledger:
             raise Closed("daily_limit")
 
     def charge(self, address):
+        """Saved before the key exists: a crash afterwards over-counts by one,
+        which is safe, while the reverse order could issue uncounted keys."""
         self._roll()
-        client = self._client(address)
-        self.state["clients"][client] = self.state["clients"].get(client, 0) + 1
-        self.state["total"] += 1
-        self._write()
+        self._adjust(self._client(address), 1)
 
-    def _write(self):
+    def refund(self, address):
+        self._roll()
+        self._adjust(self._client(address), -1)
+
+    def _adjust(self, client, change):
+        state = {**self.state, "total": self.state["total"] + change,
+                 "clients": dict(self.state["clients"])}
+        state["clients"][client] = state["clients"].get(client, 0) + change
+        if state["clients"][client] <= 0:
+            del state["clients"][client]
+        self._write(state)
+        self.state = state
+
+    def _write(self, state):
         fd, name = tempfile.mkstemp(prefix=".trial-ledger-", dir=self.path.parent)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as target:
-                json.dump(self.state, target)
+                json.dump(state, target)
             os.replace(name, self.path)
         except BaseException:
             Path(name).unlink(missing_ok=True)
@@ -157,23 +181,28 @@ class TrialIssuer:
         self.last_prune = self.clock()
 
     def issue(self, address):
-        settings = self.settings()
-        if settings is None:
-            raise Closed("closed")
         with self.lock:
+            # Read under the lock: a request that queued behind another must
+            # see a kill switch or lowered limit set while it waited.
+            settings = self.settings()
+            if settings is None:
+                raise Closed("closed")
             self.ledger.check(address, settings)
             self._prune()
             keys = self.manager.keys()
-            active = sum(key["status"] == "active" and key["name"].startswith(NAME_PREFIX)
-                         for key in keys)
+            active = sum(key["status"] == "active" and key["trial"] for key in keys)
             if active >= settings["max_active"] or len(keys) >= STORE_CEILING:
                 raise Closed("full")
-            created = self.manager.create({
-                "name": NAME_PREFIX + secrets.token_hex(6),
-                "expires_in_days": settings["expires_in_days"], "scopes": SCOPES,
-                "requests_per_minute": settings["requests_per_minute"],
-                "daily_requests": settings["daily_requests"]})
             self.ledger.charge(address)
+            try:
+                created = self.manager.create({
+                    "name": NAME_PREFIX + secrets.token_hex(6),
+                    "expires_in_days": settings["expires_in_days"], "scopes": SCOPES,
+                    "requests_per_minute": settings["requests_per_minute"],
+                    "daily_requests": settings["daily_requests"]}, trial=True)
+            except BaseException:
+                self.ledger.refund(address)
+                raise
         return {"ok": True, "token": created["token"], "expires_at": created["key"]["expires_at"],
                 "requests_per_minute": settings["requests_per_minute"],
                 "daily_requests": settings["daily_requests"]}
@@ -195,7 +224,7 @@ def client_address(handler):
 class Handler(BaseHTTPRequestHandler):
     server_version = "oliv-trial"
     sys_version = ""
-    timeout = 15
+    timeout = SOCKET_TIMEOUT
     issuer = None
 
     def log_message(self, *_):
@@ -235,11 +264,12 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/try/key":
             self._json(404, {"ok": False, "error": "not_found"})
             return
+        # The body is never used, so it's never read: a slow sender can't hold a
+        # worker. The connection closes after this one response.
         length = self.headers.get("Content-Length", "0")
-        if not length.isdecimal() or int(length) > MAX_BODY_BYTES:
+        if not length.isdecimal() or len(length) > 6 or int(length) > MAX_BODY_BYTES:
             self._json(413, {"ok": False, "error": "too_large"})
             return
-        self.rfile.read(int(length))
         try:
             self._json(200, self.issuer.issue(client_address(self)))
         except Closed as closed:
@@ -249,13 +279,42 @@ class Handler(BaseHTTPRequestHandler):
             self._json(503, {"ok": False, "error": "unavailable"})
 
 
+class BoundedServer(ThreadingHTTPServer):
+    """Refuses at once beyond MAX_WORKERS, rather than queueing without limit."""
+
+    daemon_threads = True
+
+    def __init__(self, *args, **kwargs):
+        self.workers = threading.BoundedSemaphore(MAX_WORKERS)
+        super().__init__(*args, **kwargs)
+
+    def handle_error(self, request, client_address):
+        pass  # The default prints the client's address; a dropped client isn't news.
+
+    def process_request(self, request, client_address):
+        if not self.workers.acquire(blocking=False):
+            try:
+                request.sendall(b"HTTP/1.0 503 Service Unavailable\r\nContent-Length: 0\r\n\r\n")
+            except OSError:
+                pass
+            self.shutdown_request(request)
+            return
+        super().process_request(request, client_address)
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self.workers.release()
+
+
 def main():
     root = Path(os.environ.get("OLIV_ROOT", Path.home() / "oliv"))
     info = root.lstat()
     if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid():
         raise SystemExit("OLIV root must be a directory owned by this user")
     Handler.issuer = TrialIssuer(root)
-    ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
+    BoundedServer((HOST, PORT), Handler).serve_forever()
 
 
 if __name__ == "__main__":

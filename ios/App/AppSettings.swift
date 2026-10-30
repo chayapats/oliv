@@ -34,7 +34,7 @@ struct AppSettings: Codable, Equatable {
     /// Set while this iPhone uses a free-trial key. The server enforces the date.
     var trialExpiresAt: Date?
     /// Nil on a new install and for anyone who connected before first-run setup
-    /// existed: `needsSetup` tells those two apart.
+    /// existed. AppModel's init tells those two apart.
     var finishedSetup: Bool?
 
     var options: OlivOptions {

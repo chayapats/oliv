@@ -6,7 +6,7 @@ use oliv_pipeline::auth::{
 use oliv_pipeline::dictionary_store::DictionaryStore;
 use std::path::PathBuf;
 
-const USAGE: &str = "Usage: oliv-keys --root DIR init|list|revoke ID\n       oliv-keys --root DIR prune-trials GRACE_DAYS\n       oliv-keys --root DIR create --name NAME --out PATH\n         [--expires-in-days 90] [--scopes dictate,clean,status]\n         [--requests-per-minute 10] [--daily-requests 500]\n       oliv-keys --root DIR profile list|link ID PROFILE|unlink ID\n\nDefault scope: dictate. Raw keys are written only to a NEW mode-600 file.\nExisting files, symlink paths, and directories writable by others are rejected.\n\nProfiles share one personal dictionary between keys (e.g. a person's Mac and\niPhone). An unlinked key is its own profile; `link` points a key at PROFILE,\nwhich may be another key's ID to share that key's dictionary.";
+const USAGE: &str = "Usage: oliv-keys --root DIR init|list|revoke ID\n       oliv-keys --root DIR prune-trials GRACE_DAYS\n       oliv-keys --root DIR create --name NAME --out PATH\n         [--expires-in-days 90] [--scopes dictate,clean,status]\n         [--requests-per-minute 10] [--daily-requests 500] [--kind trial]\n       oliv-keys --root DIR profile list|link ID PROFILE|unlink ID\n\nDefault scope: dictate. Raw keys are written only to a NEW mode-600 file.\nExisting files, symlink paths, and directories writable by others are rejected.\n\nProfiles share one personal dictionary between keys (e.g. a person's Mac and\niPhone). An unlinked key is its own profile; `link` points a key at PROFILE,\nwhich may be another key's ID to share that key's dictionary.";
 
 fn run(args: Vec<String>) -> Result<(), String> {
     if args == ["--help"] || args == ["-h"] {
@@ -53,6 +53,7 @@ fn run(args: Vec<String>) -> Result<(), String> {
                     "--scopes" => options.scopes = pair[1].split(',').map(str::to_string).collect(),
                     "--requests-per-minute" => options.requests_per_minute = number(&pair[1])?,
                     "--daily-requests" => options.daily_requests = number(&pair[1])?,
+                    "--kind" if pair[1] == "trial" => options.trial = true,
                     _ => return Err("unknown create option; use --help".into()),
                 }
             }

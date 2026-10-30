@@ -46,7 +46,6 @@ final class AppModel {
         // UI redraws must not read Keychain on every audio-meter tick.
         return (try? OlivConfiguration(baseURL: url, token: "configured", allowsInsecureHTTP: settings.allowsInsecureHTTP)) != nil
     }
-    var needsSetup: Bool { settings.finishedSetup != true && !isConfigured }
     /// Free trials come from the server this build ships with. A source build
     /// without one has nothing to ask.
     var trialServerURL = AppSettings.defaultServerURL
@@ -90,6 +89,8 @@ final class AppModel {
     @ObservationIgnored private let releaseProcess: (() -> Void)?
     @ObservationIgnored private var capturedInBackground = false
     @ObservationIgnored private var releaseTask: Task<Void, Never>?
+    @ObservationIgnored private var liveActivityTeardowns = 0
+    @ObservationIgnored private var didEnterBackgroundObserver: NSObjectProtocol?
 
     init(directory: URL? = nil,
          credentials: any CredentialStoring = KeychainCredentialStore(),
@@ -161,13 +162,13 @@ final class AppModel {
         self.capture.onInterruption = { [weak self] in
             Task { @MainActor [weak self] in await self?.stopFromIntent() }
         }
-        isInSetup = needsSetup
-        // A background capture ends its process, so opening OLIV right after it
-        // must still show that result.
-        if let newest = history.first, newest.reply.hasText,
-           Date().timeIntervalSince(newest.createdAt) < 600 {
-            latest = newest
-            phase = .result
+        // Decided once: editing the address in Settings must never reopen setup.
+        isInSetup = settings.finishedSetup != true && !isConfigured
+        restoreCompletion()
+        didEnterBackgroundObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.scheduleProcessRelease() }
         }
     }
 
@@ -238,22 +239,45 @@ final class AppModel {
         defer { isStartingTrial = false }
         do {
             let key = try await requestTrialKey(url)
-            settings.serverURL = trialServerURL
-            settings.allowsInsecureHTTP = false
-            tokenInput = key.token
-            saveSettings()
-            tokenInput = ""
-            guard hasToken, isConfigured else { return }
-            settings.trialExpiresAt = key.expiresAt
-            persistSettings()
+            guard !isBusy else { throw OlivError.invalidConfiguration(String(localized: "Finish this dictation before changing settings.")) }
+            try commitTrial(key)
             connectionMessage = nil
         } catch TrialRefusal.closed {
-            trialMessage = String(localized: "The free trial is closed right now. Try again later.")
+            showTrialFailure(String(localized: "The free trial is closed right now. Try again later."))
         } catch TrialRefusal.limitReached {
-            trialMessage = String(localized: "Today's free trials are taken. Try again tomorrow.")
+            showTrialFailure(String(localized: "Today's free trials are taken. Try again tomorrow."))
         } catch {
-            trialMessage = safeDescription(error)
+            showTrialFailure(safeDescription(error))
         }
+    }
+
+    private func showTrialFailure(_ text: String) {
+        trialMessage = text
+        // Setup shows this itself; a renewal from the banner has only the message.
+        if !isInSetup { message = text }
+    }
+
+    private func commitTrial(_ key: TrialKey) throws {
+        var approved = settings
+        approved.serverURL = trialServerURL
+        approved.allowsInsecureHTTP = false
+        approved.requiresNewAPIKey = false
+        approved.trialExpiresAt = key.expiresAt
+        approved.credentialBinding = Self.credentialBinding(token: key.token, serverURL: trialServerURL)
+        let data = try JSONEncoder().encode(approved)
+        let previous = try credentials.read()
+        try credentials.write(key.token)
+        do {
+            try data.write(to: directory.appendingPathComponent("settings.json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        } catch {
+            if let previous { try? credentials.write(previous) }
+            throw error
+        }
+        settings = approved
+        savedServerURL = trialServerURL
+        savedCredentialBinding = approved.credentialBinding
+        hasToken = true
+        message = nil
     }
 
     var microphoneAllowed: Bool { capture.hasPermission }
@@ -349,21 +373,62 @@ final class AppModel {
 
     /// iOS lets a process it launched in the background start audio once. Every
     /// later start fails with 561015905 (`!pla`) until that process is gone, and
-    /// waiting doesn't help, while a fresh launch always succeeds. So a capture
-    /// that ran in the background ends the process and the next press gets a
-    /// new one. There's no visible effect: the app isn't on screen, finished work
-    /// is on disk, and iOS relaunches it for the next intent.
+    /// waiting doesn't help, while a fresh launch always succeeds. So a process
+    /// that started audio in the background ends itself once it is idle there,
+    /// and the next press gets a new one. Nothing visible changes: the app isn't
+    /// on screen, the outcome is saved for `restoreCompletion`, and iOS relaunches
+    /// the app for the next intent.
     private func scheduleProcessRelease() {
         guard capturedInBackground, let releaseProcess else { return }
         releaseTask?.cancel()
-        // Lets the intent return and the Live Activity finish updating.
+        // Lets the intent return its result before the process goes.
         releaseTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(1.5))
-            guard let self, !Task.isCancelled, !self.isBusy, self.isInBackground(),
-                  // Text kept only in memory must survive until the user opens OLIV.
-                  self.settings.keepHistory || self.message == nil else { return }
+            guard let self, !Task.isCancelled, self.canReleaseProcess else { return }
+            do { try self.saveCompletion() } catch { return }
             releaseProcess()
         }
+    }
+
+    private var canReleaseProcess: Bool {
+        guard !isBusy, liveActivityTeardowns == 0, isInBackground(),
+              cleanupDraft.isEmpty, tokenInput.isEmpty else { return false }
+        // With history off, the result exists only in this process.
+        return settings.keepHistory || latest == nil
+    }
+
+    private struct Completion: Codable {
+        let entryID: UUID?
+        let message: String?
+    }
+    private var completionURL: URL { directory.appendingPathComponent("last-completion.json") }
+
+    private func saveCompletion() throws {
+        let completion = Completion(entryID: latest?.id, message: message)
+        guard completion.entryID != nil || completion.message != nil else { return }
+        try JSONEncoder().encode(completion).write(to: completionURL, options: [
+            .atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+
+    /// Shows what a released process left behind, once.
+    private func restoreCompletion() {
+        guard let data = try? Data(contentsOf: completionURL) else { return }
+        try? FileManager.default.removeItem(at: completionURL)
+        guard let completion = try? JSONDecoder().decode(Completion.self, from: data) else { return }
+        if let id = completion.entryID, let entry = history.first(where: { $0.id == id }) {
+            latest = entry
+            phase = .result
+        }
+        if message == nil { message = completion.message }
+    }
+
+    /// `await` on ActivityKit has no time limit, so the release waits for it
+    /// rather than for a fixed delay.
+    private func endLiveActivity(_ end: () async -> Void) async {
+        liveActivityTeardowns += 1
+        await end()
+        liveActivityTeardowns -= 1
+        scheduleProcessRelease()
     }
 
     private func beginRecording(fromIntent: Bool, startID: UUID, allowKeyboardDelivery: Bool) async throws {
@@ -472,7 +537,7 @@ final class AppModel {
                 speechEndpoint = nil
                 clearKeyboardDelivery()
                 phase = .idle
-                if liveActivitiesEnabled { await LiveActivityManager.shared.cancel() }
+                if liveActivitiesEnabled { await endLiveActivity { await LiveActivityManager.shared.cancel() } }
             }
             throw error
         }
@@ -565,7 +630,7 @@ final class AppModel {
             // Keep the recovery file if reading, conversion or persistence failed.
             message = String(localized: "Recording stopped because automatic finish became unavailable. Nothing was inserted. Open OLIV to review the recording.")
         }
-        if liveActivitiesEnabled { await LiveActivityManager.shared.cancel() }
+        if liveActivitiesEnabled { await endLiveActivity { await LiveActivityManager.shared.cancel() } }
         guard operationID == captureID else { return }
         phase = .failed
     }
@@ -603,7 +668,7 @@ final class AppModel {
                 CaptureDiagnostics.record(event: .speechAnalysisFailed)
                 phase = .failed
                 message = String(localized: "Automatic finish became unavailable. The microphone is off and your audio is saved for retry. Nothing was inserted.")
-                if liveActivitiesEnabled { await LiveActivityManager.shared.cancel() }
+                if liveActivitiesEnabled { await endLiveActivity { await LiveActivityManager.shared.cancel() } }
                 return
             }
             await submit(item, source: .dictation, keyboardTarget: target,
@@ -612,7 +677,7 @@ final class AppModel {
             clearKeyboardDelivery()
             phase = .failed
             message = safeDescription(error)
-            if liveActivitiesEnabled { await LiveActivityManager.shared.cancel() }
+            if liveActivitiesEnabled { await endLiveActivity { await LiveActivityManager.shared.cancel() } }
         }
     }
 
@@ -696,8 +761,8 @@ final class AppModel {
             self.activeRecordID = nil
             self.endBackgroundTask()
             if self.liveActivitiesEnabled {
-                if self.phase == .result { await LiveActivityManager.shared.finish() }
-                else { await LiveActivityManager.shared.cancel() }
+                if self.phase == .result { await endLiveActivity { await LiveActivityManager.shared.finish() } }
+                else { await endLiveActivity { await LiveActivityManager.shared.cancel() } }
             }
         }
         operationTask = task
@@ -766,7 +831,7 @@ final class AppModel {
         level = 0
         latest = nil
         message = wasProcessing && !pending.isEmpty ? String(localized: "Stopped waiting. Your recording is saved for retry.") : nil
-        if liveActivitiesEnabled { await LiveActivityManager.shared.cancel() }
+        if liveActivitiesEnabled { await endLiveActivity { await LiveActivityManager.shared.cancel() } }
     }
 
     private func clearKeyboardDelivery() {

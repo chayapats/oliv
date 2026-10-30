@@ -252,6 +252,8 @@ public enum TrialRefusal: Error, Equatable, Sendable {
 }
 
 public enum TrialClient {
+    private static let maximumResponseBytes = 4_096
+
     private struct Reply: Decodable {
         let ok: Bool
         let token: String?
@@ -268,9 +270,17 @@ public enum TrialClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(OlivClient.userAgent, forHTTPHeaderField: "User-Agent")
         let session = session ?? URLSession(configuration: .ephemeral)
-        let data: Data
+        var data = Data()
         let response: URLResponse
-        do { (data, response) = try await session.data(for: request, delegate: RejectRedirects.shared) }
+        do {
+            let (bytes, received) = try await session.bytes(for: request, delegate: RejectRedirects.shared)
+            response = received
+            for try await byte in bytes {
+                guard data.count < maximumResponseBytes else { throw OlivError.invalidResponse }
+                data.append(byte)
+            }
+        }
+        catch let error as OlivError { throw error }
         catch is CancellationError { throw CancellationError() }
         catch let error as URLError where error.code == .cancelled { throw CancellationError() }
         catch { throw OlivError.networkUnavailable }
@@ -281,7 +291,7 @@ public enum TrialClient {
         case 404, 503: throw TrialRefusal.closed
         default: throw OlivError.server(statusCode: http.statusCode)
         }
-        guard data.count <= 4_096, let reply = try? JSONDecoder().decode(Reply.self, from: data), reply.ok,
+        guard let reply = try? JSONDecoder().decode(Reply.self, from: data), reply.ok,
               let token = reply.token, let expiry = reply.expires_at,
               let key = try? OlivConfiguration(baseURL: baseURL, token: token).token else {
             throw OlivError.invalidResponse

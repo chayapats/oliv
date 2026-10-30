@@ -221,13 +221,11 @@ final class FreeTrialTests: XCTestCase {
         let end = Date().addingTimeInterval(604_800)
         let (model, directory) = makeModel({ _ in TrialKey(token: "oliv_trial_key", expiresAt: end) }, credentials: credentials)
         defer { try? FileManager.default.removeItem(at: directory) }
-        XCTAssertTrue(model.needsSetup)
         await model.startTrial()
         XCTAssertTrue(model.isConfigured)
         XCTAssertEqual(try credentials.read(), "oliv_trial_key")
         XCTAssertEqual(model.tokenInput, "")
         XCTAssertEqual(model.settings.trialExpiresAt, end)
-        XCTAssertFalse(model.needsSetup)
         XCTAssertFalse(model.trialHasEnded)
     }
 
@@ -237,6 +235,56 @@ final class FreeTrialTests: XCTestCase {
         await model.startTrial()
         XCTAssertFalse(model.isConfigured)
         XCTAssertEqual(model.trialMessage, "Today's free trials are taken. Try again tomorrow.")
+    }
+
+    func testRenewalFailureIsVisibleOutsideSetup() async throws {
+        let (model, directory) = makeModel({ _ in throw TrialRefusal.closed })
+        defer { try? FileManager.default.removeItem(at: directory) }
+        model.finishSetup()
+        await model.startTrial()
+        XCTAssertEqual(model.message, "The free trial is closed right now. Try again later.")
+    }
+
+    func testFailedTrialCommitKeepsThePreviousConnection() async throws {
+        let credentials = MemoryCredentialStore(token: "existing-key")
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let model = AppModel(directory: directory, credentials: credentials,
+                             capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
+                             clientFactory: { _ in PublicAPITestService() },
+                             requestTrialKey: { _ in TrialKey(token: "oliv_trial_key", expiresAt: Date().addingTimeInterval(60)) })
+        model.trialServerURL = "https://oliv.example.com"
+        model.settings.serverURL = "https://own.example.com"
+        model.saveSettings()
+        // A directory at the settings path makes the atomic write fail.
+        let settingsFile = directory.appendingPathComponent("settings.json")
+        try FileManager.default.removeItem(at: settingsFile)
+        try FileManager.default.createDirectory(at: settingsFile.appendingPathComponent("x"), withIntermediateDirectories: true)
+        await model.startTrial()
+        XCTAssertEqual(try credentials.read(), "existing-key")
+        XCTAssertEqual(model.settings.serverURL, "https://own.example.com")
+        XCTAssertNil(model.settings.trialExpiresAt)
+        XCTAssertNotNil(model.trialMessage)
+    }
+
+    func testEditingTheAddressNeverReopensSetupForAConnectedUser() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let credentials = MemoryCredentialStore(token: "existing-key")
+        let first = AppModel(directory: directory, credentials: credentials,
+                             capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
+                             clientFactory: { _ in PublicAPITestService() })
+        first.settings.serverURL = "https://own.example.com"
+        first.saveSettings()
+        // An install from before setup existed has no finishedSetup value.
+        first.settings.finishedSetup = nil
+        first.saveSettings()
+        let upgraded = AppModel(directory: directory, credentials: credentials,
+                                capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
+                                clientFactory: { _ in PublicAPITestService() })
+        XCTAssertFalse(upgraded.isInSetup)
+        upgraded.settings.serverURL = "https://own.example.com/edited"
+        XCTAssertFalse(upgraded.isInSetup)
     }
 
     func testTypingAnOwnKeyEndsTrialMode() async throws {

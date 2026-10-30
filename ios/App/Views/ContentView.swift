@@ -34,8 +34,7 @@ struct ContentView: View {
         }
         .background(OlivTheme.background.ignoresSafeArea())
         .tint(OlivTheme.olive)
-        .fullScreenCover(isPresented: .init(get: { model.needsSetup || model.isInSetup },
-                                            set: { _ in })) {
+        .fullScreenCover(isPresented: $model.isInSetup) {
             SetupView(model: model)
         }
     }

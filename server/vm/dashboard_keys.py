@@ -80,6 +80,7 @@ def safe_info(value, now):
         raise unavailable() from None
     info["status"] = ("revoked" if info["revoked"] else
                       "expired" if info["expires_at"] <= now else "active")
+    info["trial"] = value.get("trial") is True
     return info
 
 
@@ -165,7 +166,7 @@ class KeyManager:
         except (OSError, UnicodeError):
             raise unavailable() from None
 
-    def create(self, posted):
+    def create(self, posted, trial=False):
         options = validate_options(posted)
         if len(self.keys()) >= LIMITS["max_keys"]:
             raise KeyAdminError(409, "key_store_full", "Key store is full, including revoked keys")
@@ -180,7 +181,8 @@ class KeyManager:
                                       "--scopes", ",".join(options["scopes"]),
                                       "--expires-in-days", str(options["expires_in_days"]),
                                       "--requests-per-minute", str(options["requests_per_minute"]),
-                                      "--daily-requests", str(options["daily_requests"]))
+                                      "--daily-requests", str(options["daily_requests"]),
+                                      *(["--kind", "trial"] if trial else []))
                     match = re.fullmatch(
                         rb"Created key ([0-9a-f]{16})\. Credential saved to the private output file\.\n",
                         result)
