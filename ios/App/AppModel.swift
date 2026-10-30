@@ -182,7 +182,9 @@ final class AppModel {
                 forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
             ) { [weak self] _ in
                 // Only now has the person had the chance to see it.
-                MainActor.assumeIsolated { self?.clearCompletion() }
+                MainActor.assumeIsolated {
+                    if self?.isBusy == false { self?.clearCompletion() }
+                }
             }
         ]
     }
@@ -294,7 +296,13 @@ final class AppModel {
         do {
             try data.write(to: directory.appendingPathComponent("settings.json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         } catch {
-            if let previous { try? credentials.write(previous) }
+            do {
+                if let previous { try credentials.write(previous) }
+            } catch {
+                // Better to ask for a new connection than to look connected.
+                hasToken = false
+                savedCredentialBinding = nil
+            }
             throw error
         }
         settings = approved
@@ -319,8 +327,10 @@ final class AppModel {
 
     private func persistSettings() {
         guard let data = try? JSONEncoder().encode(settings) else { return }
-        try? data.write(to: directory.appendingPathComponent("settings.json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-        persistedSettings = settings
+        do {
+            try data.write(to: directory.appendingPathComponent("settings.json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+            persistedSettings = settings
+        } catch {}
     }
 
     func checkConnection() async {

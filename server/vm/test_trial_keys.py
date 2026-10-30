@@ -154,6 +154,13 @@ class IssueTests(Fixture):
             self.issuer.issue("192.0.2.1")
         self.assertEqual(self.issuer.ledger.state["total"], 1)
 
+    def test_request_past_its_deadline_gets_no_key(self):
+        with self.assertRaises(Closed) as closed:
+            self.issuer.issue("192.0.2.1", expires=time.monotonic() - 1)
+        self.assertEqual(closed.exception.code, "expired")
+        self.assertEqual(self.manager.created, [])
+        self.assertEqual(self.issuer.ledger.state["total"], 0)
+
     def test_operator_keys_named_like_trials_do_not_count(self):
         self.manager.existing = [{"name": f"trial-{n}", "status": "active", "trial": False} for n in range(5)]
         self.issuer.issue("192.0.2.1")
@@ -288,6 +295,26 @@ class OverloadRecoveryTests(Fixture):
                 if server.workers._value == trial_keys.MAX_WORKERS:
                     break
                 time.sleep(0.05)
+        self.assertEqual(server.workers._value, trial_keys.MAX_WORKERS)
+
+    def test_truncated_post_past_its_deadline_issues_nothing(self):
+        server = self._server()
+        with patch.object(trial_keys, "REQUEST_DEADLINE", 1.2):
+            connection = socket.create_connection(("127.0.0.1", server.server_port), timeout=3)
+            self.addCleanup(connection.close)
+            connection.sendall(b"POST /try/key HTTP/1.0\r\nX-Partial: 1\r\n")
+            deadline = time.monotonic() + 3
+            while server.workers._value != trial_keys.MAX_WORKERS and time.monotonic() < deadline:
+                time.sleep(0.05)
+        self.assertEqual(self.manager.created, [])
+
+    def test_timer_failure_returns_the_worker(self):
+        server = self._server()
+        server.workers.acquire()
+        first, second = socket.socketpair()
+        self.addCleanup(second.close)
+        with patch.object(trial_keys.threading, "Timer", side_effect=RuntimeError):
+            server.process_request_thread(first, ("127.0.0.1", 1))
         self.assertEqual(server.workers._value, trial_keys.MAX_WORKERS)
 
     def test_thread_start_failure_returns_the_worker(self):

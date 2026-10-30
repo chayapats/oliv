@@ -189,8 +189,11 @@ class TrialIssuer:
         self.manager.cli("prune-trials", str(PRUNE_AFTER_DAYS))
         self.last_prune = self.clock()
 
-    def issue(self, address):
+    def issue(self, address, expires=float("inf")):
         with self.lock:
+            # A client dropped at its deadline must not get a key it never sees.
+            if time.monotonic() >= expires:
+                raise Closed("expired")
             # Read under the lock: a request that queued behind another must
             # see a kill switch or lowered limit set while it waited.
             settings = self.settings()
@@ -274,7 +277,15 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._json(404, {"ok": False, "error": "not_found"})
 
+    def setup(self):
+        # Ahead of the server's shutdown, which reads as a normal end of headers.
+        self.expires = time.monotonic() + REQUEST_DEADLINE - 1
+        super().setup()
+
     def do_POST(self):
+        if time.monotonic() >= self.expires:
+            self.close_connection = True
+            return
         if self.path != "/try/key":
             self._json(404, {"ok": False, "error": "not_found"})
             return
@@ -285,9 +296,9 @@ class Handler(BaseHTTPRequestHandler):
             self._json(413, {"ok": False, "error": "too_large"})
             return
         try:
-            self._json(200, self.issuer.issue(client_address(self)))
+            self._json(200, self.issuer.issue(client_address(self), self.expires))
         except Closed as closed:
-            status = 503 if closed.code == "closed" else 429
+            status = 503 if closed.code in ("closed", "expired") else 429
             self._json(status, {"ok": False, "error": closed.code})
         except (KeyAdminError, OSError):
             self._json(503, {"ok": False, "error": "unavailable"})
@@ -322,13 +333,17 @@ class BoundedServer(ThreadingHTTPServer):
     def process_request_thread(self, request, client_address):
         # SOCKET_TIMEOUT applies per read, so a client trickling headers would
         # otherwise hold a worker for as long as it likes.
-        deadline = threading.Timer(REQUEST_DEADLINE, self._drop, (request,))
-        deadline.daemon = True
-        deadline.start()
+        deadline = None
         try:
+            deadline = threading.Timer(REQUEST_DEADLINE, self._drop, (request,))
+            deadline.daemon = True
+            deadline.start()
             super().process_request_thread(request, client_address)
+        except RuntimeError:  # No thread available for the timer.
+            self.shutdown_request(request)
         finally:
-            deadline.cancel()
+            if deadline:
+                deadline.cancel()
             self.workers.release()
 
     @staticmethod

@@ -287,6 +287,31 @@ final class FreeTrialTests: XCTestCase {
         XCTAssertFalse(upgraded.isInSetup)
     }
 
+    func testPendingTrialKeepsTheProcessUntilItFinishes() async throws {
+        let gate = TrialGate()
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var releases = 0
+        let model = AppModel(directory: directory, credentials: MemoryCredentialStore(token: "key"),
+                             capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
+                             clientFactory: { _ in PublicAPITestService() },
+                             requestTrialKey: { _ in await gate.wait() },
+                             isInBackground: { true }, releaseProcess: { releases += 1 })
+        model.settings.serverURL = "https://oliv.example.com"
+        model.saveSettings()
+        model.trialServerURL = "https://oliv.example.com"
+        try await model.startFromIntent(allowKeyboardDelivery: false)
+        await model.cancel()
+        let trial = Task { await model.startTrial() }
+        await gate.waitUntilRequested()
+        try await Task.sleep(for: .seconds(1.8))
+        XCTAssertEqual(releases, 0)
+        await gate.finish(TrialKey(token: "oliv_trial_key", expiresAt: Date().addingTimeInterval(60)))
+        await trial.value
+        try await Task.sleep(for: .seconds(1.8))
+        XCTAssertEqual(releases, 1)
+    }
+
     func testConnectingAnotherWayWhileATrialIsPendingWins() async throws {
         let gate = TrialGate()
         let credentials = MemoryCredentialStore()
