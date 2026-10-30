@@ -1,0 +1,66 @@
+{
+  "scope": "Build 10 extension-only visual prototype inside a copied build 9 test host; no original products modified. Not a physical-device, Thai/landscape, haptic-sensation, credential, or App Group delivery validation.",
+  "device": "iPhone 17, iOS 27 Simulator",
+  "appearance": "light",
+  "test": "KeyboardVisualReferenceTests/testHoldEdgeAndCenterKeysForExternalRecording",
+  "result": "passed",
+  "test_duration_seconds": 32.31,
+  "result_bundle": "/tmp/OlivPopupHeadroomProbe/PopupHeadroom.xcresult",
+  "log": "/tmp/oliv-popup-headroom-test.log",
+  "capture_timing": "Raw simctl screenshots during q/f/p synthesized holds, requested 0.6 seconds after each Synthesize event log.",
+  "primary_view_points": [
+    0,
+    523,
+    402,
+    276
+  ],
+  "visible_key_row_top_points": [
+    594,
+    648,
+    702,
+    756
+  ],
+  "new_portrait_headroom_points": 40,
+  "images": [
+    {
+      "file": "keyboard-popup-headroom-before-build10.png",
+      "source": "/tmp/OlivPopupHeadroomProbe/Captures/before.png",
+      "sha256": "624d35e44224e5bd3e316a848263f22e76448ba8d6cdee59af429ae72379d6d6",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "altered": false
+    },
+    {
+      "file": "keyboard-popup-headroom-held-q-build10.png",
+      "source": "/tmp/OlivPopupHeadroomProbe/Captures/held-q.png",
+      "sha256": "583dce30369e15e34f9f6b7b595e9b451c6af5488efe34afe804fc5e5c90a8ec",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "altered": false
+    },
+    {
+      "file": "keyboard-popup-headroom-held-f-build10.png",
+      "source": "/tmp/OlivPopupHeadroomProbe/Captures/held-f.png",
+      "sha256": "2ffe5483b5d79217553e0b962b95f275eebd3683e6f68652ca8a047c470beeb5",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "altered": false
+    },
+    {
+      "file": "keyboard-popup-headroom-held-p-build10.png",
+      "source": "/tmp/OlivPopupHeadroomProbe/Captures/held-p.png",
+      "sha256": "931860d755ac0349d1ef33c30cc1b7b95ddb3f3351911b7aef3091bdd21d6523",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "altered": false
+    }
+  ]
+}

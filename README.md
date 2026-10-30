@@ -239,6 +239,7 @@ Repository layout:
 | `rust/` | Shared crates, including `oliv-text-core`, the text pipeline every OLIV client and the server use |
 | `server/` | Self-hostable OLIV server: run STT + cleanup on your own GPU machine and point clients at it ([server/README.md](server/README.md)) |
 | `desktop/` | Linux (Hyprland/Wayland) and Windows client for an OLIV server ([desktop/README.md](desktop/README.md)) |
+| `ios/` | iPhone app and OLIV keyboard for an OLIV server, in TestFlight beta ([ios/README.md](ios/README.md)) |
 | `benchmark/` | Native evaluation tools |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [benchmark/README.md](benchmark/README.md) to run the benchmark on your own recordings.

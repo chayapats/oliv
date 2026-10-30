@@ -1,0 +1,59 @@
+{
+  "scope": "Physical iPhone 17 iOS 27. Fixed English fixture seed. Relative completed UITextView edits, not touch-down latency. Build 12 uses a deliberately faster profile; this is not a claim of native timing identity. Build 12 timing run preceded the final cap-height-only adjustment from 37.667 to 35.667 pt.",
+  "runs": [
+    {
+      "keyboard": "Apple native",
+      "source": "/tmp/oliv-keyboard-feel/build12-delete-baseline/English/9408F0A6-0B41-4821-8572-48A35A0CC122.json",
+      "sha256": "b018712fb7ef80c74d7b62ccc1a6454fc0e4a0222f55633ec87fd8cb9360aa3e",
+      "first_repeat_seconds": 0.49074050001217984,
+      "median_character_interval_seconds": 0.10002620832528919,
+      "first_multi_scalar_edit_seconds": 2.5177200000034645,
+      "removed_scalars_in_eight_second_hold": 201,
+      "prefix_preserved": true,
+      "changes_after_gesture_return": 0,
+      "dropped_events": 0
+    },
+    {
+      "keyboard": "OLIV 11",
+      "source": "/tmp/oliv-keyboard-feel/build12-delete-baseline/OLIV/CFFFFCE6-6F61-4234-BBA7-49166EB92AFC.json",
+      "sha256": "afbee791e07bae36bf24e66b0af368770362630b90fd8bed03313790e1262f8b",
+      "first_repeat_seconds": 0.49033341667382047,
+      "median_character_interval_seconds": 0.09988172916928306,
+      "first_multi_scalar_edit_seconds": 2.5120579583453946,
+      "removed_scalars_in_eight_second_hold": 195,
+      "prefix_preserved": true,
+      "changes_after_gesture_return": 0,
+      "dropped_events": 0
+    },
+    {
+      "keyboard": "OLIV 12",
+      "source": "/tmp/oliv-keyboard-feel/build12-delete-responsive/OLIV/5A940194-A2B8-4A62-A9F7-675BC136805E.json",
+      "sha256": "2c3ce8903afdc1c35c74d1e34364d19350c92eabc078ccc002e902fd2f4d3ee6",
+      "first_repeat_seconds": 0.3462896666605957,
+      "median_character_interval_seconds": 0.07935660416842438,
+      "first_multi_scalar_edit_seconds": 1.567246916674776,
+      "removed_scalars_in_eight_second_hold": 218,
+      "prefix_preserved": true,
+      "changes_after_gesture_return": 0,
+      "dropped_events": 0
+    }
+  ],
+  "final_feedback_validation": [
+    {
+      "name": "OLIV-english-held-delete-telemetry_0_80120030-A0F6-4CE4-8110-A0C38089F3BD.json",
+      "source": "/tmp/oliv-build12-physical-final-feedback-attachments/662F2086-DB3C-45CE-BCE4-F3F40CA76F48.json",
+      "sha256": "c451772321d45a84b76dc96bbedab4901b7bed2f4c77b22d9e2c0ebe2fa48e0f",
+      "first_repeat_seconds": 0.3690667916671373,
+      "first_multi_scalar_edit_seconds": 1.5654162916762289,
+      "median_character_interval_seconds": 0.07950049999635667
+    },
+    {
+      "name": "OLIV-thai-held-delete-telemetry_0_54709463-5B4D-46B2-A085-3D329240C876.json",
+      "source": "/tmp/oliv-build12-physical-final-feedback-attachments/CCCB1680-9785-4E53-9AA5-74D4701C041E.json",
+      "sha256": "a042cfe95d311ca65c89093317dd52ddbb6ac17e037aa5397ab959bbab6e29d6",
+      "first_repeat_seconds": 0.36606587501592003,
+      "first_multi_scalar_edit_seconds": 1.564428958343342,
+      "median_character_interval_seconds": 0.08014675001322757
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "version": "0.1.0 (13)",
+  "scope": "Physical iPhone17 iOS27, fixed synthetic UITextView seeds. Relative completed host edit intervals, not finger-to-first-edit latency.",
+  "configuration": {
+    "initial_repeat_delay_seconds": 0.22,
+    "character_interval_seconds": 0.06,
+    "word_minimum_hold_seconds": 0.9,
+    "word_minimum_repeats": 10,
+    "word_interval_seconds": 0.35,
+    "press_haptic_intensity": 0.55,
+    "repeat_haptic_intensity": 0.32
+  },
+  "physical_results": [
+    {
+      "language": "english",
+      "result_bundle": "TestResults/Build13-final-physical.xcresult",
+      "first_completed_repeat_seconds": 0.2265835416619666,
+      "early_character_interval_median_seconds": 0.05998733334126882,
+      "first_acknowledged_word_burst_start_seconds": 0.9470153333386406,
+      "completed_edit_count": 127,
+      "remaining_scalars": 485,
+      "definition_of_word_burst": "First completed edit after 0.85s followed by another edit within35ms; multiple individually acknowledged deletes form each guarded word pulse. The physical UI test independently requires a multi-scalar burst before1.25s and stable text after release."
+    },
+    {
+      "language": "thai",
+      "result_bundle": "TestResults/Build13-final-physical.xcresult",
+      "first_completed_repeat_seconds": 0.22132533334661275,
+      "early_character_interval_median_seconds": 0.059445374994538724,
+      "first_acknowledged_word_burst_start_seconds": 0.9466079583216924,
+      "completed_edit_count": 94,
+      "remaining_scalars": 506,
+      "definition_of_word_burst": "First completed edit after 0.85s followed by another edit within35ms; multiple individually acknowledged deletes form each guarded word pulse. The physical UI test independently requires a multi-scalar burst before1.25s and stable text after release."
+    }
+  ],
+  "cursor_ui_coverage": [
+    "up/down paragraph crossing",
+    "blank paragraph preserves column within gesture",
+    "soft-wrapped paragraph movement (estimated host layout)",
+    "top and bottom document boundaries",
+    "Thai combining text and ZWJ emoji preserved"
+  ],
+  "limitations": [
+    "Actual vibration strength is not established by callback tests.",
+    "Host visual font/insets/caret affinity are unavailable to the extension; soft-wrap positioning is approximate.",
+    "Hidden paragraph crossing assumes LF. Clipped host windows, hidden CRLF and delayed context can prevent exact native navigation.",
+    "Safari inline completion dismissal is not fixed; no reliable public completion identity/dismissal API was found."
+  ]
+}

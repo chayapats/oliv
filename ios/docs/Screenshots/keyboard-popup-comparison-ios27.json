@@ -1,0 +1,237 @@
+{
+  "artifact": "docs/Screenshots/keyboard-popup-comparison-ios27.png",
+  "pixel_preserving_crops": true,
+  "note": "No resampling or repainting inside panels; source video compression remains. Coordinates and ink bounds approximately \u00b11px.",
+  "sources": [
+    {
+      "label": "Apple \u00b7 q",
+      "source": "/tmp/oliv-keyboard-popups/apple-q-held-full.png",
+      "source_sha256": "f41df8a3382035cea9b2bccccce5d29f2b5d8708a99dda108cb21687e9fc921c",
+      "pts_seconds": 133.835,
+      "crop_px": [
+        0,
+        1560,
+        220,
+        2100
+      ],
+      "panel_rect_px": [
+        20,
+        145,
+        240,
+        685
+      ],
+      "video": "/tmp/oliv-keyboard-popups/native-edge-sequence.mov",
+      "video_sha256": "01c91c062130d93c58eeedd78484aa1ec62781f834d63d59a4f6e5e121e08d07"
+    },
+    {
+      "label": "OLIV \u00b7 q",
+      "source": "/tmp/oliv-keyboard-popups/oliv-build8-q-held-full.png",
+      "source_sha256": "d5c33a76170ed8a48cf0308040d46ca07faf15361df18c2bc862be04dffa1e90",
+      "pts_seconds": 45.983333,
+      "crop_px": [
+        0,
+        1560,
+        220,
+        2100
+      ],
+      "panel_rect_px": [
+        254,
+        145,
+        474,
+        685
+      ],
+      "video": "/tmp/oliv-keyboard-popups/oliv-build8-final-popup.mov",
+      "video_sha256": "6490e11f53510ec0c48cbd3da3df039d2195f742a41a63f702e0741db3c7ed1e"
+    },
+    {
+      "label": "Apple \u00b7 f",
+      "source": "/tmp/oliv-keyboard-popups/apple-f-held-full.png",
+      "source_sha256": "bea35c8e1eb75f75277dc325bb577f6352e06748ea4fcf133a0ac0424d97c5d6",
+      "pts_seconds": 22.015,
+      "crop_px": [
+        380,
+        1560,
+        600,
+        2100
+      ],
+      "panel_rect_px": [
+        488,
+        145,
+        708,
+        685
+      ],
+      "video": "/tmp/oliv-keyboard-popups/apple-f-ready.mov",
+      "video_sha256": "3ce8f80038a625455e69c7e49e13d2a583d70d5d32f454ec288ff5a5a047fd41"
+    },
+    {
+      "label": "OLIV \u00b7 f",
+      "source": "/tmp/oliv-keyboard-popups/oliv-build8-f-held-full.png",
+      "source_sha256": "98c29ca56a0fe930aeba20d97f163785d9046e0a296fdb95f66a33cfb0cb6491",
+      "pts_seconds": 49.058333,
+      "crop_px": [
+        380,
+        1560,
+        600,
+        2100
+      ],
+      "panel_rect_px": [
+        722,
+        145,
+        942,
+        685
+      ],
+      "video": "/tmp/oliv-keyboard-popups/oliv-build8-final-popup.mov",
+      "video_sha256": "6490e11f53510ec0c48cbd3da3df039d2195f742a41a63f702e0741db3c7ed1e"
+    },
+    {
+      "label": "Apple \u00b7 p",
+      "source": "/tmp/oliv-keyboard-popups/apple-p-held-full.png",
+      "source_sha256": "53d75725d64b9aab00ef721acced7814c4e730dcc0e9f39f05b80b5bbaa68179",
+      "pts_seconds": 138.86,
+      "crop_px": [
+        986,
+        1560,
+        1206,
+        2100
+      ],
+      "panel_rect_px": [
+        956,
+        145,
+        1176,
+        685
+      ],
+      "video": "/tmp/oliv-keyboard-popups/native-edge-sequence.mov",
+      "video_sha256": "01c91c062130d93c58eeedd78484aa1ec62781f834d63d59a4f6e5e121e08d07"
+    },
+    {
+      "label": "OLIV \u00b7 p",
+      "source": "/tmp/oliv-keyboard-popups/oliv-build8-p-held-full.png",
+      "source_sha256": "1fb67c387d49bbdad83eb6f47f9ad509978caa0fc263fd3f44530458c3cb9c3b",
+      "pts_seconds": 51.225,
+      "crop_px": [
+        986,
+        1560,
+        1206,
+        2100
+      ],
+      "panel_rect_px": [
+        1190,
+        145,
+        1410,
+        685
+      ],
+      "video": "/tmp/oliv-keyboard-popups/oliv-build8-final-popup.mov",
+      "video_sha256": "6490e11f53510ec0c48cbd3da3df039d2195f742a41a63f702e0741db3c7ed1e"
+    }
+  ],
+  "measurements": {
+    "Apple-q": {
+      "cap_frame_pt": [
+        0.0,
+        529.333,
+        58.333,
+        65.667
+      ],
+      "ink_frame_pt": [
+        20.333,
+        556.0,
+        16.667,
+        26.0
+      ],
+      "ink_center_relative_cap_pt": [
+        -0.5,
+        6.833
+      ]
+    },
+    "OLIV-q": {
+      "cap_frame_pt": [
+        0.0,
+        565.0,
+        58.333,
+        65.667
+      ],
+      "ink_frame_pt": [
+        20.0,
+        592.0,
+        16.667,
+        24.667
+      ],
+      "ink_center_relative_cap_pt": [
+        -0.833,
+        6.5
+      ]
+    },
+    "Apple-f": {
+      "cap_frame_pt": [
+        132.333,
+        583.333,
+        58.333,
+        65.667
+      ],
+      "ink_frame_pt": [
+        157.0,
+        603.0,
+        10.0,
+        26.667
+      ],
+      "ink_center_relative_cap_pt": [
+        0.5,
+        0.167
+      ]
+    },
+    "OLIV-f": {
+      "cap_frame_pt": [
+        132.333,
+        579.333,
+        58.333,
+        65.667
+      ],
+      "ink_frame_pt": [
+        156.0,
+        599.333,
+        9.333,
+        25.667
+      ],
+      "ink_center_relative_cap_pt": [
+        -0.833,
+        0.0
+      ]
+    },
+    "Apple-p": {
+      "cap_frame_pt": [
+        343.667,
+        529.333,
+        58.333,
+        65.667
+      ],
+      "ink_frame_pt": [
+        366.0,
+        556.0,
+        16.333,
+        26.0
+      ],
+      "ink_center_relative_cap_pt": [
+        1.333,
+        6.833
+      ]
+    },
+    "OLIV-p": {
+      "cap_frame_pt": [
+        343.667,
+        565.0,
+        58.333,
+        65.667
+      ],
+      "ink_frame_pt": [
+        364.667,
+        592.0,
+        16.667,
+        24.667
+      ],
+      "ink_center_relative_cap_pt": [
+        0.167,
+        6.5
+      ]
+    }
+  }
+}

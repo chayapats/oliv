@@ -1,0 +1,16 @@
+.build/
+build/
+DerivedData/
+*.xcresult/
+*.xcuserstate
+xcuserdata/
+.DS_Store
+.env*
+*.token
+*.wav
+*.aiff
+*.mobileprovision
+*.p12
+TestResults/
+__pycache__/
+*.pyc

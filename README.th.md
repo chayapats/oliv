@@ -239,6 +239,7 @@ bash scripts/test.sh        # เทสต์ Rust, native runtime และ Swi
 | `rust/` | crate ที่ใช้ร่วมกัน รวมถึง `oliv-text-core` ซึ่งเป็น pipeline ข้อความที่ทุก client และ server ใช้ |
 | `server/` | OLIV server สำหรับ self-host: รัน STT และ cleanup บนเครื่อง GPU ของคุณเอง แล้วให้ client ส่ง request มา ([server/README.md](server/README.md)) |
 | `desktop/` | client สำหรับ Linux (Hyprland/Wayland) และ Windows ที่ต่อกับ OLIV server ([desktop/README.md](desktop/README.md)) |
+| `ios/` | แอป iPhone และคีย์บอร์ด OLIV ที่ต่อกับ OLIV server อยู่ในช่วง TestFlight beta ([ios/README.md](ios/README.md)) |
 | `benchmark/` | เครื่องมือวัดผลแบบ native |
 
 อ่านวิธีรัน benchmark กับเสียงของคุณเองได้ที่ [CONTRIBUTING.md](CONTRIBUTING.md) และ [benchmark/README.md](benchmark/README.md)

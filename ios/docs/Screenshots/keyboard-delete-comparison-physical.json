@@ -1,0 +1,1384 @@
+{
+  "method": "Read-only analysis of fixed English fixture telemetry from physical iPhone. Times are completed UITextView changes relative to first completed deletion, not exact finger event. Native burst grouping merges adjacent changes within 150 ms after 2.45 s; observed native pairs have at most 80 ms separation. Raw Unicode scalar prefix checked on every changed event. No device, microphone, or network actions.",
+  "runs": {
+    "oliv_dark": {
+      "source": "/tmp/oliv-keyboard-feel/physical-oliv-final/attachments-delete-dark/2FE7E84B-E99E-49CE-A9DB-95980786C7CA.json",
+      "sha256": "c798c8947cc5ab16c86260db4ce21153d3e4de49ed888a114b3f5fce710f9dc4",
+      "droppedEvents": 0,
+      "completedHostChanges": 37,
+      "allEditsStrictRawScalarPrefix": true,
+      "firstRepeatSeconds": 0.510686,
+      "firstWordPulseSeconds": 2.518253,
+      "medianCharacterIntervalSeconds": 0.100612,
+      "medianWordIntervalSeconds": 0.350342,
+      "wordPulses": [
+        {
+          "seconds": 2.518253,
+          "removed": " sings bes",
+          "hostChanges": 1,
+          "removedScalars": 10
+        },
+        {
+          "seconds": 2.872917,
+          "removed": " green bird",
+          "hostChanges": 1,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 3.228565,
+          "removed": " The small",
+          "hostChanges": 1,
+          "removedScalars": 10
+        },
+        {
+          "seconds": 3.574572,
+          "removed": " quiet river.",
+          "hostChanges": 1,
+          "removedScalars": 13
+        },
+        {
+          "seconds": 3.928307,
+          "removed": " beside the",
+          "hostChanges": 1,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 4.278649,
+          "removed": " bird sings",
+          "hostChanges": 1,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 4.611716,
+          "removed": " small green",
+          "hostChanges": 1,
+          "removedScalars": 12
+        },
+        {
+          "seconds": 4.96701,
+          "removed": "The",
+          "hostChanges": 1,
+          "removedScalars": 3
+        },
+        {
+          "seconds": 5.313243,
+          "removed": " ",
+          "hostChanges": 1,
+          "removedScalars": 1
+        },
+        {
+          "seconds": 5.683568,
+          "removed": " quiet river.",
+          "hostChanges": 1,
+          "removedScalars": 13
+        },
+        {
+          "seconds": 6.029718,
+          "removed": " beside the",
+          "hostChanges": 1,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 6.379095,
+          "removed": " bird sings",
+          "hostChanges": 1,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 6.726192,
+          "removed": " small green",
+          "hostChanges": 1,
+          "removedScalars": 12
+        },
+        {
+          "seconds": 7.078073,
+          "removed": " river. The",
+          "hostChanges": 1,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 7.431288,
+          "removed": " the quiet",
+          "hostChanges": 1,
+          "removedScalars": 10
+        },
+        {
+          "seconds": 7.776393,
+          "removed": " sings beside",
+          "hostChanges": 1,
+          "removedScalars": 13
+        }
+      ],
+      "totalRemovedScalars": 184,
+      "postCallReturnChanges": 0,
+      "postReleaseSettledChanges": 0,
+      "lastChangeBeforeCallReturnSeconds": 0.424023,
+      "exportSecondsAfterLastChange": 1.998033,
+      "allChanges": [
+        {
+          "seconds": 0.0,
+          "removedScalars": 1,
+          "remainingScalars": 611
+        },
+        {
+          "seconds": 0.510686,
+          "removedScalars": 1,
+          "remainingScalars": 610
+        },
+        {
+          "seconds": 0.602862,
+          "removedScalars": 1,
+          "remainingScalars": 609
+        },
+        {
+          "seconds": 0.704114,
+          "removedScalars": 1,
+          "remainingScalars": 608
+        },
+        {
+          "seconds": 0.80856,
+          "removedScalars": 1,
+          "remainingScalars": 607
+        },
+        {
+          "seconds": 0.901489,
+          "removedScalars": 1,
+          "remainingScalars": 606
+        },
+        {
+          "seconds": 1.006278,
+          "removedScalars": 1,
+          "remainingScalars": 605
+        },
+        {
+          "seconds": 1.10689,
+          "removedScalars": 1,
+          "remainingScalars": 604
+        },
+        {
+          "seconds": 1.202362,
+          "removedScalars": 1,
+          "remainingScalars": 603
+        },
+        {
+          "seconds": 1.307032,
+          "removedScalars": 1,
+          "remainingScalars": 602
+        },
+        {
+          "seconds": 1.406913,
+          "removedScalars": 1,
+          "remainingScalars": 601
+        },
+        {
+          "seconds": 1.50186,
+          "removedScalars": 1,
+          "remainingScalars": 600
+        },
+        {
+          "seconds": 1.604408,
+          "removedScalars": 1,
+          "remainingScalars": 599
+        },
+        {
+          "seconds": 1.70269,
+          "removedScalars": 1,
+          "remainingScalars": 598
+        },
+        {
+          "seconds": 1.803408,
+          "removedScalars": 1,
+          "remainingScalars": 597
+        },
+        {
+          "seconds": 1.905142,
+          "removedScalars": 1,
+          "remainingScalars": 596
+        },
+        {
+          "seconds": 2.000376,
+          "removedScalars": 1,
+          "remainingScalars": 595
+        },
+        {
+          "seconds": 2.102075,
+          "removedScalars": 1,
+          "remainingScalars": 594
+        },
+        {
+          "seconds": 2.200724,
+          "removedScalars": 1,
+          "remainingScalars": 593
+        },
+        {
+          "seconds": 2.302528,
+          "removedScalars": 1,
+          "remainingScalars": 592
+        },
+        {
+          "seconds": 2.401998,
+          "removedScalars": 1,
+          "remainingScalars": 591
+        },
+        {
+          "seconds": 2.518253,
+          "removedScalars": 10,
+          "remainingScalars": 581
+        },
+        {
+          "seconds": 2.872917,
+          "removedScalars": 11,
+          "remainingScalars": 570
+        },
+        {
+          "seconds": 3.228565,
+          "removedScalars": 10,
+          "remainingScalars": 560
+        },
+        {
+          "seconds": 3.574572,
+          "removedScalars": 13,
+          "remainingScalars": 547
+        },
+        {
+          "seconds": 3.928307,
+          "removedScalars": 11,
+          "remainingScalars": 536
+        },
+        {
+          "seconds": 4.278649,
+          "removedScalars": 11,
+          "remainingScalars": 525
+        },
+        {
+          "seconds": 4.611716,
+          "removedScalars": 12,
+          "remainingScalars": 513
+        },
+        {
+          "seconds": 4.96701,
+          "removedScalars": 3,
+          "remainingScalars": 510
+        },
+        {
+          "seconds": 5.313243,
+          "removedScalars": 1,
+          "remainingScalars": 509
+        },
+        {
+          "seconds": 5.683568,
+          "removedScalars": 13,
+          "remainingScalars": 496
+        },
+        {
+          "seconds": 6.029718,
+          "removedScalars": 11,
+          "remainingScalars": 485
+        },
+        {
+          "seconds": 6.379095,
+          "removedScalars": 11,
+          "remainingScalars": 474
+        },
+        {
+          "seconds": 6.726192,
+          "removedScalars": 12,
+          "remainingScalars": 462
+        },
+        {
+          "seconds": 7.078073,
+          "removedScalars": 11,
+          "remainingScalars": 451
+        },
+        {
+          "seconds": 7.431288,
+          "removedScalars": 10,
+          "remainingScalars": 441
+        },
+        {
+          "seconds": 7.776393,
+          "removedScalars": 13,
+          "remainingScalars": 428
+        }
+      ]
+    },
+    "native_dark": {
+      "source": "/tmp/oliv-keyboard-feel/physical-native/attachments-measured-delete-dark/587FCDA2-B6C3-4F9A-85CC-61C1CD32B09C.json",
+      "sha256": "cb0d77cb1dc3d34296bb01cb537c04318ed6c1e84e17f2461c389db1ff4c0735",
+      "droppedEvents": 0,
+      "completedHostChanges": 53,
+      "allEditsStrictRawScalarPrefix": true,
+      "firstRepeatSeconds": 0.492247,
+      "firstWordPulseSeconds": 2.531172,
+      "medianCharacterIntervalSeconds": 0.100071,
+      "medianWordIntervalSeconds": 0.349686,
+      "wordPulses": [
+        {
+          "seconds": 2.531172,
+          "removed": " sings bes",
+          "hostChanges": 2,
+          "removedScalars": 10
+        },
+        {
+          "seconds": 2.938155,
+          "removed": " green bird",
+          "hostChanges": 2,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 3.288114,
+          "removed": " The small",
+          "hostChanges": 2,
+          "removedScalars": 10
+        },
+        {
+          "seconds": 3.637718,
+          "removed": " quiet river.",
+          "hostChanges": 2,
+          "removedScalars": 13
+        },
+        {
+          "seconds": 3.987323,
+          "removed": " beside the",
+          "hostChanges": 2,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 4.337255,
+          "removed": " bird sings",
+          "hostChanges": 2,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 4.68892,
+          "removed": " small green",
+          "hostChanges": 2,
+          "removedScalars": 12
+        },
+        {
+          "seconds": 5.03842,
+          "removed": " river. The",
+          "hostChanges": 2,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 5.388106,
+          "removed": " the quiet",
+          "hostChanges": 2,
+          "removedScalars": 10
+        },
+        {
+          "seconds": 5.737256,
+          "removed": " sings beside",
+          "hostChanges": 2,
+          "removedScalars": 13
+        },
+        {
+          "seconds": 6.087538,
+          "removed": " green bird",
+          "hostChanges": 2,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 6.437161,
+          "removed": " The small",
+          "hostChanges": 2,
+          "removedScalars": 10
+        },
+        {
+          "seconds": 6.787918,
+          "removed": " quiet river.",
+          "hostChanges": 2,
+          "removedScalars": 13
+        },
+        {
+          "seconds": 7.138601,
+          "removed": " beside the",
+          "hostChanges": 2,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 7.487823,
+          "removed": " bird sings",
+          "hostChanges": 2,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 7.837098,
+          "removed": " small green",
+          "hostChanges": 2,
+          "removedScalars": 12
+        }
+      ],
+      "totalRemovedScalars": 201,
+      "postCallReturnChanges": 0,
+      "postReleaseSettledChanges": 0,
+      "lastChangeBeforeCallReturnSeconds": 0.229027,
+      "exportSecondsAfterLastChange": 1.641354,
+      "allChanges": [
+        {
+          "seconds": 0.0,
+          "removedScalars": 1,
+          "remainingScalars": 611
+        },
+        {
+          "seconds": 0.492247,
+          "removedScalars": 1,
+          "remainingScalars": 610
+        },
+        {
+          "seconds": 0.618727,
+          "removedScalars": 1,
+          "remainingScalars": 609
+        },
+        {
+          "seconds": 0.718849,
+          "removedScalars": 1,
+          "remainingScalars": 608
+        },
+        {
+          "seconds": 0.819551,
+          "removedScalars": 1,
+          "remainingScalars": 607
+        },
+        {
+          "seconds": 0.918817,
+          "removedScalars": 1,
+          "remainingScalars": 606
+        },
+        {
+          "seconds": 1.018782,
+          "removedScalars": 1,
+          "remainingScalars": 605
+        },
+        {
+          "seconds": 1.118686,
+          "removedScalars": 1,
+          "remainingScalars": 604
+        },
+        {
+          "seconds": 1.218757,
+          "removedScalars": 1,
+          "remainingScalars": 603
+        },
+        {
+          "seconds": 1.319149,
+          "removedScalars": 1,
+          "remainingScalars": 602
+        },
+        {
+          "seconds": 1.418953,
+          "removedScalars": 1,
+          "remainingScalars": 601
+        },
+        {
+          "seconds": 1.518842,
+          "removedScalars": 1,
+          "remainingScalars": 600
+        },
+        {
+          "seconds": 1.619051,
+          "removedScalars": 1,
+          "remainingScalars": 599
+        },
+        {
+          "seconds": 1.718724,
+          "removedScalars": 1,
+          "remainingScalars": 598
+        },
+        {
+          "seconds": 1.819096,
+          "removedScalars": 1,
+          "remainingScalars": 597
+        },
+        {
+          "seconds": 1.918746,
+          "removedScalars": 1,
+          "remainingScalars": 596
+        },
+        {
+          "seconds": 2.018962,
+          "removedScalars": 1,
+          "remainingScalars": 595
+        },
+        {
+          "seconds": 2.117679,
+          "removedScalars": 1,
+          "remainingScalars": 594
+        },
+        {
+          "seconds": 2.219234,
+          "removedScalars": 1,
+          "remainingScalars": 593
+        },
+        {
+          "seconds": 2.32021,
+          "removedScalars": 1,
+          "remainingScalars": 592
+        },
+        {
+          "seconds": 2.420031,
+          "removedScalars": 1,
+          "remainingScalars": 591
+        },
+        {
+          "seconds": 2.531172,
+          "removedScalars": 4,
+          "remainingScalars": 587
+        },
+        {
+          "seconds": 2.554871,
+          "removedScalars": 6,
+          "remainingScalars": 581
+        },
+        {
+          "seconds": 2.938155,
+          "removedScalars": 5,
+          "remainingScalars": 576
+        },
+        {
+          "seconds": 2.959837,
+          "removedScalars": 6,
+          "remainingScalars": 570
+        },
+        {
+          "seconds": 3.288114,
+          "removedScalars": 6,
+          "remainingScalars": 564
+        },
+        {
+          "seconds": 3.310725,
+          "removedScalars": 4,
+          "remainingScalars": 560
+        },
+        {
+          "seconds": 3.637718,
+          "removedScalars": 7,
+          "remainingScalars": 553
+        },
+        {
+          "seconds": 3.658962,
+          "removedScalars": 6,
+          "remainingScalars": 547
+        },
+        {
+          "seconds": 3.987323,
+          "removedScalars": 4,
+          "remainingScalars": 543
+        },
+        {
+          "seconds": 4.008655,
+          "removedScalars": 7,
+          "remainingScalars": 536
+        },
+        {
+          "seconds": 4.337255,
+          "removedScalars": 6,
+          "remainingScalars": 530
+        },
+        {
+          "seconds": 4.360171,
+          "removedScalars": 5,
+          "remainingScalars": 525
+        },
+        {
+          "seconds": 4.68892,
+          "removedScalars": 6,
+          "remainingScalars": 519
+        },
+        {
+          "seconds": 4.710943,
+          "removedScalars": 6,
+          "remainingScalars": 513
+        },
+        {
+          "seconds": 5.03842,
+          "removedScalars": 4,
+          "remainingScalars": 509
+        },
+        {
+          "seconds": 5.063759,
+          "removedScalars": 7,
+          "remainingScalars": 502
+        },
+        {
+          "seconds": 5.388106,
+          "removedScalars": 6,
+          "remainingScalars": 496
+        },
+        {
+          "seconds": 5.413535,
+          "removedScalars": 4,
+          "remainingScalars": 492
+        },
+        {
+          "seconds": 5.737256,
+          "removedScalars": 7,
+          "remainingScalars": 485
+        },
+        {
+          "seconds": 5.761301,
+          "removedScalars": 6,
+          "remainingScalars": 479
+        },
+        {
+          "seconds": 6.087538,
+          "removedScalars": 5,
+          "remainingScalars": 474
+        },
+        {
+          "seconds": 6.112175,
+          "removedScalars": 6,
+          "remainingScalars": 468
+        },
+        {
+          "seconds": 6.437161,
+          "removedScalars": 6,
+          "remainingScalars": 462
+        },
+        {
+          "seconds": 6.516851,
+          "removedScalars": 4,
+          "remainingScalars": 458
+        },
+        {
+          "seconds": 6.787918,
+          "removedScalars": 7,
+          "remainingScalars": 451
+        },
+        {
+          "seconds": 6.812194,
+          "removedScalars": 6,
+          "remainingScalars": 445
+        },
+        {
+          "seconds": 7.138601,
+          "removedScalars": 4,
+          "remainingScalars": 441
+        },
+        {
+          "seconds": 7.162695,
+          "removedScalars": 7,
+          "remainingScalars": 434
+        },
+        {
+          "seconds": 7.487823,
+          "removedScalars": 6,
+          "remainingScalars": 428
+        },
+        {
+          "seconds": 7.511992,
+          "removedScalars": 5,
+          "remainingScalars": 423
+        },
+        {
+          "seconds": 7.837098,
+          "removedScalars": 6,
+          "remainingScalars": 417
+        },
+        {
+          "seconds": 7.860771,
+          "removedScalars": 6,
+          "remainingScalars": 411
+        }
+      ]
+    },
+    "oliv_light": {
+      "source": "/tmp/oliv-keyboard-feel/physical-oliv-final/attachments-delete-light/AFEAF04D-D7ED-421C-BBD5-51E667FBBC60.json",
+      "sha256": "3c9b258c4e9e6391603e00f7cd7d1937fe8a821ccd0cd145edc7a85b15856989",
+      "droppedEvents": 0,
+      "completedHostChanges": 37,
+      "allEditsStrictRawScalarPrefix": true,
+      "firstRepeatSeconds": 0.529724,
+      "firstWordPulseSeconds": 2.52159,
+      "medianCharacterIntervalSeconds": 0.099827,
+      "medianWordIntervalSeconds": 0.349177,
+      "wordPulses": [
+        {
+          "seconds": 2.52159,
+          "removed": " sings bes",
+          "hostChanges": 1,
+          "removedScalars": 10
+        },
+        {
+          "seconds": 2.88194,
+          "removed": " green bird",
+          "hostChanges": 1,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 3.232157,
+          "removed": " The small",
+          "hostChanges": 1,
+          "removedScalars": 10
+        },
+        {
+          "seconds": 3.585018,
+          "removed": " quiet river.",
+          "hostChanges": 1,
+          "removedScalars": 13
+        },
+        {
+          "seconds": 3.93264,
+          "removed": " beside the",
+          "hostChanges": 1,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 4.281817,
+          "removed": " bird sings",
+          "hostChanges": 1,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 4.631788,
+          "removed": " small green",
+          "hostChanges": 1,
+          "removedScalars": 12
+        },
+        {
+          "seconds": 4.961938,
+          "removed": "The",
+          "hostChanges": 1,
+          "removedScalars": 3
+        },
+        {
+          "seconds": 5.305214,
+          "removed": " ",
+          "hostChanges": 1,
+          "removedScalars": 1
+        },
+        {
+          "seconds": 5.681714,
+          "removed": " quiet river.",
+          "hostChanges": 1,
+          "removedScalars": 13
+        },
+        {
+          "seconds": 6.01336,
+          "removed": " beside the",
+          "hostChanges": 1,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 6.382423,
+          "removed": " bird sings",
+          "hostChanges": 1,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 6.729001,
+          "removed": " small green",
+          "hostChanges": 1,
+          "removedScalars": 12
+        },
+        {
+          "seconds": 7.077915,
+          "removed": " river. The",
+          "hostChanges": 1,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 7.412836,
+          "removed": " the quiet",
+          "hostChanges": 1,
+          "removedScalars": 10
+        },
+        {
+          "seconds": 7.77348,
+          "removed": " sings beside",
+          "hostChanges": 1,
+          "removedScalars": 13
+        }
+      ],
+      "totalRemovedScalars": 184,
+      "postCallReturnChanges": 0,
+      "postReleaseSettledChanges": 0,
+      "lastChangeBeforeCallReturnSeconds": 0.414975,
+      "exportSecondsAfterLastChange": 1.98395,
+      "allChanges": [
+        {
+          "seconds": 0.0,
+          "removedScalars": 1,
+          "remainingScalars": 611
+        },
+        {
+          "seconds": 0.529724,
+          "removedScalars": 1,
+          "remainingScalars": 610
+        },
+        {
+          "seconds": 0.598104,
+          "removedScalars": 1,
+          "remainingScalars": 609
+        },
+        {
+          "seconds": 0.70319,
+          "removedScalars": 1,
+          "remainingScalars": 608
+        },
+        {
+          "seconds": 0.798139,
+          "removedScalars": 1,
+          "remainingScalars": 607
+        },
+        {
+          "seconds": 0.903315,
+          "removedScalars": 1,
+          "remainingScalars": 606
+        },
+        {
+          "seconds": 1.003142,
+          "removedScalars": 1,
+          "remainingScalars": 605
+        },
+        {
+          "seconds": 1.103254,
+          "removedScalars": 1,
+          "remainingScalars": 604
+        },
+        {
+          "seconds": 1.197129,
+          "removedScalars": 1,
+          "remainingScalars": 603
+        },
+        {
+          "seconds": 1.306427,
+          "removedScalars": 1,
+          "remainingScalars": 602
+        },
+        {
+          "seconds": 1.400913,
+          "removedScalars": 1,
+          "remainingScalars": 601
+        },
+        {
+          "seconds": 1.506767,
+          "removedScalars": 1,
+          "remainingScalars": 600
+        },
+        {
+          "seconds": 1.601706,
+          "removedScalars": 1,
+          "remainingScalars": 599
+        },
+        {
+          "seconds": 1.70607,
+          "removedScalars": 1,
+          "remainingScalars": 598
+        },
+        {
+          "seconds": 1.807272,
+          "removedScalars": 1,
+          "remainingScalars": 597
+        },
+        {
+          "seconds": 1.906602,
+          "removedScalars": 1,
+          "remainingScalars": 596
+        },
+        {
+          "seconds": 2.005491,
+          "removedScalars": 1,
+          "remainingScalars": 595
+        },
+        {
+          "seconds": 2.104765,
+          "removedScalars": 1,
+          "remainingScalars": 594
+        },
+        {
+          "seconds": 2.200325,
+          "removedScalars": 1,
+          "remainingScalars": 593
+        },
+        {
+          "seconds": 2.30136,
+          "removedScalars": 1,
+          "remainingScalars": 592
+        },
+        {
+          "seconds": 2.405023,
+          "removedScalars": 1,
+          "remainingScalars": 591
+        },
+        {
+          "seconds": 2.52159,
+          "removedScalars": 10,
+          "remainingScalars": 581
+        },
+        {
+          "seconds": 2.88194,
+          "removedScalars": 11,
+          "remainingScalars": 570
+        },
+        {
+          "seconds": 3.232157,
+          "removedScalars": 10,
+          "remainingScalars": 560
+        },
+        {
+          "seconds": 3.585018,
+          "removedScalars": 13,
+          "remainingScalars": 547
+        },
+        {
+          "seconds": 3.93264,
+          "removedScalars": 11,
+          "remainingScalars": 536
+        },
+        {
+          "seconds": 4.281817,
+          "removedScalars": 11,
+          "remainingScalars": 525
+        },
+        {
+          "seconds": 4.631788,
+          "removedScalars": 12,
+          "remainingScalars": 513
+        },
+        {
+          "seconds": 4.961938,
+          "removedScalars": 3,
+          "remainingScalars": 510
+        },
+        {
+          "seconds": 5.305214,
+          "removedScalars": 1,
+          "remainingScalars": 509
+        },
+        {
+          "seconds": 5.681714,
+          "removedScalars": 13,
+          "remainingScalars": 496
+        },
+        {
+          "seconds": 6.01336,
+          "removedScalars": 11,
+          "remainingScalars": 485
+        },
+        {
+          "seconds": 6.382423,
+          "removedScalars": 11,
+          "remainingScalars": 474
+        },
+        {
+          "seconds": 6.729001,
+          "removedScalars": 12,
+          "remainingScalars": 462
+        },
+        {
+          "seconds": 7.077915,
+          "removedScalars": 11,
+          "remainingScalars": 451
+        },
+        {
+          "seconds": 7.412836,
+          "removedScalars": 10,
+          "remainingScalars": 441
+        },
+        {
+          "seconds": 7.77348,
+          "removedScalars": 13,
+          "remainingScalars": 428
+        }
+      ]
+    },
+    "native_light": {
+      "source": "/tmp/oliv-keyboard-feel/physical-native/attachments-measured-delete-light/F9FF73E3-7B67-42BD-B8DE-6531AFADF8BB.json",
+      "sha256": "b03dbbd9e3423dabaaaba9dffea6708bd591467daef57fc0a11cf4a03a40a384",
+      "droppedEvents": 0,
+      "completedHostChanges": 53,
+      "allEditsStrictRawScalarPrefix": true,
+      "firstRepeatSeconds": 0.496664,
+      "firstWordPulseSeconds": 2.5282,
+      "medianCharacterIntervalSeconds": 0.100071,
+      "medianWordIntervalSeconds": 0.350152,
+      "wordPulses": [
+        {
+          "seconds": 2.5282,
+          "removed": " sings bes",
+          "hostChanges": 2,
+          "removedScalars": 10
+        },
+        {
+          "seconds": 2.933836,
+          "removed": " green bird",
+          "hostChanges": 2,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 3.285075,
+          "removed": " The small",
+          "hostChanges": 2,
+          "removedScalars": 10
+        },
+        {
+          "seconds": 3.63577,
+          "removed": " quiet river.",
+          "hostChanges": 2,
+          "removedScalars": 13
+        },
+        {
+          "seconds": 3.983722,
+          "removed": " beside the",
+          "hostChanges": 2,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 4.335339,
+          "removed": " bird sings",
+          "hostChanges": 2,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 4.683879,
+          "removed": " small green",
+          "hostChanges": 2,
+          "removedScalars": 12
+        },
+        {
+          "seconds": 5.033424,
+          "removed": " river. The",
+          "hostChanges": 2,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 5.384579,
+          "removed": " the quiet",
+          "hostChanges": 2,
+          "removedScalars": 10
+        },
+        {
+          "seconds": 5.735051,
+          "removed": " sings beside",
+          "hostChanges": 2,
+          "removedScalars": 13
+        },
+        {
+          "seconds": 6.084431,
+          "removed": " green bird",
+          "hostChanges": 2,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 6.434615,
+          "removed": " The small",
+          "hostChanges": 2,
+          "removedScalars": 10
+        },
+        {
+          "seconds": 6.784767,
+          "removed": " quiet river.",
+          "hostChanges": 2,
+          "removedScalars": 13
+        },
+        {
+          "seconds": 7.134805,
+          "removed": " beside the",
+          "hostChanges": 2,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 7.484954,
+          "removed": " bird sings",
+          "hostChanges": 2,
+          "removedScalars": 11
+        },
+        {
+          "seconds": 7.834357,
+          "removed": " small green",
+          "hostChanges": 2,
+          "removedScalars": 12
+        }
+      ],
+      "totalRemovedScalars": 201,
+      "postCallReturnChanges": 0,
+      "postReleaseSettledChanges": 0,
+      "lastChangeBeforeCallReturnSeconds": 0.252928,
+      "exportSecondsAfterLastChange": 1.654098,
+      "allChanges": [
+        {
+          "seconds": 0.0,
+          "removedScalars": 1,
+          "remainingScalars": 611
+        },
+        {
+          "seconds": 0.496664,
+          "removedScalars": 1,
+          "remainingScalars": 610
+        },
+        {
+          "seconds": 0.614537,
+          "removedScalars": 1,
+          "remainingScalars": 609
+        },
+        {
+          "seconds": 0.714468,
+          "removedScalars": 1,
+          "remainingScalars": 608
+        },
+        {
+          "seconds": 0.815587,
+          "removedScalars": 1,
+          "remainingScalars": 607
+        },
+        {
+          "seconds": 0.914823,
+          "removedScalars": 1,
+          "remainingScalars": 606
+        },
+        {
+          "seconds": 1.014793,
+          "removedScalars": 1,
+          "remainingScalars": 605
+        },
+        {
+          "seconds": 1.114864,
+          "removedScalars": 1,
+          "remainingScalars": 604
+        },
+        {
+          "seconds": 1.214998,
+          "removedScalars": 1,
+          "remainingScalars": 603
+        },
+        {
+          "seconds": 1.315741,
+          "removedScalars": 1,
+          "remainingScalars": 602
+        },
+        {
+          "seconds": 1.418652,
+          "removedScalars": 1,
+          "remainingScalars": 601
+        },
+        {
+          "seconds": 1.516913,
+          "removedScalars": 1,
+          "remainingScalars": 600
+        },
+        {
+          "seconds": 1.616831,
+          "removedScalars": 1,
+          "remainingScalars": 599
+        },
+        {
+          "seconds": 1.718031,
+          "removedScalars": 1,
+          "remainingScalars": 598
+        },
+        {
+          "seconds": 1.819238,
+          "removedScalars": 1,
+          "remainingScalars": 597
+        },
+        {
+          "seconds": 1.917237,
+          "removedScalars": 1,
+          "remainingScalars": 596
+        },
+        {
+          "seconds": 2.017754,
+          "removedScalars": 1,
+          "remainingScalars": 595
+        },
+        {
+          "seconds": 2.11634,
+          "removedScalars": 1,
+          "remainingScalars": 594
+        },
+        {
+          "seconds": 2.219217,
+          "removedScalars": 1,
+          "remainingScalars": 593
+        },
+        {
+          "seconds": 2.318327,
+          "removedScalars": 1,
+          "remainingScalars": 592
+        },
+        {
+          "seconds": 2.417497,
+          "removedScalars": 1,
+          "remainingScalars": 591
+        },
+        {
+          "seconds": 2.5282,
+          "removedScalars": 4,
+          "remainingScalars": 587
+        },
+        {
+          "seconds": 2.551748,
+          "removedScalars": 6,
+          "remainingScalars": 581
+        },
+        {
+          "seconds": 2.933836,
+          "removedScalars": 5,
+          "remainingScalars": 576
+        },
+        {
+          "seconds": 2.955696,
+          "removedScalars": 6,
+          "remainingScalars": 570
+        },
+        {
+          "seconds": 3.285075,
+          "removedScalars": 6,
+          "remainingScalars": 564
+        },
+        {
+          "seconds": 3.307412,
+          "removedScalars": 4,
+          "remainingScalars": 560
+        },
+        {
+          "seconds": 3.63577,
+          "removedScalars": 7,
+          "remainingScalars": 553
+        },
+        {
+          "seconds": 3.657581,
+          "removedScalars": 6,
+          "remainingScalars": 547
+        },
+        {
+          "seconds": 3.983722,
+          "removedScalars": 4,
+          "remainingScalars": 543
+        },
+        {
+          "seconds": 4.004442,
+          "removedScalars": 7,
+          "remainingScalars": 536
+        },
+        {
+          "seconds": 4.335339,
+          "removedScalars": 6,
+          "remainingScalars": 530
+        },
+        {
+          "seconds": 4.357998,
+          "removedScalars": 5,
+          "remainingScalars": 525
+        },
+        {
+          "seconds": 4.683879,
+          "removedScalars": 6,
+          "remainingScalars": 519
+        },
+        {
+          "seconds": 4.705662,
+          "removedScalars": 6,
+          "remainingScalars": 513
+        },
+        {
+          "seconds": 5.033424,
+          "removedScalars": 4,
+          "remainingScalars": 509
+        },
+        {
+          "seconds": 5.058018,
+          "removedScalars": 7,
+          "remainingScalars": 502
+        },
+        {
+          "seconds": 5.384579,
+          "removedScalars": 6,
+          "remainingScalars": 496
+        },
+        {
+          "seconds": 5.406855,
+          "removedScalars": 4,
+          "remainingScalars": 492
+        },
+        {
+          "seconds": 5.735051,
+          "removedScalars": 7,
+          "remainingScalars": 485
+        },
+        {
+          "seconds": 5.758992,
+          "removedScalars": 6,
+          "remainingScalars": 479
+        },
+        {
+          "seconds": 6.084431,
+          "removedScalars": 5,
+          "remainingScalars": 474
+        },
+        {
+          "seconds": 6.108165,
+          "removedScalars": 6,
+          "remainingScalars": 468
+        },
+        {
+          "seconds": 6.434615,
+          "removedScalars": 6,
+          "remainingScalars": 462
+        },
+        {
+          "seconds": 6.458752,
+          "removedScalars": 4,
+          "remainingScalars": 458
+        },
+        {
+          "seconds": 6.784767,
+          "removedScalars": 7,
+          "remainingScalars": 451
+        },
+        {
+          "seconds": 6.80861,
+          "removedScalars": 6,
+          "remainingScalars": 445
+        },
+        {
+          "seconds": 7.134805,
+          "removedScalars": 4,
+          "remainingScalars": 441
+        },
+        {
+          "seconds": 7.158756,
+          "removedScalars": 7,
+          "remainingScalars": 434
+        },
+        {
+          "seconds": 7.484954,
+          "removedScalars": 6,
+          "remainingScalars": 428
+        },
+        {
+          "seconds": 7.508816,
+          "removedScalars": 5,
+          "remainingScalars": 423
+        },
+        {
+          "seconds": 7.834357,
+          "removedScalars": 6,
+          "remainingScalars": 417
+        },
+        {
+          "seconds": 7.858134,
+          "removedScalars": 6,
+          "remainingScalars": 411
+        }
+      ]
+    }
+  },
+  "comparisons": {
+    "dark": {
+      "initialMatchingWordPulses": 7,
+      "olivFirstRepeatMinusNativeSeconds": 0.018439,
+      "olivFirstWordMinusNativeSeconds": -0.012919,
+      "allWordBurstsMatch": false
+    },
+    "light": {
+      "initialMatchingWordPulses": 7,
+      "olivFirstRepeatMinusNativeSeconds": 0.03306,
+      "olivFirstWordMinusNativeSeconds": -0.00661,
+      "allWordBurstsMatch": false
+    }
+  },
+  "conclusion": "Physical proxy supports multi-scalar guarded deletion; not a global stale-context failure. Both OLIV appearances match first seven native two-token suffixes, then conservatively remove only The and a space on pulses 8/9 before multi-word deletion resumes. This reproducible native-parity gap is not data loss or over-deletion. Context-boundary fallback is a hypothesis: telemetry captures host edits, not proxy context, so exact cause is unproven. No post-return changes observed; existing held-delete tests additionally assert text stability after release."
+}

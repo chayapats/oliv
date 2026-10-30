@@ -1,0 +1,50 @@
+{
+  "version": "0.1.0 (14)",
+  "date": "2026-10-04",
+  "gesture_configuration": {
+    "vertical_points_per_step": 12,
+    "previous_vertical_points_per_step": 24,
+    "horizontal_points_per_step": 8,
+    "vertical_intent_ratio": 0.75,
+    "horizontal_turn_points": 16,
+    "horizontal_turn_ratio": 1.5,
+    "reversal_debounce_points": 1
+  },
+  "actual_touch_strokes": {
+    "single_step_vertical_points": 17,
+    "two_step_vertical_points": 34,
+    "diagonal_sideways_drift_points": 8
+  },
+  "results": [
+    {
+      "result_bundle": "TestResults/Build14-regression.xcresult",
+      "result": "Passed",
+      "passedTests": 125,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "totalTestCount": 125
+    },
+    {
+      "result_bundle": "TestResults/Build14-short-trackpad.xcresult",
+      "result": "Passed",
+      "passedTests": 19,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "totalTestCount": 19
+    }
+  ],
+  "installation": {
+    "version_independently_confirmed": "0.1.0 (14)",
+    "in_place": true,
+    "normal_launch_without_fixture_arguments": true,
+    "strict_codesign_app_and_extension": true,
+    "app_group": "group.com.chayapat.oliv.ios",
+    "app_intents_count": 5
+  },
+  "limitations": [
+    "Soft-wrap navigation estimates host font and insets.",
+    "Hidden paragraph crossings assume LF; clipped or delayed proxy context can stop navigation.",
+    "Safari inline URL completion dismissal remains unresolved through public keyboard APIs."
+  ],
+  "unchanged_delete_timing_evidence": "keyboard-interaction-build13.json"
+}

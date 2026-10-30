@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme
+   LastUpgradeVersion = "2600"
+   version = "1.7">
+   <BuildAction
+      parallelizeBuildables = "YES"
+      buildImplicitDependencies = "YES"
+      runPostActionsOnFailure = "NO">
+      <BuildActionEntries>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "DF1302FD039903C9D66E8297"
+               BuildableName = "Oliv.app"
+               BlueprintName = "Oliv"
+               ReferencedContainer = "container:Oliv.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "146A4DFA8F182112CBDED089"
+               BuildableName = "OlivKeyboard.appex"
+               BlueprintName = "OlivKeyboard"
+               ReferencedContainer = "container:Oliv.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+      </BuildActionEntries>
+   </BuildAction>
+   <TestAction
+      buildConfiguration = "Debug"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      shouldUseLaunchSchemeArgsEnv = "NO"
+      onlyGenerateCoverageForSpecifiedTargets = "NO">
+      <MacroExpansion>
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "DF1302FD039903C9D66E8297"
+            BuildableName = "Oliv.app"
+            BlueprintName = "Oliv"
+            ReferencedContainer = "container:Oliv.xcodeproj">
+         </BuildableReference>
+      </MacroExpansion>
+      <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO"
+            useTestSelectionWhitelist = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "0ECB041B5E16B30E63ED5432"
+               BuildableName = "OlivTests.xctest"
+               BlueprintName = "OlivTests"
+               ReferencedContainer = "container:Oliv.xcodeproj">
+            </BuildableReference>
+            <SelectedTests>
+               <Test
+                  Identifier = "KeyboardLayoutTests">
+               </Test>
+               <Test
+                  Identifier = "KeyboardInteractionTests">
+               </Test>
+               <Test
+                  Identifier = "KeyboardRepeatPolicyTests">
+               </Test>
+               <Test
+                  Identifier = "KeyboardShiftPolicyTests">
+               </Test>
+               <Test
+                  Identifier = "KeyboardCursorNavigationTests">
+               </Test>
+               <Test
+                  Identifier = "KeyboardTrackpadGestureTests">
+               </Test>
+               <Test
+                  Identifier = "KeyboardHapticFeedbackTests">
+               </Test>
+            </SelectedTests>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO"
+            useTestSelectionWhitelist = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "85DB05078842CBE47E72AB27"
+               BuildableName = "OlivUITests.xctest"
+               BlueprintName = "OlivUITests"
+               ReferencedContainer = "container:Oliv.xcodeproj">
+            </BuildableReference>
+            <SelectedTests>
+               <Test
+                  Identifier = "KeyboardTouchUITests">
+               </Test>
+               <Test
+                  Identifier = "KeyboardVisualReferenceTests/testCaptureAppleEnglishLayers">
+               </Test>
+               <Test
+                  Identifier = "KeyboardVisualReferenceTests/testCaptureAppleThaiLayers">
+               </Test>
+               <Test
+                  Identifier = "KeyboardVisualReferenceTests/testCaptureOLIVEnglishAndThaiLayers">
+               </Test>
+            </SelectedTests>
+         </TestableReference>
+      </Testables>
+      <CommandLineArguments>
+      </CommandLineArguments>
+      <EnvironmentVariables>
+         <EnvironmentVariable
+            key = "OLIV_KEYBOARD_TESTS"
+            value = "1"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "OLIV_VISUAL_REFERENCE_TESTS"
+            value = "1"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+      </EnvironmentVariables>
+   </TestAction>
+   <LaunchAction
+      buildConfiguration = "Debug"
+      selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
+      selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
+      launchStyle = "0"
+      useCustomWorkingDirectory = "NO"
+      ignoresPersistentStateOnLaunch = "NO"
+      debugDocumentVersioning = "YES"
+      debugServiceExtension = "internal"
+      allowLocationSimulation = "YES">
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "DF1302FD039903C9D66E8297"
+            BuildableName = "Oliv.app"
+            BlueprintName = "Oliv"
+            ReferencedContainer = "container:Oliv.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+   </LaunchAction>
+   <ProfileAction
+      buildConfiguration = "Release"
+      shouldUseLaunchSchemeArgsEnv = "YES"
+      savedToolIdentifier = ""
+      useCustomWorkingDirectory = "NO"
+      debugDocumentVersioning = "YES">
+      <BuildableProductRunnable
+         runnableDebuggingMode = "0">
+         <BuildableReference
+            BuildableIdentifier = "primary"
+            BlueprintIdentifier = "DF1302FD039903C9D66E8297"
+            BuildableName = "Oliv.app"
+            BlueprintName = "Oliv"
+            ReferencedContainer = "container:Oliv.xcodeproj">
+         </BuildableReference>
+      </BuildableProductRunnable>
+   </ProfileAction>
+   <AnalyzeAction
+      buildConfiguration = "Debug">
+   </AnalyzeAction>
+   <ArchiveAction
+      buildConfiguration = "Release"
+      revealArchiveInOrganizer = "YES">
+   </ArchiveAction>
+</Scheme>
