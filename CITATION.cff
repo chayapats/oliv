@@ -8,8 +8,8 @@ authors:
 repository-code: https://github.com/chayapats/oliv
 url: https://chayapats.github.io/oliv/
 license: MIT
-version: 0.2.0
-date-released: "2026-10-11"
+version: 0.2.2
+date-released: "2026-10-28"
 abstract: >-
   Fully-local Thai + English push-to-talk dictation for macOS.
   Offline speech-to-text that restores English tech terms from

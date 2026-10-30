@@ -123,6 +123,19 @@ OLIV 0.2.0 เอา Python ออกจากแอปทั้งหมด ก
 
 **สเปกที่ต้องมี:** Mac ชิป Apple Silicon (M1 ขึ้นไป) และ macOS 14 Sonoma ขึ้นไป ถ้าใช้ OLIV API engine ต้องมีอินเทอร์เน็ตและ API key แต่ไม่ต้องโหลดโมเดลลงเครื่อง
 
+## Linux, Windows และ server ของคุณเอง
+
+<a href="server/README.md"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/server-hero-dark.png">
+  <img src="docs/img/readme/server-hero-light.png" alt="OLIV Server: เครื่อง GPU เครื่องเดียว ทุกอุปกรณ์พูดแล้วพิมพ์ได้ client บน Mac, Linux และ Windows ต่อผ่าน HTTPS ไปยังเครื่อง GPU ที่รัน oliv-api, ถอดเสียง, เกลาข้อความด้วย Gemma และ dashboard" width="100%">
+</picture></a>
+
+แอป Mac ประมวลผลทุกอย่างในเครื่อง ถ้าอยากใช้บนคอมเครื่องอื่นด้วย ให้รัน pipeline เดียวกันไว้บนเครื่อง GPU ของคุณเองครั้งเดียว
+
+- **[OLIV Server](server/README.md)** รันการถอดเสียงและเกลาข้อความบน Linux ที่มีการ์ด NVIDIA ผ่าน HTTPS API เดียว แยก key ให้แต่ละอุปกรณ์ และใช้ text core ที่เขียนด้วย Rust ตัวเดียวกับแอป Mac
+- **[OLIV desktop](desktop/README.md)** คือ client ขนาดเล็กที่เขียนด้วย Rust สำหรับ Linux (Hyprland/Wayland) และ Windows 10/11 กด Shift ขวาค้างไว้ พูด แล้วปล่อย ข้อความจะถูกวางลงในแอปที่เปิดอยู่
+- **แอป Mac** ก็ใช้ server ของคุณได้ ที่ Settings ▸ Cloud services ▸ OLIV API
+
 ## ความเป็นส่วนตัว
 
 - เมื่อใช้ engine ในเครื่องซึ่งเป็นค่าเริ่มต้น เสียงจะถูกประมวลผลบน Mac และไม่ถูกอัปโหลด
@@ -146,9 +159,9 @@ OLIV 0.2.0 เอา Python ออกจากแอปทั้งหมด ก
 </details>
 
 <details>
-<summary><b>ใช้กับ Mac ชิป Intel หรือ Windows ได้ไหม</b></summary>
+<summary><b>ใช้กับ Mac ชิป Intel, Windows หรือ Linux ได้ไหม</b></summary>
 
-ไม่ได้ OLIV ต้องใช้ Apple Silicon เพราะรันโมเดลด้วย MLX ของ Apple
+แอป Mac ต้องใช้ Apple Silicon เพราะรันโมเดลด้วย MLX ของ Apple ส่วนบน Windows 10/11 และ Linux (Hyprland) ใช้ [OLIV desktop client](desktop/README.md) คู่กับ [OLIV server](server/README.md) ที่คุณรันเองบนเครื่อง GPU หรือใช้ key ที่ผู้ดูแล server ให้มา
 </details>
 
 <details>

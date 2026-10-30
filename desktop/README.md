@@ -1,13 +1,43 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/img/readme/desktop-hero-dark.png">
+  <img src="../docs/img/readme/desktop-hero-light.png" alt="OLIV desktop, the Linux and Windows client: hold Right Shift, speak Thai and English, let go. A Windows Notepad window and a Hyprland terminal both show mixed Thai and English text, above the blue recording pill." width="100%">
+</picture>
+
 # OLIV desktop client (Linux and Windows)
 
-Thai+English push-to-talk dictation for Linux (Hyprland/Wayland) and Windows 10/11.
-Hold **Right Shift**, speak, release: the cleaned text is pasted into the focused app.
+**Hold Right Shift, speak Thai mixed with English, let go.**<br>
+The cleaned text is pasted into the focused app on Linux (Hyprland/Wayland) and Windows 10/11.
+
+[![Desktop CI](https://github.com/chayapats/oliv/actions/workflows/desktop.yml/badge.svg)](https://github.com/chayapats/oliv/actions/workflows/desktop.yml) [![Rust](https://img.shields.io/badge/client-Rust-241f11?logo=rust)](src) [![Linux: Hyprland](https://img.shields.io/badge/Linux-Hyprland%20%2F%20Wayland-57761f?logo=linux&logoColor=white)](#install-on-linux) [![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011-57761f)](#install-on-windows) [![MIT license](https://img.shields.io/github/license/chayapats/oliv?color=57761f)](../LICENSE)
+
+[Install on Linux](#install-on-linux) · [Install on Windows](#install-on-windows) · [Run your own server](../server/README.md) · [Mac app](../README.md)
+
+</div>
+
+<br>
+
+<p align="center">
+  <img src="../docs/img/readme/desktop-demo.gif" alt="Demo on Hyprland: in a terminal running Claude Code, the user holds Right Shift and the blue waveform pill appears at the bottom of the screen. On release the pill shows กำลังแปลง… (converting), then the prompt ช่วยเขียน unit test ให้ function parse_config หน่อย แล้วรัน cargo test ด้วย is pasted with the English words spelled in English." width="100%">
+</p>
 
 This is a small native Rust client. It records audio, sends it to an OLIV server
 (`oliv-api`: speech-to-text plus cleanup, see [`../server/`](../server/)) and pastes
 the reply. It does **not** run any model locally. You point it at **your own
 self-hosted OLIV server** (or one whose operator gave you a key). The macOS app in
 [`../macos/`](../macos/) is separate and runs fully on-device.
+
+## Highlights
+
+- ⌨️ **Push-to-talk anywhere.** Hold Right Shift to record, release to dictate. Left Shift keeps working normally.
+- 💬 **Shows what it's doing.** A small pill at the bottom of the screen shows a live waveform while you speak and กำลังแปลง… while the server works.
+- 🪶 **Nothing heavy on your laptop.** No models, no GPU: speech-to-text and cleanup run on your OLIV server.
+- 🔒 **Strict about where audio goes.** HTTPS with certificate checks, plain HTTP only on loopback and private networks, and redirects are always refused.
+- 🔁 **Never loses a recording.** A failed request keeps the WAV in `pending/`; `oliv retry` sends it again when the server is back.
+- 🧩 **Your words, your format.** Per-client vocabulary, ordered replacements, filler removal and Thai number formatting in `config.toml`.
+
+## Platforms
 
 | | Linux | Windows |
 |---|---|---|

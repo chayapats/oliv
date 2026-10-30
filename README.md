@@ -123,6 +123,19 @@ OLIV 0.2.0 removed Python from the app. Text processing and API requests use a s
 
 **Requirements:** an Apple Silicon Mac (M1 or newer) with macOS 14 Sonoma or later. The OLIV API engine needs an internet connection and an API key instead of local models.
 
+## Linux, Windows and your own server
+
+<a href="server/README.md"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/server-hero-dark.png">
+  <img src="docs/img/readme/server-hero-light.png" alt="OLIV Server: one GPU box, every device dictates. Mac, Linux and Windows clients connect over HTTPS to a GPU machine running oliv-api, speech-to-text, Gemma cleanup and a dashboard." width="100%">
+</picture></a>
+
+The Mac app runs everything on-device. For your other computers, run the same pipeline once on a GPU machine you control:
+
+- **[OLIV Server](server/README.md)** runs speech-to-text and cleanup on Linux with an NVIDIA GPU behind one HTTPS API, with a separate key for each device. It uses the same Rust text core as the Mac app.
+- **[OLIV desktop](desktop/README.md)** is a small Rust client for Linux (Hyprland/Wayland) and Windows 10/11. Hold Right Shift, speak, let go, and the text is pasted into the focused app.
+- **The Mac app** can use your server too: Settings ▸ Cloud services ▸ OLIV API.
+
 ## Privacy
 
 - With the default on-device engines, audio is processed on your Mac and is never uploaded.
@@ -146,9 +159,9 @@ Yes. After the one-time model download, the default engines need no internet con
 </details>
 
 <details>
-<summary><b>Does it work on Intel Macs or Windows?</b></summary>
+<summary><b>Does it work on Intel Macs, Windows or Linux?</b></summary>
 
-No. OLIV needs Apple Silicon because it runs models with Apple's MLX.
+The Mac app needs Apple Silicon because it runs models with Apple's MLX. On Windows 10/11 and Linux (Hyprland), use the [OLIV desktop client](desktop/README.md) with an [OLIV server](server/README.md) you run on a GPU machine, or one whose operator gives you a key.
 </details>
 
 <details>

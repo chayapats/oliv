@@ -1,20 +1,50 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/img/readme/server-hero-dark.png">
+  <img src="../docs/img/readme/server-hero-light.png" alt="OLIV Server: one GPU box, every device dictates. Mac, Linux and Windows clients connect over HTTPS to a GPU machine running oliv-api on port 8083, speech-to-text with typhoon-whisper-turbo on 8082, Gemma 4 E2B cleanup in llama.cpp on 8081 and an operator dashboard on 8090." width="100%">
+</picture>
+
 # OLIV Server
 
-The OLIV server runs OLIV's speech-to-text and Thai/English cleanup on your own
-GPU machine behind one small HTTPS API. Instead of running the models on every
-laptop or phone, you run them once on a GPU box and point the OLIV clients
-(Mac, Linux, Windows, iPhone) at it with an individual API key per device.
+**Run OLIV's Thai + English speech-to-text and cleanup on your own GPU machine.**<br>
+One small HTTPS API for the Mac, Linux and Windows clients, with a separate key for each device.
 
-This is the OLIV server, published so you can self-host it. It is a small,
-opinionated deployment, not a turnkey appliance: you provide the GPU machine,
-the model files and the llama.cpp / faster-whisper runtimes, and you decide how
-the API is reached from outside.
+[![Server CI](https://github.com/chayapats/oliv/actions/workflows/server.yml/badge.svg)](https://github.com/chayapats/oliv/actions/workflows/server.yml) [![Rust](https://img.shields.io/badge/oliv--api-Rust-241f11?logo=rust)](oliv-api) [![Linux + NVIDIA](https://img.shields.io/badge/Linux-NVIDIA%20CUDA-57761f?logo=linux&logoColor=white)](#requirements) [![MIT license](https://img.shields.io/github/license/chayapats/oliv?color=57761f)](../LICENSE)
 
-The HTTP contract clients rely on is in [docs/PUBLIC-API.md](docs/PUBLIC-API.md).
-The server-side personal dictionary that syncs across devices is described in
-[docs/DICTIONARY.md](docs/DICTIONARY.md).
+[API contract](docs/PUBLIC-API.md) · [Dictionary sync](docs/DICTIONARY.md) · [Dashboard](docs/DASHBOARD.md) · [Linux and Windows client](../desktop/README.md) · [Mac app](../README.md)
+
+</div>
+
+<br>
+
+The OLIV server runs speech-to-text and the Thai/English cleanup once, on a GPU
+box you control, instead of on every laptop or phone. Point the OLIV clients
+(Mac, Linux, Windows, iPhone) at it, each with its own API key.
+
+This is a small, opinionated deployment, not a turnkey appliance. You provide
+the GPU machine, the model files and the llama.cpp / faster-whisper runtimes,
+and you decide how the API is reached from outside.
+
+## Highlights
+
+- 🖥️ **One server, every device.** The Mac app's OLIV API engine and the Linux and Windows clients all speak the same [HTTP contract](docs/PUBLIC-API.md).
+- 🇹🇭 **The same text as the Mac.** The deterministic text core (Thai segmentation, built-in dictionary, Thai numbers, sound-alike matching) is the same `oliv-text-core` crate the Mac app runs.
+- 🔑 **A key per device.** Each key has its own scopes, expiry and rate limits and can be revoked without a restart. Only SHA-256 hashes are stored.
+- 📖 **A Dictionary that follows you.** Your personal names and terms sync across devices ([docs/DICTIONARY.md](docs/DICTIONARY.md)).
+- 🔒 **Locked to loopback.** Models and the dashboard bind 127.0.0.1. The API binds loopback or one private overlay address, and you choose the TLS ingress.
+- 🗂️ **No transcripts on disk.** Audio and text stay in memory. The usage log records key, route, status and timings only.
+- ♻️ **Reproducible builds.** A pinned Docker image produces the same bytes for the same commit, so a deployed binary can be matched to its commit.
 
 ## How it fits together
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../docs/img/readme/server-flow-dark.gif">
+  <img src="../docs/img/readme/server-flow-light.gif" alt="Animation of one dictation: the client records while a key is held, sends POST /v1/dictate through the TLS ingress, oliv-api checks the key, typhoon-whisper-turbo transcribes, the text core formats the number 8083, Gemma restores restart, service, port and log in English, and the text returns to the client to be pasted." width="100%">
+</picture>
+
+<details>
+<summary><b>Processes and ports</b></summary>
 
 ```
 client ──HTTPS──> your ingress (Cloudflare Tunnel, reverse proxy, ...)
@@ -30,6 +60,8 @@ client ──HTTPS──> your ingress (Cloudflare Tunnel, reverse proxy, ...)
 
 dashboard.py 127.0.0.1:8090   operator panel: model settings, API keys, usage
 ```
+
+</details>
 
 Every listener is bound to loopback. `oliv-api` refuses any bind other than
 `127.0.0.1` or a single private overlay address (100.64.0.0/10, the range used
