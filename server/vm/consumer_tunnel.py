@@ -30,6 +30,8 @@ from pathlib import Path
 ORIGIN = "http://127.0.0.1:8083"
 METRICS_PORT = 20247
 API_PATHS = "^/(health|v1/(dictate|clean|dictionary))$"
+TRIAL_ORIGIN = "http://127.0.0.1:8091"
+TRIAL_PATHS = "^/try(/key|/health|/)?$"
 # A plain DNS name (no wildcard, no port, no scheme), e.g. oliv.example.com.
 HOSTNAME_RE = re.compile(r"(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}")
 PROC = Path("/proc")
@@ -41,18 +43,20 @@ class Unsafe(ValueError):
     pass
 
 
-def ingress(hostname):
-    """The only consumer ingress allowed: the public API routes, then a 404."""
-    return [
-        {"hostname": hostname, "path": API_PATHS, "service": ORIGIN},
-        {"service": "http_status:404"},
-    ]
+def ingress(hostname, trial=False):
+    """The only consumer ingress allowed: the public API routes, optionally the
+    free-trial sign-up (vm/trial_keys.py), then a 404."""
+    rules = [{"hostname": hostname, "path": API_PATHS, "service": ORIGIN}]
+    if trial:
+        rules.append({"hostname": hostname, "path": TRIAL_PATHS, "service": TRIAL_ORIGIN})
+    return [*rules, {"service": "http_status:404"}]
 
 
 def ingress_hostname(rules):
     """Return the public hostname of a well-formed consumer ingress, else raise."""
     host = rules[0].get("hostname") if isinstance(rules, list) and rules and isinstance(rules[0], dict) else None
-    if not isinstance(host, str) or not HOSTNAME_RE.fullmatch(host) or rules != ingress(host):
+    if (not isinstance(host, str) or not HOSTNAME_RE.fullmatch(host)
+            or rules not in (ingress(host), ingress(host, trial=True))):
         raise Unsafe("consumer config must contain only the fixed API ingress and final 404")
     return host
 

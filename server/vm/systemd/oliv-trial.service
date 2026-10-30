@@ -1,0 +1,17 @@
+[Unit]
+Description=OLIV free-trial sign-up
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=%h/oliv
+ExecStart=/usr/bin/python3 -u %h/oliv/trial_keys.py
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+UMask=0077
+StandardOutput=append:%h/oliv/logs/trial.log
+StandardError=append:%h/oliv/logs/trial.log
+
+[Install]
+WantedBy=default.target

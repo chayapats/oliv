@@ -21,7 +21,7 @@ of the audio.
 | Key management | `oliv-keys` is the only authority over the key store. The [dashboard](DASHBOARD.md) calls the same CLI. The consumer API has no key-management routes. |
 | Inference | STT, cleanup and the text pipeline. Models are never exposed directly, and the dictation API cannot manage processes. |
 | Client | HTTPS with certificate verification; plain HTTP only for loopback/private-network endpoints the client accepts; 120 s default timeout. |
-| Ingress | Expose only `/health`, `/v1/dictate`, `/v1/clean` and `/v1/dictionary`, with a final 404. |
+| Ingress | Expose only `/health`, `/v1/dictate`, `/v1/clean` and `/v1/dictionary`, with a final 404. A server that offers a [free trial](#free-trial) also exposes `/try`, `/try/key` and `/try/health`, which go to a separate process. |
 
 Example `[api]` for a new installation whose models and runtimes are in place:
 
@@ -278,8 +278,8 @@ Whatever fronts `127.0.0.1:8083` (the bundled Cloudflare Tunnel helper
 
 - API keys mode only, trusted TLS, individual revocable keys, and rate/size
   limits at the edge where appropriate.
-- Allowlist `/health`, `/v1/dictate`, `/v1/clean`, `/v1/dictionary` with the
-  methods the API defines; block `/v1/status` and any admin/model route; no
+- Allowlist `/health`, `/v1/dictate`, `/v1/clean`, `/v1/dictionary` (plus the
+  [free-trial](#free-trial) paths if you offer one) with the methods the API defines; block `/v1/status` and any admin/model route; no
   generic proxy to arbitrary hosts/paths.
 - The origin is `127.0.0.1:8083` only. Never route ingress to `8081`, `8082`,
   `8087` or `8090`, and don't change the model listeners.
@@ -292,6 +292,23 @@ Whatever fronts `127.0.0.1:8083` (the bundled Cloudflare Tunnel helper
 For a small group you don't need accounts, a key web UI or a public admin
 endpoint, but an internet-reachable endpoint still needs watching for abuse,
 capacity and leaked credentials.
+
+## Free trial
+
+Optional and off by default. `vm/trial_keys.py` is a separate process on
+`127.0.0.1:8091` that serves a sign-up page and issues short-lived keys through
+`oliv-keys`; `oliv-api` itself still has no key-management routes.
+
+`POST /try/key` takes no credential and no meaningful body. It returns:
+
+```json
+{"ok": true, "token": "oliv_…", "expires_at": 1800000000,
+ "requests_per_minute": 6, "daily_requests": 60}
+```
+
+Refusals are `429` with `error` set to `client_limit`, `daily_limit` or `full`,
+and `503` with `closed` or `unavailable`. `GET /try` is the web page.
+Setup is in the [server README](../README.md#free-trial).
 
 ## Test scripts rejected by Cloudflare
 

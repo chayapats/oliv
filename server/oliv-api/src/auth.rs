@@ -21,6 +21,7 @@ const LOCK_NAME: &str = ".api-keys.lock";
 const MAX_STORE_BYTES: u64 = 1_048_576;
 const MAX_KEYS: usize = 256;
 const MAX_HEADER_BYTES: usize = 512;
+const TRIAL_NAME_PREFIX: &str = "trial-";
 const SCOPES: [&str; 3] = ["dictate", "clean", "status"];
 
 #[derive(Clone)]
@@ -288,6 +289,26 @@ pub fn revoke_key(root: &Path, id: &str) -> Result<(), String> {
         .ok_or_else(|| "unknown key ID".to_string())?;
     key.info.revoked = true;
     dir.write_store(&store).map_err(|e| e.message)
+}
+
+/// Removes trial keys that stopped working at least `grace_days` ago, so public
+/// sign-ups can't fill the store (revoked keys count towards `MAX_KEYS`). Only
+/// the `trial-` name prefix qualifies: operator keys are never deleted.
+pub fn prune_trial_keys(root: &Path, grace_days: u32) -> Result<usize, String> {
+    let cutoff = now()?.saturating_sub(u64::from(grace_days) * 86_400);
+    let dir = PrivateDir::open(root)?;
+    let _lock = dir.lock()?;
+    let mut store = dir.read_store().map_err(StoreReadError::message)?;
+    let before = store.keys.len();
+    store.keys.retain(|key| {
+        !(key.info.name.starts_with(TRIAL_NAME_PREFIX)
+            && (key.info.revoked || key.info.expires_at <= cutoff))
+    });
+    let removed = before - store.keys.len();
+    if removed > 0 {
+        dir.write_store(&store).map_err(|e| e.message)?;
+    }
+    Ok(removed)
 }
 
 fn now() -> Result<u64, String> {
@@ -709,6 +730,36 @@ fn validate_file(file: &File) -> Result<(), String> {
 mod tests {
     use super::*;
     use std::os::unix::fs::{PermissionsExt, symlink};
+
+    #[test]
+    fn prune_removes_only_finished_trial_keys() {
+        let fixture = Fixture::new();
+        for name in ["trial-old", "trial-recent", "trial-live", "trial-revoked", "alice"] {
+            let options = CreateKey {
+                name: name.into(),
+                ..CreateKey::default()
+            };
+            create_key(&fixture.0, options, &fixture.0.join(format!("{name}.key"))).unwrap();
+        }
+        let revoked = list_keys(&fixture.0).unwrap()[3].id.clone();
+        revoke_key(&fixture.0, &revoked).unwrap();
+        let today = now().unwrap();
+        fixture.edit(|store| {
+            // The operator's own key is older than any trial and must survive.
+            for (index, age_days) in [(0, 40), (1, 5), (4, 40)] {
+                store["keys"][index]["info"]["created_at"] = 1.into();
+                store["keys"][index]["info"]["expires_at"] = (today - age_days * 86_400).into();
+            }
+        });
+        assert_eq!(prune_trial_keys(&fixture.0, 30).unwrap(), 2);
+        let names: Vec<_> = list_keys(&fixture.0)
+            .unwrap()
+            .into_iter()
+            .map(|key| key.name)
+            .collect();
+        assert_eq!(names, ["trial-recent", "trial-live", "alice"]);
+        assert_eq!(prune_trial_keys(&fixture.0, 30).unwrap(), 0);
+    }
 
     struct Fixture(PathBuf);
 

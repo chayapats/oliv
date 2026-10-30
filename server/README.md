@@ -59,6 +59,7 @@ client ──HTTPS──> your ingress (Cloudflare Tunnel, reverse proxy, ...)
     qwen_asr.py, optional)
 
 dashboard.py 127.0.0.1:8090   operator panel: model settings, API keys, usage
+trial_keys.py 127.0.0.1:8091  optional free-trial sign-up page
 ```
 
 </details>
@@ -223,6 +224,45 @@ Then point each client at your server: in the Mac app, Settings ▸ Cloud
 services ▸ Enable OLIV API, with your server URL and that device's key; in the
 Windows and Linux clients, `[server] url` and `token` in their `config.toml`
 (see [docs/PUBLIC-API.md](docs/PUBLIC-API.md)).
+
+## Free trial
+
+Off by default. It lets people try OLIV without you issuing each key: the
+iPhone app's **Start free trial** button and the page at `/try` both call
+`vm/trial_keys.py`, which creates a short, low-limit key through `oliv-keys`.
+
+1. Create `~/oliv/trial.json`. Only the fields you want to change are needed:
+
+   ```json
+   {"testflight_url": "https://testflight.apple.com/join/YOUR_CODE",
+    "expires_in_days": 7, "requests_per_minute": 6, "daily_requests": 60,
+    "keys_per_client_per_day": 2, "keys_per_day": 30, "max_active": 100}
+   ```
+
+2. Install and start the service:
+
+   ```sh
+   cp ~/oliv/systemd/oliv-trial.service ~/.config/systemd/user/
+   systemctl --user daemon-reload
+   systemctl --user enable --now oliv-trial
+   ```
+
+3. Add the route to `~/oliv/cloudflared/consumer-config.json`, directly after the
+   API rule, then restart the tunnel with `stop.sh api-tunnel` and
+   `start.sh api-tunnel`:
+
+   ```json
+   {"hostname": "oliv.example.com", "path": "^/try(/key|/health|/)?$",
+    "service": "http://127.0.0.1:8091"}
+   ```
+
+Set `"enabled": false` in `trial.json` to close sign-ups immediately; no restart
+is needed, and missing or invalid settings also close them. Existing trial keys
+keep working until they expire, or until you revoke them. The limits are what
+bound GPU use: at the defaults, at most 30 new keys a day, 100 active trial keys
+and 60 requests a day per key. Keys are named `trial-…`, stop working after
+`expires_in_days`, and are deleted 30 days later. The daily counters in
+`trial-ledger.json` hold keyed hashes, not addresses.
 
 ## API keys
 

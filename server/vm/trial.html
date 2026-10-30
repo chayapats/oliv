@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ลองใช้ OLIV ฟรี</title>
+<style>
+:root{--bg:#f6f3ea;--card:#fffdf7;--ink:#23261c;--soft:#62665a;--olive:#57761f;--line:#e0dbc9}
+@media(prefers-color-scheme:dark){:root{--bg:#191b15;--card:#23261d;--ink:#f1efe6;--soft:#a9ac9c;--olive:#9db24e;--line:#373a2e}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif}
+main{max-width:540px;margin:0 auto;padding:40px 20px 56px}
+.brand{font-weight:700;letter-spacing:.24em;color:var(--olive)}
+h1{font-size:34px;line-height:1.2;margin:18px 0 10px}
+.lead{color:var(--soft);margin:0 0 26px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px;margin-bottom:16px}
+.card h2{font-size:19px;margin:0 0 8px}
+.card p{margin:0 0 14px;color:var(--soft)}
+.button{display:block;width:100%;border:0;border-radius:14px;padding:15px;font:inherit;font-weight:600;text-align:center;text-decoration:none;cursor:pointer;background:var(--olive);color:var(--card)}
+.button:disabled{opacity:.6}
+.key{word-break:break-all;font:14px/1.5 ui-monospace,Menlo,monospace;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;margin:0 0 12px}
+.note{font-size:14px;color:var(--soft)}
+[hidden]{display:none}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">OLIV</div>
+  <h1>พูดไทยปนอังกฤษ ได้ข้อความพร้อมใช้</h1>
+  <p class="lead">ลองฟรี 7 วัน ไม่ต้องสมัครสมาชิก ไม่ต้องตั้งค่าอะไร</p>
+
+  <section class="card" id="iphone">
+    <h2>บน iPhone</h2>
+    <p>ติดตั้งแอปผ่าน TestFlight แล้วแตะ “เริ่มทดลองใช้ฟรี” ในแอป จบในแตะเดียว</p>
+    <a class="button" id="testflight" href="__TESTFLIGHT_URL__">ติดตั้ง OLIV</a>
+  </section>
+
+  <section class="card">
+    <h2>บน Mac, Windows หรือ Linux</h2>
+    <p>รับ key ไปวางในหน้า Settings ของแอป OLIV ช่อง API key</p>
+    <button class="button" id="get" type="button">รับ key ทดลอง</button>
+    <div id="result" hidden>
+      <p class="key" id="key"></p>
+      <button class="button" id="copy" type="button">คัดลอก</button>
+      <p class="note" id="limits"></p>
+    </div>
+    <p class="note" id="error" role="alert" hidden></p>
+  </section>
+
+  <p class="note">เสียงของคุณจะถูกส่งไปถอดความที่เซิร์ฟเวอร์ OLIV แล้วลบทิ้ง ไม่เก็บไฟล์เสียงหรือข้อความไว้บนเซิร์ฟเวอร์ ช่วงทดลองมีจำกัดจำนวนครั้งต่อวัน</p>
+</main>
+<script>
+const messages = {
+  closed: "ตอนนี้ปิดรับผู้ทดลองชั่วคราว",
+  daily_limit: "วันนี้มีผู้ขอครบจำนวนแล้ว ลองใหม่พรุ่งนี้ได้เลย",
+  client_limit: "เครือข่ายนี้ขอ key ครบจำนวนของวันนี้แล้ว ลองใหม่พรุ่งนี้ได้เลย",
+  full: "ตอนนี้ผู้ทดลองเต็มแล้ว ลองใหม่อีกครั้งภายหลัง"
+};
+const $ = id => document.getElementById(id);
+if (!$("testflight").getAttribute("href").startsWith("https://")) $("iphone").hidden = true;
+$("get").addEventListener("click", async () => {
+  $("get").disabled = true;
+  $("error").hidden = true;
+  try {
+    const response = await fetch("/try/key", {method: "POST"});
+    const reply = await response.json();
+    if (!reply.ok) throw new Error(reply.error);
+    $("key").textContent = reply.token;
+    const until = new Date(reply.expires_at * 1000).toLocaleDateString("th-TH", {dateStyle: "long"});
+    $("limits").textContent = `ใช้ได้ถึง ${until} วันละ ${reply.daily_requests} ครั้ง key นี้แสดงครั้งเดียว`;
+    $("get").hidden = true;
+    $("result").hidden = false;
+  } catch (error) {
+    $("error").textContent = messages[error.message] || "ขอ key ไม่สำเร็จ ลองใหม่อีกครั้ง";
+    $("error").hidden = false;
+    $("get").disabled = false;
+  }
+});
+$("copy").addEventListener("click", async () => {
+  await navigator.clipboard.writeText($("key").textContent);
+  $("copy").textContent = "คัดลอกแล้ว";
+});
+</script>
+</body>
+</html>

@@ -83,13 +83,15 @@ for name in "${!LOCAL[@]}"; do
 done
 changed() { local n; for n in "${CHANGED[@]}"; do [[ "$n" == "$1" ]] && return 0; done; return 1; }
 
-restart_whisper=0; restart_api=1; restart_dashboard=0
+restart_whisper=0; restart_api=1; restart_dashboard=0; restart_trial=0
 # Restarts an interrupted deploy synced files for but never ran.
 pending="$(remote "cat ~/oliv/run/deploy-pending 2>/dev/null; true")"
 [[ " $pending " == *" whisper "* ]] && restart_whisper=1
 [[ " $pending " == *" api "* ]] && restart_api=1
 [[ " $pending " == *" dashboard "* ]] && restart_dashboard=1
+[[ " $pending " == *" trial "* ]] && restart_trial=1
 changed whisper_server.py && restart_whisper=1
+if changed trial_keys.py || changed dashboard_keys.py; then restart_trial=1; fi
 # Always apply the operator-owned API config, including config-only auth changes.
 if changed dashboard_usage.py || changed dashboard.py || changed dashboard_keys.py || changed dashboard.html || changed oliv_config.py; then restart_dashboard=1; fi
 
@@ -107,7 +109,7 @@ fi
 
 if [[ ${#CHANGED[@]} -eq 0 ]]; then echo "  no file changes"; else printf '  changed: %s\n' "${CHANGED[@]}"; fi
 echo "  existing API bind: $API_HOST:8083 · explicit auth mode: $AUTH_MODE (unchanged)"
-echo "  restart: whisper=$restart_whisper api=$restart_api dashboard=$restart_dashboard (gemma never)"
+echo "  restart: whisper=$restart_whisper api=$restart_api dashboard=$restart_dashboard trial=$restart_trial (gemma never)"
 [[ $DRY -eq 1 ]] && { echo "dry run, nothing sent"; exit 0; }
 
 if [[ ${#CHANGED[@]} -gt 0 ]]; then
@@ -121,6 +123,7 @@ todo=""
 [[ $restart_whisper -eq 1 ]] && todo+=" whisper"
 [[ $restart_api -eq 1 ]] && todo+=" api"
 [[ $restart_dashboard -eq 1 ]] && todo+=" dashboard"
+[[ $restart_trial -eq 1 ]] && todo+=" trial"
 remote "mkdir -p ~/oliv/run && echo '$todo' > ~/oliv/run/deploy-pending"
 
 if [[ ${#CHANGED[@]} -gt 0 ]]; then
@@ -191,6 +194,11 @@ fi
 if [[ $restart_dashboard -eq 1 ]]; then
   say "restart dashboard"
   remote "~/oliv/dashboard.sh stop && ~/oliv/dashboard.sh start"
+fi
+
+if [[ $restart_trial -eq 1 ]]; then
+  # The trial service is optional, so only a running one is restarted.
+  remote "if systemctl --user is-active --quiet oliv-trial; then systemctl --user restart oliv-trial; fi"
 fi
 
 remote "rm -f ~/oliv/run/deploy-pending"

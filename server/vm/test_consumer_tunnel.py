@@ -74,6 +74,17 @@ class ConsumerTunnelTests(unittest.TestCase):
                           "ingress", "validate"])
         self.assertNotIn(self.credentials["TunnelSecret"], " ".join(self.tunnel.command(IDENT)))
 
+    def test_trial_route_is_optional_and_exact(self):
+        host = "oliv.example.com"
+        self.assertEqual(consumer.ingress_hostname(consumer.ingress(host)), host)
+        rules = consumer.ingress(host, trial=True)
+        self.assertEqual(consumer.ingress_hostname(rules), host)
+        for field, value in (("path", ".*"), ("service", "http://127.0.0.1:8090")):
+            widened = copy.deepcopy(rules)
+            widened[1][field] = value
+            with self.assertRaises(consumer.Unsafe):
+                consumer.ingress_hostname(widened)
+
     def test_rejects_broader_routes_hosts_origins_and_unknown_settings(self):
         cases = []
         for field, value in (("hostname", "*"), ("path", ".*"),
