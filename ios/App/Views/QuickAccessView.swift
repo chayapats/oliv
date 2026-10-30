@@ -35,7 +35,7 @@ struct QuickAccessView: View {
                         SectionHeading(title: "Speak into the same field", caption: "A minimal keyboard, started with your Action button or Back Tap.")
                         GuideStep(number: "1", title: "Enable the OLIV keyboard", detail: "iPhone Settings → General → Keyboard → Keyboards → Add New Keyboard → OLIV. Enable Allow Full Access so OLIV can hand the finished text to its keyboard. The keyboard does not send your typing to a server.")
                         GuideStep(number: "2", title: "Select OLIV where you write", detail: "Use the keyboard switcher to choose OLIV. You can keep it selected for everyday Thai and English typing.")
-                        GuideStep(number: "3", title: "Assign Toggle OLIV", detail: "Create a shortcut containing the Toggle OLIV action. Select that shortcut in Settings → Action Button → Shortcut, or Accessibility → Touch → Back Tap. Leave Live Activities enabled for OLIV in iPhone Settings.")
+                        GuideStep(number: "3", title: "Assign Toggle OLIV", detail: "iPhone Settings → Action Button → swipe to Controls → Choose a Control → Toggle OLIV. On any other iPhone, add Toggle OLIV to Control Center. Leave Live Activities enabled for OLIV in iPhone Settings.")
                         GuideStep(number: "4", title: "Start once. Speak. Pause.", detail: "Press and hold the Action button once, or use your assigned Back Tap gesture. Wait for Listening, then speak. By default, OLIV finishes after 1.5 seconds without detected speech. Invoke again to finish sooner. Keep the same field and cursor for automatic draft insertion; OLIV does not send the message.")
                         Label("Typing keeps the microphone off. Capture releases it before processing your words.", systemImage: "mic.slash")
                             .font(.caption)
@@ -128,8 +128,8 @@ struct QuickAccessView: View {
 
 private struct GuideStep: View {
     let number: String
-    let title: String
-    let detail: String
+    let title: LocalizedStringKey
+    let detail: LocalizedStringKey
 
     var body: some View {
         HStack(alignment: .top, spacing: 13) {

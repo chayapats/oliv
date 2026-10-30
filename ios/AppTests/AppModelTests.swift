@@ -296,8 +296,7 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(cleanCalls, 0)
         XCTAssertEqual(dictateCalls, 0)
         XCTAssertFalse(model.isCheckingConnection)
-        XCTAssertTrue(model.connectionMessage?.contains("API reachable") == true)
-        XCTAssertTrue(model.connectionMessage?.contains("not verified") == true)
+        XCTAssertEqual(model.connectionMessage, "The API key is invalid, expired or revoked. Update it in Settings and retry.")
         XCTAssertFalse(model.connectionMessage?.contains("wrong-token") == true)
         XCTAssertEqual(model.phase, .idle)
         XCTAssertTrue(model.history.isEmpty)
@@ -309,8 +308,7 @@ final class AppModelTests: XCTestCase {
         let h = try Harness()
         defer { h.removeDirectory() }
         await h.model.checkConnection()
-        XCTAssertTrue(h.model.connectionMessage?.contains("API reachable") == true)
-        XCTAssertTrue(h.model.connectionMessage?.contains("not verified") == true)
+        XCTAssertEqual(h.model.connectionMessage, "Connected. Your API key works.")
         XCTAssertTrue(h.model.history.isEmpty)
         XCTAssertNil(h.model.latest)
         let cleanCalls = await h.service.cleanCalls
@@ -730,6 +728,7 @@ private actor AuthorizationProbeService: OlivServing {
     private(set) var healthCalls = 0
     private(set) var cleanCalls = 0
     private(set) var dictateCalls = 0
+    func verifyKey() async throws { throw OlivError.unauthorized }
     func health() async throws -> ServerHealth {
         healthCalls += 1
         return try JSONDecoder().decode(ServerHealth.self, from: Data(#"{"ok":true}"#.utf8))
@@ -753,6 +752,7 @@ private struct UnavailableCredentialStore: CredentialStoring {
 
 private actor CleanupFailureService: OlivServing {
     func clean(text: String, options: OlivOptions) async throws -> DictationReply { throw OlivError.networkUnavailable }
+    func verifyKey() async throws {}
     func health() async throws -> ServerHealth { throw OlivError.networkUnavailable }
     func dictate(wav: Data, options: OlivOptions) async throws -> DictationReply { throw OlivError.networkUnavailable }
 }

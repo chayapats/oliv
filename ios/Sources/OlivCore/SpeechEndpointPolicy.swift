@@ -42,7 +42,7 @@ public struct SpeechEndpointPolicy: Sendable {
                   (1...64).contains(minimumSpeechObservations),
                   maximumSpeechGap.isFinite, maximumSpeechGap >= 0,
                   maximumSpeechGap <= analysisGracePeriod else {
-                throw OlivError.invalidConfiguration("The automatic finish timing is invalid.")
+                throw OlivError.invalidConfiguration(String(localized: "The automatic finish timing is invalid.", bundle: .main))
             }
             self.initialSilenceTimeout = initialSilenceTimeout
             self.trailingSilence = trailingSilence

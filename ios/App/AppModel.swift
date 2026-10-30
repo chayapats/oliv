@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import CryptoKit
 import Observation
@@ -8,6 +9,7 @@ protocol OlivServing: Sendable {
     func dictate(wav: Data, options: OlivOptions) async throws -> DictationReply
     func clean(text: String, options: OlivOptions) async throws -> DictationReply
     func health() async throws -> ServerHealth
+    func verifyKey() async throws
 }
 extension OlivClient: OlivServing {}
 
@@ -15,7 +17,9 @@ extension OlivClient: OlivServing {}
 final class AppModel {
     static let shared = AppModel.makeDefault()
 
-    var phase: CapturePhase = .idle
+    var phase: CapturePhase = .idle {
+        didSet { if !isBusy, oldValue != phase { scheduleProcessRelease() } }
+    }
     var settings = AppSettings()
     var tokenInput = ""
     var cleanupDraft = ""
@@ -27,6 +31,10 @@ final class AppModel {
     var message: String?
     var connectionMessage: String?
     var isCheckingConnection = false
+    var isStartingTrial = false
+    /// Stays set after connecting so setup can finish its remaining steps.
+    var isInSetup = false
+    var trialMessage: String?
     var hasToken = false
     var selectedTab = 0
     var isDemo = false
@@ -38,6 +46,12 @@ final class AppModel {
         // UI redraws must not read Keychain on every audio-meter tick.
         return (try? OlivConfiguration(baseURL: url, token: "configured", allowsInsecureHTTP: settings.allowsInsecureHTTP)) != nil
     }
+    var needsSetup: Bool { settings.finishedSetup != true && !isConfigured }
+    /// Free trials come from the server this build ships with. A source build
+    /// without one has nothing to ask.
+    var trialServerURL = AppSettings.defaultServerURL
+    var offersTrial: Bool { !trialServerURL.isEmpty }
+    var trialHasEnded: Bool { settings.trialExpiresAt.map { $0 <= Date() } ?? false }
     var isBusy: Bool { phase == .preparing || phase == .recording || phase == .processing }
     var isRecording: Bool { phase == .recording }
     var formattedElapsed: String {
@@ -57,6 +71,8 @@ final class AppModel {
     @ObservationIgnored private let keyboardDelivery: (any KeyboardDelivering)?
     @ObservationIgnored private var keyboardTarget: KeyboardCaptureTarget?
     @ObservationIgnored private var keyboardCaptureRequested = false
+    @ObservationIgnored private let requestTrialKey: (URL) async throws -> TrialKey
+    @ObservationIgnored private let isInBackground: @MainActor () -> Bool
     private enum IntentStartStage { case setup, liveActivity, microphone }
     @ObservationIgnored private var intentStartStage: IntentStartStage = .setup
     @ObservationIgnored private var savedServerURL = ""
@@ -71,18 +87,27 @@ final class AppModel {
     @ObservationIgnored private var activeRecordID: UUID?
     @ObservationIgnored private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
     @ObservationIgnored private var speechEndpoint: SpeechEndpointPolicy?
+    @ObservationIgnored private let releaseProcess: (() -> Void)?
+    @ObservationIgnored private var capturedInBackground = false
+    @ObservationIgnored private var releaseTask: Task<Void, Never>?
 
     init(directory: URL? = nil,
          credentials: any CredentialStoring = KeychainCredentialStore(),
          capture: (any AudioCapturing)? = nil,
          liveActivitiesEnabled: Bool = true,
          keyboardDelivery: (any KeyboardDelivering)? = nil,
-         clientFactory: @escaping (OlivConfiguration) -> any OlivServing = { OlivClient(configuration: $0) }) {
+         clientFactory: @escaping (OlivConfiguration) -> any OlivServing = { OlivClient(configuration: $0) },
+         requestTrialKey: @escaping (URL) async throws -> TrialKey = { try await TrialClient.requestKey(baseURL: $0) },
+         isInBackground: @escaping @MainActor () -> Bool = { UIApplication.shared.applicationState == .background },
+         releaseProcess: (() -> Void)? = nil) {
         self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("OLIV", isDirectory: true)
         self.credentials = credentials
         self.capture = capture ?? AudioCaptureService(directory: self.directory)
         self.clientFactory = clientFactory
+        self.requestTrialKey = requestTrialKey
+        self.isInBackground = isInBackground
+        self.releaseProcess = releaseProcess
         self.liveActivitiesEnabled = liveActivitiesEnabled
         self.keyboardDelivery = keyboardDelivery
         do {
@@ -97,12 +122,12 @@ final class AppModel {
                 do {
                     settings = try JSONDecoder().decode(AppSettings.self, from: Data(contentsOf: settingsURL))
                     if settings.requiresNewAPIKey == true {
-                        message = "OLIV now uses a public HTTPS API. Enter your new individual API key in Settings; your writing preferences and recordings were kept."
+                        message = String(localized: "OLIV now uses a public HTTPS API. Enter your new individual API key in Settings; your writing preferences and recordings were kept.")
                     }
                     savedServerURL = settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
                     savedCredentialBinding = settings.credentialBinding
                 }
-                catch { message = "Saved settings could not be read. Reconnect in Settings; your history and recordings were preserved." }
+                catch { message = String(localized: "Saved settings could not be read. Reconnect in Settings; your history and recordings were preserved.") }
             }
             do {
                 if settings.requiresNewAPIKey == true { hasToken = false }
@@ -127,14 +152,22 @@ final class AppModel {
                     try FileManager.default.moveItem(at: optionsRecoveryURL,
                         to: recovered.appendingPathComponent(name + "-options.json"))
                 }
-                message = "An interrupted recording was incomplete and could not be retried. Its partial file was preserved. You can record again."
+                message = String(localized: "An interrupted recording was incomplete and could not be retried. Its partial file was preserved. You can record again.")
             }
             try refreshStores()
         } catch {
-            message = "Saved data could not be loaded. Existing files were preserved. \(safeDescription(error))"
+            message = String(localized: "Saved data could not be loaded. Existing files were preserved. \(safeDescription(error))")
         }
         self.capture.onInterruption = { [weak self] in
             Task { @MainActor [weak self] in await self?.stopFromIntent() }
+        }
+        isInSetup = needsSetup
+        // A background capture ends its process, so opening OLIV right after it
+        // must still show that result.
+        if let newest = history.first, newest.reply.hasText,
+           Date().timeIntervalSince(newest.createdAt) < 600 {
+            latest = newest
+            phase = .result
         }
     }
 
@@ -146,32 +179,32 @@ final class AppModel {
             return PreviewEnvironment.makeModel()
         }
         #endif
-        return AppModel(keyboardDelivery: KeyboardDeliveryCoordinator.makeDefault())
+        return AppModel(keyboardDelivery: KeyboardDeliveryCoordinator.makeDefault(), releaseProcess: { exit(0) })
     }
 
     private func configuration() throws -> OlivConfiguration {
         guard settings.requiresNewAPIKey != true else {
-            throw OlivError.invalidConfiguration("The old shared token is retired. Enter a new individual API key in Settings and save it.")
+            throw OlivError.invalidConfiguration(String(localized: "The old shared token is retired. Enter a new individual API key in Settings and save it."))
         }
         guard let url = URL(string: settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)),
               let token = try credentials.read(), !token.isEmpty else { throw AppCaptureError.setupRequired }
         guard settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines) == savedServerURL else {
-            throw OlivError.invalidConfiguration("Save the server address in Settings before connecting or recording.")
+            throw OlivError.invalidConfiguration(String(localized: "Save the server address in Settings before connecting or recording."))
         }
         guard savedCredentialBinding == Self.credentialBinding(token: token, serverURL: savedServerURL) else {
-            throw OlivError.invalidConfiguration("Save your server settings again to pair this address with its access token.")
+            throw OlivError.invalidConfiguration(String(localized: "Save your server settings again to pair this address with its access token."))
         }
         return try OlivConfiguration(baseURL: url, token: token, allowsInsecureHTTP: settings.allowsInsecureHTTP)
     }
 
     func saveSettings() {
-        guard !isBusy else { message = "Finish this dictation before changing settings."; return }
+        guard !isBusy else { message = String(localized: "Finish this dictation before changing settings."); return }
         do {
             try settings.options.validate()
             try settings.options.validateServerLimits()
             let entered = tokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
             if settings.requiresNewAPIKey == true && entered.isEmpty {
-                throw OlivError.invalidConfiguration("Enter your new individual API key. The retired shared token cannot be reused.")
+                throw OlivError.invalidConfiguration(String(localized: "Enter your new individual API key. The retired shared token cannot be reused."))
             }
             let token = entered.isEmpty ? (try credentials.read() ?? "") : entered
             guard let url = URL(string: settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
@@ -180,6 +213,7 @@ final class AppModel {
             _ = try OlivConfiguration(baseURL: url, token: token, allowsInsecureHTTP: settings.allowsInsecureHTTP)
             var approved = settings
             approved.requiresNewAPIKey = false
+            if !entered.isEmpty { approved.trialExpiresAt = nil }
             approved.credentialBinding = Self.credentialBinding(token: token,
                 serverURL: settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines))
             let data = try JSONEncoder().encode(approved)
@@ -190,9 +224,52 @@ final class AppModel {
             settings = approved
             tokenInput = ""
             hasToken = true
-            connectionMessage = "Settings saved. API key permissions are checked when you dictate or clean text."
+            connectionMessage = String(localized: "Settings saved.")
             message = nil
         } catch { message = safeDescription(error) }
+    }
+
+    /// One tap from nothing to a working connection: the key goes straight into
+    /// Keychain, so nobody copies, pastes or sees it.
+    func startTrial() async {
+        guard !isBusy, !isStartingTrial, let url = URL(string: trialServerURL) else { return }
+        isStartingTrial = true
+        trialMessage = nil
+        defer { isStartingTrial = false }
+        do {
+            let key = try await requestTrialKey(url)
+            settings.serverURL = trialServerURL
+            settings.allowsInsecureHTTP = false
+            tokenInput = key.token
+            saveSettings()
+            tokenInput = ""
+            guard hasToken, isConfigured else { return }
+            settings.trialExpiresAt = key.expiresAt
+            persistSettings()
+            connectionMessage = nil
+        } catch TrialRefusal.closed {
+            trialMessage = String(localized: "The free trial is closed right now. Try again later.")
+        } catch TrialRefusal.limitReached {
+            trialMessage = String(localized: "Today's free trials are taken. Try again tomorrow.")
+        } catch {
+            trialMessage = safeDescription(error)
+        }
+    }
+
+    var microphoneAllowed: Bool { capture.hasPermission }
+    var microphoneDenied: Bool { AVAudioApplication.shared.recordPermission == .denied }
+    func requestMicrophone() async -> Bool { await capture.requestPermission() }
+    func keyboardIsConnected() async -> Bool { await keyboardDelivery?.isConnected() ?? false }
+
+    func finishSetup() {
+        isInSetup = false
+        settings.finishedSetup = true
+        persistSettings()
+    }
+
+    private func persistSettings() {
+        guard let data = try? JSONEncoder().encode(settings) else { return }
+        try? data.write(to: directory.appendingPathComponent("settings.json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
 
     func checkConnection() async {
@@ -201,18 +278,22 @@ final class AppModel {
         defer { isCheckingConnection = false }
         do {
             guard let url = URL(string: settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-                throw OlivError.invalidConfiguration("Enter a valid OLIV server URL.")
+                throw OlivError.invalidConfiguration(String(localized: "Enter a valid OLIV server URL."))
             }
-            // Liveness is public and must neither disclose a saved key to an unsaved
-            // address nor require the separate clean scope as a dictation preflight.
+            // Liveness is public and must not disclose a saved key to an unsaved address.
             let client = clientFactory(try OlivConfiguration(baseURL: url, token: "liveness-only",
                 allowsInsecureHTTP: settings.allowsInsecureHTTP))
             let health = try await client.health()
             guard health.ok else {
-                connectionMessage = "The API responded but did not report healthy liveness."
+                connectionMessage = String(localized: "The server answered but isn't ready. Try again in a moment.")
                 return
             }
-            connectionMessage = "API reachable · key and speech models not verified. Dictation requires dictate permission; text cleanup requires clean permission."
+            guard isConfigured else {
+                connectionMessage = String(localized: "Server found. Save your settings to check your API key.")
+                return
+            }
+            try await clientFactory(try configuration()).verifyKey()
+            connectionMessage = String(localized: "Connected. Your API key works.")
         } catch { connectionMessage = safeDescription(error) }
     }
 
@@ -251,9 +332,9 @@ final class AppModel {
         switch intentStartStage {
         case .setup: return safeDescription(error)
         case .liveActivity:
-            return "iOS could not start OLIV’s Live Activity. Check iPhone Settings → Apps → OLIV → Live Activities, then try Toggle OLIV again."
+            return String(localized: "iOS could not start OLIV’s Live Activity. Check iPhone Settings → Apps → OLIV → Live Activities, then try Toggle OLIV again.")
         case .microphone:
-            return "iOS could not start the microphone. Recording did not begin. If a call or another recording is active, finish it before trying Toggle OLIV again."
+            return String(localized: "iOS could not start the microphone. Recording did not begin. If a call or another recording is active, finish it before trying Toggle OLIV again.")
         }
     }
 
@@ -266,7 +347,28 @@ final class AppModel {
         }
     }
 
+    /// iOS lets a process it launched in the background start audio once. Every
+    /// later start fails with 561015905 (`!pla`) until that process is gone, and
+    /// waiting doesn't help, while a fresh launch always succeeds. So a capture
+    /// that ran in the background ends the process and the next press gets a
+    /// new one. There's no visible effect: the app isn't on screen, finished work
+    /// is on disk, and iOS relaunches it for the next intent.
+    private func scheduleProcessRelease() {
+        guard capturedInBackground, let releaseProcess else { return }
+        releaseTask?.cancel()
+        // Lets the intent return and the Live Activity finish updating.
+        releaseTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard let self, !Task.isCancelled, !self.isBusy, self.isInBackground(),
+                  // Text kept only in memory must survive until the user opens OLIV.
+                  self.settings.keepHistory || self.message == nil else { return }
+            releaseProcess()
+        }
+    }
+
     private func beginRecording(fromIntent: Bool, startID: UUID, allowKeyboardDelivery: Bool) async throws {
+        releaseTask?.cancel()
+        if fromIntent, isInBackground() { capturedInBackground = true }
         intentStartStage = .setup
         if fromIntent { CaptureDiagnostics.record(event: .startRequested, detail: diagnosticAppState) }
         do {
@@ -425,7 +527,7 @@ final class AppModel {
             CaptureDiagnostics.record(event: .noSpeechCancelled)
             await cancel()
             if phase == .idle, operationID == nil {
-                message = "No speech was detected. The microphone is off; nothing was sent."
+                message = String(localized: "No speech was detected. The microphone is off; nothing was sent.")
             }
         case .cancel(.detectorUnavailable):
             await preserveAutomaticCaptureFailure()
@@ -454,14 +556,14 @@ final class AppModel {
             let wav = try outcome.get()
             guard let pendingStore else { throw OlivError.corruptedStore }
             let item = try pendingStore.enqueue(wav: wav, options: activeOptions)
-            try pendingStore.recordAttempt(id: item.id, errorDescription: "Automatic finish was unavailable. No request was sent.")
+            try pendingStore.recordAttempt(id: item.id, errorDescription: String(localized: "Automatic finish was unavailable. No request was sent."))
             try refreshStores()
             try capture.removeRecoveredAudio()
             try? FileManager.default.removeItem(at: optionsRecoveryURL)
-            message = "Automatic finish became unavailable. The microphone is off and your audio is saved for retry. Nothing was inserted."
+            message = String(localized: "Automatic finish became unavailable. The microphone is off and your audio is saved for retry. Nothing was inserted.")
         } catch {
             // Keep the recovery file if reading, conversion or persistence failed.
-            message = "Recording stopped because automatic finish became unavailable. Nothing was inserted. Open OLIV to review the recording."
+            message = String(localized: "Recording stopped because automatic finish became unavailable. Nothing was inserted. Open OLIV to review the recording.")
         }
         if liveActivitiesEnabled { await LiveActivityManager.shared.cancel() }
         guard operationID == captureID else { return }
@@ -497,10 +599,10 @@ final class AppModel {
                 // A worker can fail while stop drains it. The result is saved,
                 // but an unreliable endpoint must never publish partial speech.
                 clearKeyboardDelivery()
-                try? pendingStore.recordAttempt(id: item.id, errorDescription: "Automatic finish was unavailable. No request was sent.")
+                try? pendingStore.recordAttempt(id: item.id, errorDescription: String(localized: "Automatic finish was unavailable. No request was sent."))
                 CaptureDiagnostics.record(event: .speechAnalysisFailed)
                 phase = .failed
-                message = "Automatic finish became unavailable. The microphone is off and your audio is saved for retry. Nothing was inserted."
+                message = String(localized: "Automatic finish became unavailable. The microphone is off and your audio is saved for retry. Nothing was inserted.")
                 if liveActivitiesEnabled { await LiveActivityManager.shared.cancel() }
                 return
             }
@@ -565,18 +667,18 @@ final class AppModel {
                     try Task.checkCancellation()
                     guard self.operationID == id else { return }
                     if !published {
-                        deliveryNotice = "Your text is ready here. Automatic insertion was unavailable because the original keyboard field could not be confirmed. Copy the result to continue."
+                        deliveryNotice = String(localized: "Your text is ready here. Automatic insertion was unavailable because the original keyboard field could not be confirmed. Copy the result to continue.")
                     }
                 } else {
                     self.clearKeyboardDelivery()
                     if expectsKeyboardDelivery && reply.hasText {
-                        deliveryNotice = "Your text is ready here. OLIV could not connect to the active keyboard. Enable Allow Full Access for OLIV and keep the same field open when using Toggle OLIV."
+                        deliveryNotice = String(localized: "Your text is ready here. OLIV could not connect to the active keyboard. Enable Allow Full Access for OLIV and keep the same field open when using Toggle OLIV.")
                     }
                 }
                 self.phase = .result
                 if self.settings.autoCopy && reply.hasText && UIApplication.shared.applicationState == .active { self.copy(entry) }
                 if let deliveryNotice { self.message = deliveryNotice }
-                if !reply.hasText { self.message = "No speech was detected. Nothing was copied." }
+                if !reply.hasText { self.message = String(localized: "No speech was detected. Nothing was copied.") }
                 if reply.cleanupError != nil {
                     self.message = [deliveryNotice, "AI cleanup was unavailable. Your words were preserved with OLIV’s deterministic cleanup."].compactMap { $0 }.joined(separator: " ")
                 }
@@ -663,7 +765,7 @@ final class AppModel {
         elapsed = 0
         level = 0
         latest = nil
-        message = wasProcessing && !pending.isEmpty ? "Stopped waiting. Your recording is saved for retry." : nil
+        message = wasProcessing && !pending.isEmpty ? String(localized: "Stopped waiting. Your recording is saved for retry.") : nil
         if liveActivitiesEnabled { await LiveActivityManager.shared.cancel() }
     }
 
@@ -698,7 +800,7 @@ final class AppModel {
         do {
             try historyStore?.markCopied(id: entry.id)
             try refreshStores()
-        } catch { message = "Text copied, but the history could not be updated." }
+        } catch { message = String(localized: "Text copied, but the history could not be updated.") }
     }
 
     func deleteHistory(_ entry: HistoryEntry) {
@@ -742,7 +844,7 @@ final class AppModel {
         _ = try pendingStore.enqueue(wav: wav, options: options)
         try capture.removeRecoveredAudio()
         try? FileManager.default.removeItem(at: optionsRecoveryURL)
-        message = "Recovered an interrupted recording. It is ready to retry."
+        message = String(localized: "Recovered an interrupted recording. It is ready to retry.")
     }
 
     private func startBackgroundTask() {
@@ -769,10 +871,10 @@ final class AppModel {
     }
 
     private func safeDescription(_ error: any Error) -> String {
-        if error is CancellationError { return "The request was cancelled." }
+        if error is CancellationError { return String(localized: "The request was cancelled.") }
         if let known = error as? OlivError { return known.localizedDescription }
         if let known = error as? AppCaptureError { return known.localizedDescription }
         if let known = error as? CredentialError { return known.localizedDescription }
-        return "OLIV could not finish this operation. Check available storage, microphone access, and your server connection."
+        return String(localized: "OLIV could not finish this operation. Check available storage, microphone access, and your server connection.")
     }
 }

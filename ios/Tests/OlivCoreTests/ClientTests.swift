@@ -137,6 +137,60 @@ final class ClientTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(capture.get()?.httpMethod, "GET")
     }
 
+    func testVerifyKeySendsTheBearerToTheDictionaryRoute() async throws {
+        let capture = RequestCapture()
+        let (client, session) = try makeClient { request in
+            capture.set(request)
+            return .response(200, Data(#"{"ok":true,"revision":0,"max_entries":1000,"rejected":[],"entries":[]}"#.utf8))
+        }
+        defer { session.invalidateAndCancel() }
+        try await client.verifyKey()
+        XCTAssertEqual(capture.get()?.value(forHTTPHeaderField: "Authorization"), "Bearer test-token")
+        XCTAssertEqual(capture.get()?.url?.path, "/proxy/v1/dictionary")
+        XCTAssertEqual(capture.get()?.httpMethod, "GET")
+    }
+
+    func testVerifyKeyReportsARejectedKey() async throws {
+        let (client, session) = try makeClient { _ in .response(401, Data()) }
+        defer { session.invalidateAndCancel() }
+        do { try await client.verifyKey(); XCTFail("Expected rejection") }
+        catch { XCTAssertEqual(error as? OlivError, .unauthorized) }
+    }
+
+    func testTrialRequestReturnsAValidatedKeyWithoutAnyCredential() async throws {
+        let capture = RequestCapture()
+        let (url, session) = makeTrialServer { request in
+            capture.set(request)
+            return .response(200, Data(#"{"ok":true,"token":"oliv_0123_abcd","expires_at":1800000000,"daily_requests":60}"#.utf8))
+        }
+        defer { session.invalidateAndCancel() }
+        let key = try await TrialClient.requestKey(baseURL: url, session: session)
+        XCTAssertEqual(key, TrialKey(token: "oliv_0123_abcd", expiresAt: Date(timeIntervalSince1970: 1_800_000_000)))
+        XCTAssertNil(capture.get()?.value(forHTTPHeaderField: "Authorization"))
+        XCTAssertEqual(capture.get()?.url?.path, "/try/key")
+        XCTAssertEqual(capture.get()?.httpMethod, "POST")
+    }
+
+    func testTrialRefusalsAndMalformedRepliesAreDistinct() async throws {
+        let cases: [(Int, String, any Error)] = [
+            (429, #"{"ok":false,"error":"daily_limit"}"#, TrialRefusal.limitReached),
+            (503, #"{"ok":false,"error":"closed"}"#, TrialRefusal.closed),
+            (404, "", TrialRefusal.closed),
+            (200, #"{"ok":true,"token":"has space","expires_at":1}"#, OlivError.invalidResponse),
+            (200, #"{"ok":false}"#, OlivError.invalidResponse)
+        ]
+        for (status, body, expected) in cases {
+            let (url, session) = makeTrialServer { _ in .response(status, Data(body.utf8)) }
+            defer { session.invalidateAndCancel() }
+            do {
+                _ = try await TrialClient.requestKey(baseURL: url, session: session)
+                XCTFail("Expected refusal for \(status) \(body)")
+            } catch {
+                XCTAssertEqual(String(describing: error), String(describing: expected))
+            }
+        }
+    }
+
     func testHTTPErrorsAndMalformedRepliesAreSafe() async throws {
         let cases: [(Int, String, OlivError)] = [
             (401, "private token secret", .unauthorized),
@@ -328,6 +382,14 @@ final class ClientTests: XCTestCase, @unchecked Sendable {
         config.protocolClasses = [StubURLProtocol.self]
         let session = URLSession(configuration: config)
         return (OlivClient(configuration: try OlivConfiguration(baseURL: URL(string: "https://\(host)/proxy/")!, token: "test-token"), session: session), session)
+    }
+
+    private func makeTrialServer(_ handler: @escaping @Sendable (URLRequest) -> StubURLProtocol.Result) -> (URL, URLSession) {
+        let host = UUID().uuidString.lowercased() + ".example.test"
+        StubURLProtocol.registry.set(host, handler)
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [StubURLProtocol.self]
+        return (URL(string: "https://\(host)")!, URLSession(configuration: config))
     }
 
     private func requestBody(_ request: URLRequest) throws -> Data {

@@ -88,7 +88,7 @@ final class AudioCaptureService: NSObject, AVAudioRecorderDelegate, AudioCapturi
         stoppedAnalysisFailed = false
         reportedEngineStop = false
         guard !FileManager.default.fileExists(atPath: recoveryURL.path) else {
-            throw OlivError.invalidAudio("An interrupted recording is still waiting to be recovered. Relaunch OLIV before recording again.")
+            throw OlivError.invalidAudio(String(localized: "An interrupted recording is still waiting to be recovered. Relaunch OLIV before recording again."))
         }
         let session = AVAudioSession.sharedInstance()
         do {
@@ -157,9 +157,22 @@ final class AudioCaptureService: NSObject, AVAudioRecorderDelegate, AudioCapturi
             newPipeline.submit(buffer, atAudioFramePosition: time.isSampleTimeValid ? time.sampleTime : nil)
         }
         newEngine.prepare()
-        try newEngine.start()
+        CaptureDiagnostics.record(event: .audioEngineStarting)
+        try startWithRetry(newEngine)
         engineHasStarted = true
         CaptureDiagnostics.record(event: .recorderStarted)
+    }
+
+    /// The input can be briefly unavailable right after activation: real devices
+    /// have reported 2003329396 (`what`) here while a later start succeeded.
+    private func startWithRetry(_ engine: AVAudioEngine) throws {
+        for attempt in 1...3 {
+            do { return try engine.start() }
+            catch where attempt < 3 {
+                CaptureDiagnostics.record(event: .audioEngineStartRetry, error: error)
+                Thread.sleep(forTimeInterval: 0.25)
+            }
+        }
     }
 
     func meter() -> (duration: TimeInterval, level: Double, decibels: Float) {

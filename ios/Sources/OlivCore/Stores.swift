@@ -35,7 +35,7 @@ public final class HistoryStore: @unchecked Sendable {
     private let lock = NSLock()
 
     public init(directory: URL, retentionLimit: Int = 1_000) throws {
-        guard retentionLimit > 0 else { throw OlivError.invalidOptions("Keep at least one history entry.") }
+        guard retentionLimit > 0 else { throw OlivError.invalidOptions(String(localized: "Keep at least one history entry.", bundle: .main)) }
         try StoreIO.prepare(directory)
         file = directory.appendingPathComponent("history.json")
         self.retentionLimit = retentionLimit
@@ -116,7 +116,7 @@ public final class PendingRecordingStore: @unchecked Sendable {
         guard metadata.sampleRate == RecordingLimits.sampleRate, metadata.channelCount == 1,
               metadata.bitsPerSample == 16, metadata.duration > 0,
               metadata.duration <= RecordingLimits.maximumDuration else {
-            throw OlivError.invalidAudio("Save 16 kHz mono PCM recordings of up to two minutes.")
+            throw OlivError.invalidAudio(String(localized: "Save 16 kHz mono PCM recordings of up to two minutes.", bundle: .main))
         }
         let recording = PendingRecording(id: UUID(), createdAt: createdAt, audioDuration: metadata.duration,
                                          options: options, attemptCount: 0, lastError: nil)

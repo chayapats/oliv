@@ -77,9 +77,9 @@ After Apple processes the uploaded build:
    feedback email, review contact and review instructions.
 2. Use the existing **OLIV Internal** and **OLIV Beta** external groups.
 3. Add the build to the external group and submit for Beta App Review.
-   Reviewers need a working, individually provisioned OLIV API key to test
-   dictation; supply it securely through App Store Connect review information.
-   Do not commit it or include it in the public beta description.
+   Reviewers can use Start free trial once the server's trial is on. Otherwise
+   supply a working OLIV API key through App Store Connect review information;
+   do not commit it or include it in the public beta description.
 4. Once the build is approved, verify that the existing public link offers
    the approved build, then share it with testers.
 
@@ -91,18 +91,16 @@ describe review and public-link availability. Builds expire after 90 days.
 OLIV turns Thai and English speech into editable text using your configured
 OLIV server. Record in the app, keep a local transcript history, clean existing
 text, and optionally use the OLIV keyboard and Shortcuts for dictation handoff.
-Requires iOS 18 or later and an individual API key from your OLIV administrator.
-The keyboard's Full Access is optional for ordinary typing and required for
-dictation handoff. Recording begins only when you request it.
+Requires iOS 18 or later. Tap Start free trial for 7 days of use, or connect your
+own OLIV server. The keyboard's Full Access is optional for ordinary typing and
+required for dictation handoff. Recording begins only when you request it.
 
 ## What to test (public)
 
-Set your individual API key in Settings. Test a foreground recording in Thai
-and English, compare raw and cleaned text, and try copy/paste. If your key has
-the clean scope, test Clean existing text. Optionally enable the OLIV keyboard
-with Full Access and test English/Thai typing, cursor movement and deletion.
-Action button automatic finish and repeated background activation remain
-experimental; report failures and device/iOS version through TestFlight.
+Tap Start free trial and follow setup. Test a recording in Thai and English,
+compare raw and cleaned text, and try copy/paste. Enable the OLIV keyboard with
+Full Access, put Toggle OLIV on the Action button or in Control Center, and try
+it in your usual apps. Report failures and your device and iOS version through
+TestFlight.
 
-Each tester needs their own OLIV API key separately from TestFlight enrollment.
-TestFlight installation does not grant access to the OLIV server.
+Testers use their own 7-day trial key, or their own OLIV API key.

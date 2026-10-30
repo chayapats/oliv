@@ -34,6 +34,29 @@ final class OlivUITests: XCTestCase {
     }
 
     @MainActor
+    func testFirstRunGoesFromFreeTrialToFinishedSetup() {
+        let app = launch(["--first-run"])
+        tap(app.buttons["startTrialButton"], in: app)
+        tap(app.buttons["setupRecordButton"], in: app)
+        tap(app.buttons["setupRecordButton"], in: app)
+        XCTAssertTrue(app.staticTexts["setupResult"].waitForExistence(timeout: 5))
+        tap(app.buttons["setupNextButton"], in: app)
+        XCTAssertTrue(app.textFields["keyboardPracticeField"].waitForExistence(timeout: 3))
+        tap(app.buttons["setupNextButton"], in: app)
+        tap(app.buttons["finishSetupButton"], in: app)
+        XCTAssertTrue(app.tabBars.buttons["Settings"].waitForExistence(timeout: 3))
+        app.tabBars.buttons["Settings"].tap()
+        XCTAssertTrue(app.switches["ownServerToggle"].waitForExistence(timeout: 3))
+    }
+
+    @MainActor
+    func testFirstRunOffersAnExistingKeyWithoutTrial() {
+        let app = launch(["--first-run"])
+        tap(app.buttons["useOwnKeyButton"], in: app)
+        XCTAssertTrue(app.textFields["serverURLField"].waitForExistence(timeout: 3))
+    }
+
+    @MainActor
     func testCancelDoesNotCreateResult() {
         let app = launch()
         tap(app.buttons["recordButton"], in: app)
@@ -65,7 +88,7 @@ final class OlivUITests: XCTestCase {
         XCTAssertGreaterThan(connection.frame.minY, app.navigationBars["Settings"].frame.maxY)
         XCTAssertLessThan(connection.frame.maxY, app.buttons["saveSettingsButton"].frame.minY)
         tap(connection, in: app)
-        let connected = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "API reachable", "not verified")).firstMatch
+        let connected = app.staticTexts["Connected. Your API key works."]
         XCTAssertTrue(connected.waitForExistence(timeout: 5))
         attachScreenshot(app, named: "OLIV-settings")
         app.tabBars.buttons["History"].tap()

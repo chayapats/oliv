@@ -57,7 +57,7 @@ struct KeychainCredentialStore: CredentialStoring {
 
 enum CredentialError: LocalizedError {
     case unavailable
-    var errorDescription: String? { "The access token could not be read or saved securely. Unlock your iPhone and try again." }
+    var errorDescription: String? { String(localized: "The access token could not be read or saved securely. Unlock your iPhone and try again.") }
 }
 
 #if DEBUG

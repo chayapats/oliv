@@ -9,6 +9,7 @@ enum CaptureDiagnostics {
         case liveActivityStarting, liveActivityStarted, microphoneStarting, microphoneStarted
         case audioSessionConfiguring, audioSessionConfigured, audioSessionActivating, audioSessionActivated
         case recorderStarting, recorderStarted
+        case audioEngineStarting, audioEngineStartRetry
         case automaticFinish, noSpeechCancelled, speechAnalysisFailed
         case audioEngineStoppedUnexpectedly, audioPipelineFailed
         case audioConversionFailed, audioWriteFailed
@@ -35,6 +36,7 @@ enum CaptureDiagnostics {
         case coreML = "com.apple.CoreML"
         case metal = "MTLCommandBufferErrorDomain"
         case audioPipeline = "OLIVAudioPipeline"
+        case audioEngine = "com.apple.coreaudio.avfaudio"
         case other
     }
 
@@ -77,7 +79,7 @@ enum CaptureDiagnostics {
 
     /// An explicit directory supports isolated tests without touching real logs.
     final class Store: @unchecked Sendable {
-        static let maximumEvents = 40
+        static let maximumEvents = 120
         private static let maximumFileBytes = 64 * 1_024
         private let directory: URL
         private let lock = NSLock()

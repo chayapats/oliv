@@ -13,6 +13,7 @@
 		0965395BE1C0A48BB7FDE251 /* KeyboardRepeatPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D73D6063D3EC846D31C79724 /* KeyboardRepeatPolicyTests.swift */; };
 		115E204A5171C0E153DF30C7 /* KeyboardHostDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB25E952143FBC19BC8A707E /* KeyboardHostDocument.swift */; };
 		12036D7725704C8485AE1976 /* OlivWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 95281F1A6EE172A895D6C9B5 /* OlivWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		12BC93BBD2EB9425EA092A32 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 2D4179C3D97A0EFCD284B115 /* Localizable.xcstrings */; };
 		1347A6DFB3F77CCCA098AE88 /* KeyboardSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64EA690C2AE7CF88CCBB60B9 /* KeyboardSetupView.swift */; };
 		17B5A3F6D2D68FD1591BB6BE /* OlivIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8D486C4ADF30314255A981 /* OlivIntents.swift */; };
 		1907A94E0F63F38228F64FA4 /* OlivUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0226F5BEFDACFA7E054AEA1E /* OlivUITests.swift */; };
@@ -32,6 +33,7 @@
 		37C28516801CDF88A2CC5814 /* KeyboardCursorNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CFB983D7AE27433889E08CA /* KeyboardCursorNavigation.swift */; };
 		39878D898CA8AAA625568D67 /* KeyboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31F64ECAF9926C337F073159 /* KeyboardView.swift */; };
 		3C19E6415C1B1BE7390B114B /* KeyboardShiftPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A351EFBD31ED40A2B75651F /* KeyboardShiftPolicy.swift */; };
+		3CE62B038DE0F5839F07FB2C /* ActionButtonUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C19D9D34A9F4684E66AE0F13 /* ActionButtonUITests.swift */; };
 		443AD0829EBA150DB42279C2 /* OlivCore in Frameworks */ = {isa = PBXBuildFile; productRef = A6879FD0053409F96FD06278 /* OlivCore */; };
 		4A0E8BA314FB718DD9C31997 /* KeyboardRepeatPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F704B5A17C33B1570421BD15 /* KeyboardRepeatPolicy.swift */; };
 		4BF13ABA82AD4B2F3F9567BA /* PhysicalAudioUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7AF037756044F4CB6FB0E9A /* PhysicalAudioUITests.swift */; };
@@ -45,6 +47,7 @@
 		64CAB8C62B93C44F4881EF2D /* KeyboardTrackpadGestureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAFD6A4C59951399A1AE1706 /* KeyboardTrackpadGestureTests.swift */; };
 		65589B41145EA3CFB7D7BE3A /* PublicAPIMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5098B10016503F343BB24A /* PublicAPIMigrationTests.swift */; };
 		663579FE2D78BEFD45DF8DD8 /* KeyboardInteractionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70AC72988209E5C97ECF9AC0 /* KeyboardInteractionTests.swift */; };
+		68885B99E45910F80F499E5F /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57ED30F648F20968C69C56E3 /* SetupView.swift */; };
 		699ADDC7F060CCE5D6127AB7 /* KeyboardTestHostView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3A3AB33A1E591BDC4011EAB /* KeyboardTestHostView.swift */; };
 		7004245F69D0C66A010E71DC /* OlivActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD1801EE98C2BE6FDBD137B1 /* OlivActivityAttributes.swift */; };
 		70270F9EC6525E4FDCA0D7CE /* CaptureDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38B456C0BFEB695552F20A1F /* CaptureDiagnostics.swift */; };
@@ -81,6 +84,7 @@
 		E77DFF71F42F8FABEB738115 /* OlivStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FE035650BC0B4950B964C61 /* OlivStyle.swift */; };
 		E9DB3F0BE818CDDF4567A757 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA78A2308EC8EEFEA700BA4E /* LiveActivityManager.swift */; };
 		EC1779E2AB34C5DBF4CC7734 /* SileroVAD.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = 35B433DF055880DD0F04F7DC /* SileroVAD.mlpackage */; };
+		EFE51D1D386FF8FF01660740 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 2D4179C3D97A0EFCD284B115 /* Localizable.xcstrings */; };
 		F1111F8BD6C0F30216EEEAF1 /* SileroVAD-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 1F216294FE859F2A4253532B /* SileroVAD-LICENSE.txt */; };
 		F1774424BA32C8740937CFD9 /* OlivKeyboard.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F923A545E3BADE443AA9C948 /* OlivKeyboard.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		F4618ADA7ACD09B9E44C7144 /* KeyboardHapticFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 756DB257E8047A906147A6B4 /* KeyboardHapticFeedback.swift */; };
@@ -143,6 +147,7 @@
 		1B92AB28BCDC95B10BCFBEDA /* ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ios; path = .; sourceTree = SOURCE_ROOT; };
 		1F216294FE859F2A4253532B /* SileroVAD-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "SileroVAD-LICENSE.txt"; sourceTree = "<group>"; };
 		29B9BE1B07B466E2215312C9 /* KeyboardShiftPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShiftPolicyTests.swift; sourceTree = "<group>"; };
+		2D4179C3D97A0EFCD284B115 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		2D49B8C8D1D332762CC5BC7C /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		2F99F03D47E8B978969582EA /* KeyboardTouchUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardTouchUITests.swift; sourceTree = "<group>"; };
 		31F46DF1709D5957A8E9F57A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -159,6 +164,7 @@
 		5234FBCB3430D606B77A651B /* CaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
 		527C6C25877D7372170DED14 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		5469511BD317209E37201095 /* KeyboardVisualReferenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardVisualReferenceTests.swift; sourceTree = "<group>"; };
+		57ED30F648F20968C69C56E3 /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
 		5BB1D92B95952F1A8FCF8004 /* KeyboardFeelUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardFeelUITests.swift; sourceTree = "<group>"; };
 		5E3D8F75666A8E341262C2BE /* AppModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModelTests.swift; sourceTree = "<group>"; };
 		5E5098B10016503F343BB24A /* PublicAPIMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicAPIMigrationTests.swift; sourceTree = "<group>"; };
@@ -186,6 +192,7 @@
 		BAA178E78F4020B0640105C9 /* KeyboardPopupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardPopupView.swift; sourceTree = "<group>"; };
 		BB9E80856C958140CFE416B6 /* KeyboardCursorNavigationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardCursorNavigationTests.swift; sourceTree = "<group>"; };
 		BD1801EE98C2BE6FDBD137B1 /* OlivActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OlivActivityAttributes.swift; sourceTree = "<group>"; };
+		C19D9D34A9F4684E66AE0F13 /* ActionButtonUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionButtonUITests.swift; sourceTree = "<group>"; };
 		C220F9DDC1574E2B05D688AD /* Oliv.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Oliv.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D2DF1F02515505C1F2DADE91 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		D73D6063D3EC846D31C79724 /* KeyboardRepeatPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardRepeatPolicyTests.swift; sourceTree = "<group>"; };
@@ -321,6 +328,7 @@
 			children = (
 				38B456C0BFEB695552F20A1F /* CaptureDiagnostics.swift */,
 				703FC4D6C92C2FB465C326C2 /* KeyboardBridgeEnvironment.swift */,
+				2D4179C3D97A0EFCD284B115 /* Localizable.xcstrings */,
 				BD1801EE98C2BE6FDBD137B1 /* OlivActivityAttributes.swift */,
 				FA8D486C4ADF30314255A981 /* OlivIntents.swift */,
 			);
@@ -330,6 +338,7 @@
 		71A31D1ECA5BC963ECEB47E2 /* UITests */ = {
 			isa = PBXGroup;
 			children = (
+				C19D9D34A9F4684E66AE0F13 /* ActionButtonUITests.swift */,
 				5BB1D92B95952F1A8FCF8004 /* KeyboardFeelUITests.swift */,
 				E467696BD1D46067509A1B9C /* KeyboardHostDeletionUITests.swift */,
 				2F99F03D47E8B978969582EA /* KeyboardTouchUITests.swift */,
@@ -406,6 +415,7 @@
 				4FE035650BC0B4950B964C61 /* OlivStyle.swift */,
 				179C7926492CBF587C24A39E /* QuickAccessView.swift */,
 				31F46DF1709D5957A8E9F57A /* SettingsView.swift */,
+				57ED30F648F20968C69C56E3 /* SetupView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -458,6 +468,7 @@
 			buildConfigurationList = C5A25692EF0B8651EFE6AF45 /* Build configuration list for PBXNativeTarget "OlivWidgets" */;
 			buildPhases = (
 				36F1D269C918D021E158AE16 /* Sources */,
+				0EEA29C87A8B1C010D3F4F8B /* Resources */,
 			);
 			buildRules = (
 			);
@@ -549,6 +560,7 @@
 			knownRegions = (
 				Base,
 				en,
+				th,
 			);
 			mainGroup = 8A33CA88C355DFCE8344FBA2;
 			minimizedProjectReferenceProxies = 1;
@@ -570,6 +582,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		0EEA29C87A8B1C010D3F4F8B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EFE51D1D386FF8FF01660740 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		50CBD1AB9364CAA18766C634 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -583,6 +603,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				949826E8AA5846D116A3CADF /* Assets.xcassets in Resources */,
+				12BC93BBD2EB9425EA092A32 /* Localizable.xcstrings in Resources */,
 				2C2D7A3815729A6C07BA885C /* PrivacyInfo.xcprivacy in Resources */,
 				F1111F8BD6C0F30216EEEAF1 /* SileroVAD-LICENSE.txt in Resources */,
 				54815BF164CC5C46B71C1826 /* SileroVAD-PROVENANCE.md in Resources */,
@@ -618,6 +639,7 @@
 				3476BA1D11CBB5042E7E9D36 /* PreviewEnvironment.swift in Sources */,
 				DB55908DE0F6D15116809400 /* QuickAccessView.swift in Sources */,
 				8A93D8C45B0BBAD2A699AC57 /* SettingsView.swift in Sources */,
+				68885B99E45910F80F499E5F /* SetupView.swift in Sources */,
 				EC1779E2AB34C5DBF4CC7734 /* SileroVAD.mlpackage in Sources */,
 				1B444BE788CFC7A0AA64D46F /* SpeechActivityDetector.swift in Sources */,
 			);
@@ -687,6 +709,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3CE62B038DE0F5839F07FB2C /* ActionButtonUITests.swift in Sources */,
 				1D383B0D346B270789F9C761 /* KeyboardFeelUITests.swift in Sources */,
 				1CB88F36415CA5E7C1794914 /* KeyboardHostDeletionUITests.swift in Sources */,
 				8370C80D8487167696604248 /* KeyboardTouchUITests.swift in Sources */,
@@ -864,7 +887,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 17;
+				CURRENT_PROJECT_VERSION = 18;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = SRAQ34JPLS;
 				ENABLE_NS_ASSERTIONS = NO;
@@ -885,6 +908,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -980,7 +1004,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 17;
+				CURRENT_PROJECT_VERSION = 18;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = SRAQ34JPLS;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1008,6 +1032,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;

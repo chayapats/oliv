@@ -2,9 +2,9 @@
 
 A small native iPhone client for an [OLIV server](../server/README.md): speak Thai and English, keep the original OLIV cleanup pipeline, then use the text where you are writing.
 
-**An optional minimal keyboard, with no always-listening microphone.** An Action button or Back Tap shortcut starts recording; by default, OLIV finishes after speech and a 1.5-second pause. A second invocation can still finish sooner. When the OLIV keyboard remains active in the same unchanged field, the app can hand the new transcript to it for automatic insertion. You can also keep Apple's keyboard and use Copy/Paste. Physical build 4 completed one background start/stop, transcription and keyboard-insertion round trip. A later start failed audio activation, so repeat-start reliability remains unresolved. **Capture with OLIV** remains a separate action that deliberately opens the app.
+**An optional minimal keyboard, with no always-listening microphone.** An Action button or Back Tap shortcut starts recording; by default, OLIV finishes after speech and a 1.5-second pause. A second invocation can still finish sooner. When the OLIV keyboard remains active in the same unchanged field, the app can hand the new transcript to it for automatic insertion. You can also keep Apple's keyboard and use Copy/Paste. **Capture with OLIV** remains a separate action that deliberately opens the app.
 
-Build 7 uses a bundled CPU-only Silero speech detector after build 6's physical SoundAnalysis attempt failed. The replacement passed a real iPhone foreground-to-background recording/classification check; an Action button start-to-insertion round trip is still pending. See [current test evidence](docs/TESTING.md#automatic-finish--build-7).
+Repeated Action button starts passed 12 of 12 on a physical iPhone in build 18. See [test evidence](docs/TESTING.md#repeated-action-button-starts--build-18).
 
 ## Implemented
 
@@ -32,23 +32,33 @@ Select the **Oliv** scheme and an iPhone simulator or paired iPhone. For another
 
 On this development Mac, Xcode-beta.app supplies the working iOS 27 SDK and runs the installed iOS 26.4.1 simulator. Xcode.app reports a missing iOS 26.5 platform component. Commands below select beta without changing the system-wide selection.
 
-## Connect
+## Getting started
 
-1. Request a new individual API key for this iPhone from the OLIV administrator. The old shared token and private API address are retired. A key with scope **dictate** includes cleanup performed during dictation; **Clean existing text** separately requires scope **clean**.
-2. Open Settings and enter your OLIV server's HTTPS URL (source builds ship none; an operator's release build can prefill it, see [TestFlight distribution](docs/TESTFLIGHT.md)). No private VPN is required for an HTTPS server. Leave **Allow private HTTP** off.
-3. Paste the new key into the secure API token field and save. It goes into this device's Keychain, never the repository or settings JSON. A blank field keeps an already paired saved key; upgrading from the retired endpoint requires a new key.
-4. Tap **Test connection** to check public API liveness. Success means the API responds; it does **not** verify the key, its scopes, Whisper/Gemma readiness, or transcription. This check sends no key and does not run cleanup or dictation.
-5. Start a foreground recording to allow the microphone and check dictation with your key. Enable Live Activities when using background controls. Test **Clean existing text** separately if your key has scope **clean**.
+First launch walks through everything, and each step checks itself:
+
+1. **Start free trial** requests a 7-day key from the server baked into the build (`OLIV_DEFAULT_API_URL`) and saves it to Keychain. Nobody sees or pastes a key. **I have an API key** goes to Settings instead. Source builds have no default server, so they show only that option.
+2. **Allow microphone**, with a button to iPhone Settings if it was refused.
+3. **Try it now** records and shows a first result, before any keyboard setup.
+4. **Use it in every app** opens OLIV's page in iPhone Settings, then confirms OLIV's keyboard is live in a practice field.
+5. **Start with one press** shows how to put **Toggle OLIV** on the Action button or in Control Center.
+
+The app and the optional [free-trial server](../server/README.md#free-trial) work together; a server without one answers the trial request with a plain "closed" message.
+
+## Connect your own server
+
+1. Ask the OLIV administrator for an API key for this iPhone. A key with scope **dictate** includes cleanup during dictation; **Clean existing text** also needs scope **clean**.
+2. In Settings, enter your OLIV server's HTTPS URL and paste the key. It goes into this device's Keychain, never the repository or settings JSON.
+3. Tap **Test connection**. This checks that the server responds and that the key works, without sending speech or using quota. Before saving a new address it checks only that the server responds, so a saved key never reaches an unsaved address.
 
 No real token is bundled. Do not put it in a commit, issue, or launch argument. See [privacy](docs/PRIVACY.md).
 
-If the API rate-limits a request, OLIV preserves pending audio and honors the server's cooldown across launches. `429` without a usable `Retry-After` uses 60 seconds. Wait before manually retrying; changing the key or URL does not bypass the cooldown. `401` means the key is invalid, expired or revoked; `403` can mean a missing operation scope or an edge access rule. A successful health check does not resolve either error.
+If the API rate-limits a request, OLIV preserves pending audio and honors the server's cooldown across launches. `429` without a usable `Retry-After` uses 60 seconds. Wait before manually retrying; changing the key or URL does not bypass the cooldown. `401` means the key is invalid, expired or revoked; `403` can mean a missing operation scope or an edge access rule.
 
 ## Action button with the OLIV keyboard
 
-Enable OLIV in **Settings → General → Keyboard → Keyboards → Add New Keyboard**, then enable **Allow Full Access** for its shared dictation handoff. Select OLIV in the destination field. Create a shortcut containing **Toggle OLIV**, and assign it in **Settings → Action Button → Shortcut** or **Accessibility → Touch → Back Tap**.
+Enable OLIV in **Settings → General → Keyboard → Keyboards → Add New Keyboard**, then enable **Allow Full Access** for its shared dictation handoff. Select OLIV in the destination field. Put **Toggle OLIV** on **Settings → Action Button → Controls**, or add it to Control Center on any iPhone. No shortcut is needed. Back Tap still needs a shortcut containing **Toggle OLIV**, set in **Accessibility → Touch → Back Tap**.
 
-Press and hold the Action button once, wait for Listening/the orange microphone indicator, speak, then pause. **Action button auto-finish** is on by default: after detecting speech, OLIV finishes on 1.5 seconds of classified non-speech. A second invocation finishes sooner. If no speech begins, capture cancels after eight seconds plus up to 1.5 seconds of detector grace. Releasing the button is not a stop event. Toggle stays in the current app or reports failure; it does not implicitly open OLIV. Build 7's Action button round trip still needs physical validation; [build 4 evidence](docs/TESTING.md#background-microphone-activation--build-4) covers the earlier manual-stop path. The assigned shortcut must contain **Toggle OLIV**. The keyboard never holds the microphone open; the app releases it before transcription. Automatic insertion requires the original field and cursor to remain unchanged. If focus changes or delivery is unavailable, the result stays in OLIV for copying. Setup, limits and the physical acceptance matrix are in [Keyboard](docs/KEYBOARD.md).
+Press and hold the Action button once, wait for Listening/the orange microphone indicator, speak, then pause. **Action button auto-finish** is on by default: after detecting speech, OLIV finishes on 1.5 seconds of classified non-speech. A second invocation finishes sooner. If no speech begins, capture cancels after eight seconds plus up to 1.5 seconds of detector grace. Releasing the button is not a stop event. Toggle stays in the current app or reports failure; it does not implicitly open OLIV. The assigned shortcut must contain **Toggle OLIV**. The keyboard never holds the microphone open; the app releases it before transcription. Automatic insertion requires the original field and cursor to remain unchanged. If focus changes or delivery is unavailable, the result stays in OLIV for copying. Setup, limits and the physical acceptance matrix are in [Keyboard](docs/KEYBOARD.md).
 
 ## Keep Apple's keyboard
 

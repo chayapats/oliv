@@ -13,7 +13,7 @@ struct KeyboardSetupView: View {
                         step("1", "Enable OLIV", "iPhone Settings → General → Keyboard → Keyboards → Add New Keyboard → OLIV.")
                         step("2", "Allow Full Access", "Open OLIV in that keyboard list and enable Allow Full Access. This lets the keyboard receive your requested transcript from the OLIV app. Ordinary typing stays on your iPhone.")
                         step("3", "Select the keyboard", "In a text field, hold the globe and choose OLIV. Use the ไทย / EN key to change languages.")
-                        step("4", "Assign Toggle OLIV", "Create a shortcut containing Toggle OLIV, then select it under iPhone Settings → Action Button → Shortcut. By default, one invocation starts a capture that finishes after you pause.")
+                        step("4", "Assign Toggle OLIV", "iPhone Settings → Action Button → swipe to Controls → Choose a Control → Toggle OLIV. By default, one press starts a capture that finishes after you pause.")
                     }
                 }
                 OlivCard {
@@ -42,7 +42,7 @@ struct KeyboardSetupView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func step(_ number: String, _ title: String, _ detail: String) -> some View {
+    private func step(_ number: String, _ title: LocalizedStringKey, _ detail: LocalizedStringKey) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Text(number).font(.caption.bold())
                 .frame(width: 26, height: 26).background(OlivTheme.inset, in: Circle())

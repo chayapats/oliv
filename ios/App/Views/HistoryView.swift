@@ -340,7 +340,7 @@ struct ResultCard: View {
         }
     }
 
-    private func detailRow(_ label: String, value: String) -> some View {
+    private func detailRow(_ label: LocalizedStringKey, value: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 15) {
             Text(label)
                 .foregroundStyle(OlivTheme.secondary)

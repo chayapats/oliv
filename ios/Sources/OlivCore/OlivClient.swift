@@ -14,13 +14,13 @@ public struct OlivConfiguration: Sendable {
               components.user == nil, components.password == nil,
               components.query == nil, components.fragment == nil,
               components.port.map({ (1...65_535).contains($0) }) ?? true else {
-            throw OlivError.invalidConfiguration("Enter an OLIV server URL without credentials, a query, or a fragment.")
+            throw OlivError.invalidConfiguration(String(localized: "Enter an OLIV server URL without credentials, a query, or a fragment.", bundle: .main))
         }
         guard scheme == "https" || (scheme == "http" && allowsInsecureHTTP && Self.isPrivateHost(host)) else {
-            throw OlivError.invalidConfiguration("Use HTTPS, or explicitly enable HTTP for a local or private VPN address.")
+            throw OlivError.invalidConfiguration(String(localized: "Use HTTPS, or explicitly enable HTTP for a local or private VPN address.", bundle: .main))
         }
         guard !token.isEmpty, token.utf8.allSatisfy({ (33...126).contains($0) }) else {
-            throw OlivError.invalidConfiguration("The access token must contain printable ASCII characters without spaces.")
+            throw OlivError.invalidConfiguration(String(localized: "The access token must contain printable ASCII characters without spaces.", bundle: .main))
         }
         self.baseURL = baseURL
         self.token = token
@@ -81,10 +81,10 @@ public struct OlivClient: Sendable {
     public func dictate(wav: Data, options: OlivOptions = OlivOptions()) async throws -> DictationReply {
         let metadata = try WAVMetadata(data: wav)
         guard metadata.sampleRate == 16_000, metadata.channelCount == 1, metadata.bitsPerSample == 16 else {
-            throw OlivError.invalidAudio("OLIV expects 16 kHz mono 16-bit PCM WAV audio.")
+            throw OlivError.invalidAudio(String(localized: "OLIV expects 16 kHz mono 16-bit PCM WAV audio.", bundle: .main))
         }
         guard metadata.duration > 0, metadata.duration <= RecordingLimits.maximumDuration else {
-            throw OlivError.invalidAudio("Record between a moment and two minutes of audio.")
+            throw OlivError.invalidAudio(String(localized: "Record between a moment and two minutes of audio.", bundle: .main))
         }
         // AVAudioRecorder adds FLLR chunks rejected by the server. Normalize only
         // the outgoing copy so saved recordings remain available for recovery.
@@ -97,7 +97,7 @@ public struct OlivClient: Sendable {
     /// faithful cleanup, not a separate creative rewrite or translation mode.
     public func clean(text: String, options: OlivOptions = OlivOptions()) async throws -> DictationReply {
         guard text.utf8.count <= OlivOptions.maximumCleanupTextBytes else {
-            throw OlivError.invalidOptions("Cleanup accepts up to \(OlivOptions.maximumCleanupTextBytes.formatted()) UTF-8 bytes of text; shorten it and try again.")
+            throw OlivError.invalidOptions(String(localized: "Cleanup accepts up to \(OlivOptions.maximumCleanupTextBytes.formatted()) UTF-8 bytes of text; shorten it and try again.", bundle: .main))
         }
         let body = try RequestBody.encode(audio: nil, text: text, options: options)
         return try await reply(path: "v1/clean", body: body)
@@ -110,6 +110,12 @@ public struct OlivClient: Sendable {
         catch { throw OlivError.invalidResponse }
     }
 
+    /// Checks this key without spending quota or sending speech. The dictionary
+    /// route accepts every key with scope dictate and is not charged per request.
+    public func verifyKey() async throws {
+        _ = try await perform(path: "v1/dictionary", body: nil, authenticated: true)
+    }
+
     private func reply(path: String, body: Data) async throws -> DictationReply {
         let data = try await perform(path: path, body: body)
         let reply: DictationReply
@@ -119,7 +125,7 @@ public struct OlivClient: Sendable {
         return reply
     }
 
-    private func perform(path: String, body: Data?) async throws -> Data {
+    private func perform(path: String, body: Data?, authenticated: Bool? = nil) async throws -> Data {
         try Task.checkCancellation()
         if let body, body.count > Self.maximumRequestBytes { throw OlivError.requestTooLarge }
         var request = URLRequest(url: configuration.url(for: path),
@@ -131,6 +137,8 @@ public struct OlivClient: Sendable {
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+        if authenticated ?? (body != nil) {
             request.setValue("Bearer \(configuration.token)", forHTTPHeaderField: "Authorization")
         }
         do {
@@ -221,6 +229,64 @@ public struct OlivClient: Sendable {
             if let date = formatter.date(from: value) { return max(date, now.addingTimeInterval(1)) }
         }
         return now.addingTimeInterval(60)
+    }
+}
+
+/// A free-trial key from an OLIV server that offers them. The key's expiry is
+/// shown in Settings; the server enforces it.
+public struct TrialKey: Sendable, Equatable {
+    public let token: String
+    public let expiresAt: Date
+
+    public init(token: String, expiresAt: Date) {
+        self.token = token
+        self.expiresAt = expiresAt
+    }
+}
+
+public enum TrialRefusal: Error, Equatable, Sendable {
+    /// This server has no trial, or it is closed.
+    case closed
+    /// Today's sign-ups or this network's share of them are used up.
+    case limitReached
+}
+
+public enum TrialClient {
+    private struct Reply: Decodable {
+        let ok: Bool
+        let token: String?
+        let expires_at: Int64?
+    }
+
+    /// Asks for a key before any exists, so this request is unauthenticated.
+    public static func requestKey(baseURL: URL, session: URLSession? = nil) async throws -> TrialKey {
+        // The placeholder only lets the shared validation accept the address.
+        let configuration = try OlivConfiguration(baseURL: baseURL, token: "trial-request")
+        var request = URLRequest(url: configuration.url(for: "try/key"),
+                                 cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(OlivClient.userAgent, forHTTPHeaderField: "User-Agent")
+        let session = session ?? URLSession(configuration: .ephemeral)
+        let data: Data
+        let response: URLResponse
+        do { (data, response) = try await session.data(for: request, delegate: RejectRedirects.shared) }
+        catch is CancellationError { throw CancellationError() }
+        catch let error as URLError where error.code == .cancelled { throw CancellationError() }
+        catch { throw OlivError.networkUnavailable }
+        guard let http = response as? HTTPURLResponse else { throw OlivError.invalidResponse }
+        switch http.statusCode {
+        case 200: break
+        case 429: throw TrialRefusal.limitReached
+        case 404, 503: throw TrialRefusal.closed
+        default: throw OlivError.server(statusCode: http.statusCode)
+        }
+        guard data.count <= 4_096, let reply = try? JSONDecoder().decode(Reply.self, from: data), reply.ok,
+              let token = reply.token, let expiry = reply.expires_at,
+              let key = try? OlivConfiguration(baseURL: baseURL, token: token).token else {
+            throw OlivError.invalidResponse
+        }
+        return TrialKey(token: key, expiresAt: Date(timeIntervalSince1970: TimeInterval(expiry)))
     }
 }
 

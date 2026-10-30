@@ -175,6 +175,65 @@ final class KeyboardCaptureTests: XCTestCase {
     }
 
     @MainActor
+    func testBackgroundCaptureReleasesItsProcessOnceWorkIsSaved() async throws {
+        let directory = keyboardTestDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var releases = 0
+        let capture = KeyboardTestCapture(directory: directory)
+        let service = KeyboardTestService(mode: .success, microphoneActive: { capture.microphoneActive })
+        let model = AppModel(directory: directory, credentials: MemoryCredentialStore(token: "test-token"),
+                             capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service },
+                             isInBackground: { true }, releaseProcess: { releases += 1 })
+        model.settings.serverURL = "https://oliv.example"
+        model.saveSettings()
+        try await model.startFromIntent(allowKeyboardDelivery: false)
+        XCTAssertEqual(releases, 0, "A recording in progress must keep its process")
+        await model.stopFromIntent()
+        XCTAssertEqual(model.phase, .result)
+        try await waitForKeyboardTest(timeout: 3) { releases == 1 }
+        XCTAssertEqual(model.history.count, 1, "The result is on disk before the process goes")
+    }
+
+    @MainActor
+    func testForegroundCaptureAndNewPressKeepTheProcess() async throws {
+        let directory = keyboardTestDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var releases = 0
+        let capture = KeyboardTestCapture(directory: directory)
+        let service = KeyboardTestService(mode: .success, microphoneActive: { capture.microphoneActive })
+        var background = false
+        let model = AppModel(directory: directory, credentials: MemoryCredentialStore(token: "test-token"),
+                             capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service },
+                             isInBackground: { background }, releaseProcess: { releases += 1 })
+        model.settings.serverURL = "https://oliv.example"
+        model.saveSettings()
+        await model.startInForeground()
+        await model.stopFromIntent()
+        try await Task.sleep(for: .seconds(1.8))
+        XCTAssertEqual(releases, 0, "A capture started on screen never ends the process")
+
+        background = true
+        try await model.startFromIntent(allowKeyboardDelivery: false)
+        await model.stopFromIntent()
+        try await model.startFromIntent(allowKeyboardDelivery: false)
+        try await Task.sleep(for: .seconds(1.8))
+        XCTAssertEqual(releases, 0, "A new press cancels the pending release")
+        await model.cancel()
+    }
+
+    @MainActor
+    func testRecentResultReturnsAfterTheProcessRelaunches() async throws {
+        let h = try KeyboardHarness()
+        defer { h.removeDirectory() }
+        try await h.model.startFromIntent(allowKeyboardDelivery: false)
+        await h.model.stopFromIntent()
+        let relaunched = AppModel(directory: h.directory, credentials: MemoryCredentialStore(token: "keyboard-test-token"),
+                                  capture: h.capture, liveActivitiesEnabled: false)
+        XCTAssertEqual(relaunched.latest?.id, h.model.latest?.id)
+        XCTAssertEqual(relaunched.phase, .result)
+    }
+
+    @MainActor
     func testIdleAndTextOnlyActionsNeverStartMicrophoneOrRequestKeyboardFocus() async throws {
         let h = try KeyboardHarness()
         defer { h.removeDirectory() }
@@ -501,6 +560,7 @@ private struct KeyboardHarness {
 
 @MainActor
 private final class KeyboardDeliverySpy: KeyboardDelivering {
+    func isConnected() async -> Bool { false }
     struct Publication {
         let text: String
         let target: KeyboardFocusLease
@@ -621,6 +681,7 @@ private actor KeyboardTestService: OlivServing {
     func clean(text: String, options: OlivOptions) async throws -> DictationReply {
         text.isEmpty ? DictationReply(noSpeech: true) : DictationReply(raw: text, finalText: text)
     }
+    func verifyKey() async throws {}
     func health() async throws -> ServerHealth {
         try JSONDecoder().decode(ServerHealth.self, from: Data(
             #"{"ok":true,"whisper":true,"gemma":true,"version":"fixture","prompt":"v5","llm_timeout":5}"#.utf8))

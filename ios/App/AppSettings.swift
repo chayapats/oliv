@@ -31,6 +31,11 @@ struct AppSettings: Codable, Equatable {
     var credentialBinding: String?
     /// Optional so settings written before the public API migration still decode.
     var requiresNewAPIKey: Bool?
+    /// Set while this iPhone uses a free-trial key. The server enforces the date.
+    var trialExpiresAt: Date?
+    /// Nil on a new install and for anyone who connected before first-run setup
+    /// existed: `needsSetup` tells those two apart.
+    var finishedSetup: Bool?
 
     var options: OlivOptions {
         var seen = Set<String>()
@@ -50,11 +55,11 @@ enum AppCaptureError: LocalizedError {
     case setupRequired, microphoneDenied, needsForeground, unavailable, tooShort
     var errorDescription: String? {
         switch self {
-        case .setupRequired: "Connect your OLIV server and save its access token in Settings first."
-        case .microphoneDenied: "Microphone access is off. Enable OLIV in iPhone Settings → Privacy & Security → Microphone."
-        case .needsForeground: "Open OLIV once to allow the microphone and Live Activities, then try again."
-        case .unavailable: "The microphone could not start. Check whether a call or another recording is using it."
-        case .tooShort: "That recording was too short. Tap record and speak for at least a moment."
+        case .setupRequired: String(localized: "Connect your OLIV server and save its access token in Settings first.")
+        case .microphoneDenied: String(localized: "Microphone access is off. Enable OLIV in iPhone Settings → Privacy & Security → Microphone.")
+        case .needsForeground: String(localized: "Open OLIV once to allow the microphone and Live Activities, then try again.")
+        case .unavailable: String(localized: "The microphone could not start. Check whether a call or another recording is using it.")
+        case .tooShort: String(localized: "That recording was too short. Tap record and speak for at least a moment.")
         }
     }
 }

@@ -3,19 +3,20 @@ import XCTest
 @testable import Oliv
 
 final class CaptureDiagnosticsTests: XCTestCase {
-    func testKeepsOnlyFortyNewestEventsAcrossStoreInstances() throws {
+    func testKeepsOnlyNewestEventsAcrossStoreInstances() throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let start = Date(timeIntervalSince1970: 2_000_000_000)
-        for index in 0..<55 {
+        let limit = CaptureDiagnostics.Store.maximumEvents
+        for index in 0..<(limit + 15) {
             // A new instance proves the bound survives reopening the log.
             try CaptureDiagnostics.Store(directory: directory).record(
                 event: .startRequested, now: start.addingTimeInterval(Double(index)))
         }
         let entries = try readEntries(directory)
-        XCTAssertEqual(entries.count, 40)
+        XCTAssertEqual(entries.count, limit)
         XCTAssertEqual(entries.first?.timestamp, start.addingTimeInterval(15))
-        XCTAssertEqual(entries.last?.timestamp, start.addingTimeInterval(54))
+        XCTAssertEqual(entries.last?.timestamp, start.addingTimeInterval(Double(limit + 14)))
         XCTAssertTrue(entries.allSatisfy { $0.event == .startRequested })
         XCTAssertTrue(entries.allSatisfy { $0.detail == nil && $0.errorCode == nil && $0.errorDomain == nil })
     }

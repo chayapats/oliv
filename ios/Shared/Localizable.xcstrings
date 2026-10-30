@@ -1,0 +1,3447 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "%@ characters": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ ตัวอักษร"
+          }
+        }
+      }
+    },
+    "%@ of %@ bytes. Shorten the text to clean it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$@ of %2$@ bytes. Shorten the text to clean it."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ จาก %@ ไบต์ ย่อข้อความให้สั้นลงก่อนเกลา"
+          }
+        }
+      }
+    },
+    "%lld percent": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld เปอร์เซ็นต์"
+          }
+        }
+      }
+    },
+    "%lld sec of voice": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียง %lld วินาที"
+          }
+        }
+      }
+    },
+    "%lld sec recording · %lld attempt%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "%1$lld sec recording · %2$lld attempt%3$@"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อัดเสียง %lld วินาที · ลอง %lld ครั้ง%@"
+          }
+        }
+      }
+    },
+    "7 days free. No account or card. Audio goes to the OLIV server to become text, and isn't kept there.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้ฟรี 7 วัน ไม่ต้องมีบัญชีหรือบัตร เสียงจะถูกส่งไปที่เซิร์ฟเวอร์ OLIV เพื่อแปลงเป็นข้อความ และจะไม่ถูกเก็บไว้"
+          }
+        }
+      }
+    },
+    "A few differences from Apple’s keyboard": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ต่างจากคีย์บอร์ดของ Apple นิดหน่อย"
+          }
+        }
+      }
+    },
+    "A few iPhone realities": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้อจำกัดบางอย่างของ iPhone"
+          }
+        }
+      }
+    },
+    "A fresh page.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หน้าใหม่ เริ่มได้เลย"
+          }
+        }
+      }
+    },
+    "A little clarity.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เกลาให้ชัดขึ้นอีกนิด"
+          }
+        }
+      }
+    },
+    "A little less typing": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พิมพ์น้อยลงอีกนิด"
+          }
+        }
+      }
+    },
+    "A minimal keyboard, started with your Action button or Back Tap.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คีย์บอร์ดเรียบง่าย เริ่มพูดได้ด้วยปุ่มแอ็คชั่นหรือการแตะด้านหลัง"
+          }
+        }
+      }
+    },
+    "A moment\nfor your voice.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ขอเวลาสักครู่\nให้เสียงของคุณ"
+          }
+        }
+      }
+    },
+    "A natural fit.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลงตัวอย่างเป็นธรรมชาติ"
+          }
+        }
+      }
+    },
+    "A place for your words": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พื้นที่สำหรับคำพูดของคุณ"
+          }
+        }
+      }
+    },
+    "A reliable starting point": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "จุดเริ่มต้นที่ไว้ใจได้"
+          }
+        }
+      }
+    },
+    "A second pass": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เกลาอีกรอบ"
+          }
+        }
+      }
+    },
+    "A simple Thai and English keyboard. Use the Action button to dictate without a microphone button taking over your keyboard.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คีย์บอร์ดไทย-อังกฤษแบบเรียบง่าย ใช้ปุ่มแอ็คชั่นเพื่อพูดได้เลย โดยไม่มีปุ่มไมโครโฟนมาเกะกะบนคีย์บอร์ด"
+          }
+        }
+      }
+    },
+    "A small setup. A smoother flow.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตั้งค่านิดเดียว ใช้งานลื่นขึ้นเยอะ"
+          }
+        }
+      }
+    },
+    "A thought,\nwell put.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ทุกความคิด\nเรียบเรียงให้ลงตัว"
+          }
+        }
+      }
+    },
+    "AI cleanup could not finish. Your words were preserved with OLIV’s deterministic cleanup.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI เกลาข้อความไม่สำเร็จ แต่คำพูดของคุณยังอยู่ครบ OLIV เกลาให้แบบพื้นฐานแล้ว"
+          }
+        }
+      }
+    },
+    "API token": {},
+    "Access was denied. Ask the administrator to check the API key scopes and public API access policy.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไม่ได้รับอนุญาตให้เข้าถึง โปรดให้ผู้ดูแลระบบตรวจสอบสิทธิ์ของ API key และนโยบายการเข้าถึง API สาธารณะ"
+          }
+        }
+      }
+    },
+    "Action button": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ปุ่มแอ็คชั่น"
+          }
+        }
+      }
+    },
+    "Add Capture with OLIV to a shortcut, the Home Screen, or an available widget. Finish OLIV stops an existing recording without starting a new one.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เพิ่ม Capture with OLIV ลงใน Shortcuts หน้าจอโฮม หรือวิดเจ็ตที่รองรับ ส่วน Finish OLIV จะหยุดการอัดเสียงที่ทำอยู่ โดยไม่เริ่มอัดใหม่"
+          }
+        }
+      }
+    },
+    "Add a replacement": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เพิ่มคำแทนที่"
+          }
+        }
+      }
+    },
+    "Add the OLIV keyboard so your words appear right where you're typing.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เพิ่มคีย์บอร์ด OLIV เพื่อให้คำพูดของคุณไปปรากฏตรงที่กำลังพิมพ์"
+          }
+        }
+      }
+    },
+    "All saved transcripts will be removed from this iPhone. This cannot be undone.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้อความที่บันทึกไว้ทั้งหมดจะถูกลบออกจาก iPhone เครื่องนี้ และกู้คืนไม่ได้"
+          }
+        }
+      }
+    },
+    "Allow Full Access": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อนุญาตการเข้าถึงทั้งหมด"
+          }
+        }
+      }
+    },
+    "Allow microphone": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อนุญาตไมโครโฟน"
+          }
+        }
+      }
+    },
+    "Allow private HTTP": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อนุญาต HTTP ในเครือข่ายส่วนตัว"
+          }
+        }
+      }
+    },
+    "Already have the words?": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "มีข้อความอยู่แล้วใช่ไหม"
+          }
+        }
+      }
+    },
+    "An empty replacement removes the spoken phrase.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ถ้าเว้นคำแทนที่ไว้ คำที่พูดจะถูกตัดออก"
+          }
+        }
+      }
+    },
+    "An interrupted recording is still waiting to be recovered. Relaunch OLIV before recording again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ยังมีเสียงที่อัดค้างไว้รอการกู้คืน โปรดเปิด OLIV ใหม่ก่อนอัดเสียงอีกครั้ง"
+          }
+        }
+      }
+    },
+    "An interrupted recording was incomplete and could not be retried. Its partial file was preserved. You can record again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียงที่อัดค้างไว้ไม่สมบูรณ์จึงลองใหม่ไม่ได้ แต่ไฟล์บางส่วนยังเก็บไว้อยู่ คุณอัดเสียงใหม่ได้เลย"
+          }
+        }
+      }
+    },
+    "Any other iPhone": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iPhone รุ่นอื่น"
+          }
+        }
+      }
+    },
+    "Assign Toggle OLIV": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตั้งค่า Toggle OLIV"
+          }
+        }
+      }
+    },
+    "Audio goes to your configured Oliv server.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียงจะถูกส่งไปที่เซิร์ฟเวอร์ Oliv ที่คุณตั้งค่าไว้"
+          }
+        }
+      }
+    },
+    "Automatic finish became unavailable. The microphone is off and your audio is saved for retry. Nothing was inserted.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หยุดอัตโนมัติใช้งานไม่ได้แล้ว ไมโครโฟนปิดอยู่และเก็บเสียงไว้ให้ลองใหม่ ยังไม่มีการแทรกข้อความ"
+          }
+        }
+      }
+    },
+    "Automatic finish was unavailable. No request was sent.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หยุดอัตโนมัติใช้งานไม่ได้ จึงยังไม่ได้ส่งคำขอ"
+          }
+        }
+      }
+    },
+    "Automatic insertion needs the OLIV keyboard already active. Apple's keyboard still requires Paste. Secure and phone fields use the system keyboard, and some apps block custom keyboards.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การแทรกข้อความอัตโนมัติต้องเปิดคีย์บอร์ด OLIV ไว้ก่อน ถ้าใช้คีย์บอร์ดของ Apple ยังต้องกดวางเอง ช่องรหัสผ่านและช่องเบอร์โทรจะใช้คีย์บอร์ดของระบบ และบางแอปไม่อนุญาตให้ใช้คีย์บอร์ดอื่น"
+          }
+        }
+      }
+    },
+    "Built around your Oliv server": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ออกแบบมาให้ใช้กับเซิร์ฟเวอร์ Oliv ของคุณ"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ยกเลิก"
+          }
+        }
+      }
+    },
+    "Cancel OLIV": {},
+    "Capture": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อัดเสียง"
+          }
+        }
+      }
+    },
+    "Capture with OLIV": {},
+    "Checking…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังตรวจสอบ…"
+          }
+        }
+      }
+    },
+    "Clean text": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เกลาข้อความ"
+          }
+        }
+      }
+    },
+    "Cleanup": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เกลาข้อความ"
+          }
+        }
+      }
+    },
+    "Cleanup accepts up to %@ UTF-8 bytes of text; shorten it and try again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เกลาข้อความได้ไม่เกิน %@ ไบต์ UTF-8 ย่อให้สั้นลงแล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Cleanup decision": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ผลการตัดสินใจเกลา"
+          }
+        }
+      }
+    },
+    "Cloudflare denied this request. Contact the administrator with your OLIV app version.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloudflare ปฏิเสธคำขอนี้ โปรดติดต่อผู้ดูแลระบบ พร้อมแจ้งเวอร์ชันแอป OLIV ของคุณ"
+          }
+        }
+      }
+    },
+    "Come back, tap the box below, then hold the globe key and choose OLIV.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กลับมาที่นี่ แตะช่องด้านล่าง แล้วกดปุ่มลูกโลกค้างไว้และเลือก OLIV"
+          }
+        }
+      }
+    },
+    "Connect": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เชื่อมต่อ"
+          }
+        }
+      }
+    },
+    "Connect to start recording.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เชื่อมต่อเพื่อเริ่มอัดเสียง"
+          }
+        }
+      }
+    },
+    "Connect to your OLIV server.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เชื่อมต่อกับเซิร์ฟเวอร์ OLIV ของคุณ"
+          }
+        }
+      }
+    },
+    "Connect your OLIV server and save its access token in Settings first.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เชื่อมต่อเซิร์ฟเวอร์ OLIV และบันทึกโทเคนเข้าถึงในการตั้งค่าก่อน"
+          }
+        }
+      }
+    },
+    "Connect your Oliv server in Settings before cleaning text.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เชื่อมต่อเซิร์ฟเวอร์ Oliv ในการตั้งค่าก่อนเกลาข้อความ"
+          }
+        }
+      }
+    },
+    "Connect your server and record once inside OLIV to allow microphone access. Toggle OLIV also requires Live Activities. If a background start fails, OLIV explains the problem without opening the app. Capture with OLIV is the separate action that opens it.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เชื่อมต่อเซิร์ฟเวอร์แล้วอัดเสียงในแอป OLIV หนึ่งครั้งเพื่ออนุญาตไมโครโฟน Toggle OLIV ต้องเปิด Live Activity ด้วย ถ้าเริ่มอัดจากพื้นหลังไม่สำเร็จ OLIV จะแจ้งปัญหาโดยไม่เปิดแอป ส่วน Capture with OLIV เป็นอีกคำสั่งหนึ่งที่จะเปิดแอปขึ้นมา"
+          }
+        }
+      }
+    },
+    "Connected. Your API key works.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เชื่อมต่อแล้ว API key ของคุณใช้งานได้"
+          }
+        }
+      }
+    },
+    "Copied": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คัดลอกแล้ว"
+          }
+        }
+      }
+    },
+    "Copy Latest": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คัดลอกล่าสุด"
+          }
+        }
+      }
+    },
+    "Copy Latest OLIV": {},
+    "Copy finished": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คัดลอกฉบับเกลาแล้ว"
+          }
+        }
+      }
+    },
+    "Copy finished text": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คัดลอกข้อความที่เกลาแล้ว"
+          }
+        }
+      }
+    },
+    "Copy text": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คัดลอกข้อความ"
+          }
+        }
+      }
+    },
+    "Copy the result, then paste it anywhere": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คัดลอกข้อความ แล้ววางที่ไหนก็ได้"
+          }
+        }
+      }
+    },
+    "Custom vocabulary, one phrase per line": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คำศัพท์ของคุณ บรรทัดละหนึ่งคำหรือวลี"
+          }
+        }
+      }
+    },
+    "Delete": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลบ"
+          }
+        }
+      }
+    },
+    "Delete all history": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลบประวัติทั้งหมด"
+          }
+        }
+      }
+    },
+    "Delete all history?": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลบประวัติทั้งหมดไหม"
+          }
+        }
+      }
+    },
+    "Delete recording": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลบเสียงที่อัด"
+          }
+        }
+      }
+    },
+    "Delete saved recording": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลบเสียงที่บันทึกไว้"
+          }
+        }
+      }
+    },
+    "Delete this saved recording?": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลบเสียงที่บันทึกไว้นี้ไหม"
+          }
+        }
+      }
+    },
+    "Delete this transcript?": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลบข้อความนี้ไหม"
+          }
+        }
+      }
+    },
+    "Delete transcript": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลบข้อความ"
+          }
+        }
+      }
+    },
+    "Demo · simulated audio and server": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เดโม · เสียงและเซิร์ฟเวอร์จำลอง"
+          }
+        }
+      }
+    },
+    "Details": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "รายละเอียด"
+          }
+        }
+      }
+    },
+    "Dictionary matches": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คำที่ตรงกับพจนานุกรม"
+          }
+        }
+      }
+    },
+    "Discard recording": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ทิ้งเสียงที่อัด"
+          }
+        }
+      }
+    },
+    "Discard the current recording without sending it for transcription.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ทิ้งเสียงที่กำลังอัด โดยไม่ส่งไปแปลงเป็นข้อความ"
+          }
+        }
+      }
+    },
+    "Dismiss message": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ปิดข้อความ"
+          }
+        }
+      }
+    },
+    "Done": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสร็จสิ้น"
+          }
+        }
+      }
+    },
+    "Each spoken phrase can have only one replacement rule.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แต่ละคำที่พูดมีกฎคำแทนที่ได้แค่ข้อเดียว"
+          }
+        }
+      }
+    },
+    "Enable Live Activities for OLIV in Settings to record from the Action button or Control Center.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปิด Live Activity ให้ OLIV ในการตั้งค่า เพื่ออัดเสียงจากปุ่มแอ็คชั่นหรือศูนย์ควบคุม"
+          }
+        }
+      }
+    },
+    "Enable OLIV": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปิดใช้ OLIV"
+          }
+        }
+      }
+    },
+    "Enable the OLIV keyboard": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปิดใช้คีย์บอร์ด OLIV"
+          }
+        }
+      }
+    },
+    "Enter a valid OLIV server URL.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใส่ URL เซิร์ฟเวอร์ OLIV ให้ถูกต้อง"
+          }
+        }
+      }
+    },
+    "Enter an OLIV server URL without credentials, a query, or a fragment.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใส่ URL เซิร์ฟเวอร์ OLIV โดยไม่มีข้อมูลล็อกอิน พารามิเตอร์ หรือส่วนท้าย #"
+          }
+        }
+      }
+    },
+    "Enter your individual API key": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใส่ API key ส่วนตัวของคุณ"
+          }
+        }
+      }
+    },
+    "Enter your new individual API key. The retired shared token cannot be reused.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใส่ API key ส่วนตัวอันใหม่ของคุณ โทเคนแบบใช้ร่วมกันเลิกใช้แล้วและนำกลับมาใช้อีกไม่ได้"
+          }
+        }
+      }
+    },
+    "Example": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตัวอย่าง"
+          }
+        }
+      }
+    },
+    "Export all text": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ส่งออกข้อความทั้งหมด"
+          }
+        }
+      }
+    },
+    "Fillers removed": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คำติดปากที่ตัดออก"
+          }
+        }
+      }
+    },
+    "Find your words": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ค้นหาข้อความ"
+          }
+        }
+      }
+    },
+    "Finding the words": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังเรียบเรียงคำ"
+          }
+        }
+      }
+    },
+    "Finish": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสร็จสิ้น"
+          }
+        }
+      }
+    },
+    "Finish OLIV": {},
+    "Finish and transcribe recording": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หยุดอัดและแปลงเป็นข้อความ"
+          }
+        }
+      }
+    },
+    "Finish from the app or Live Activity": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หยุดอัดได้จากแอปหรือ Live Activity"
+          }
+        }
+      }
+    },
+    "Finish recording": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หยุดอัดเสียง"
+          }
+        }
+      }
+    },
+    "Finish the current recording and return its text. This never starts a new recording.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หยุดการอัดเสียงที่ทำอยู่แล้วส่งข้อความกลับมา คำสั่งนี้จะไม่เริ่มอัดเสียงใหม่"
+          }
+        }
+      }
+    },
+    "Finish this dictation before changing settings.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อัดเสียงนี้ให้จบก่อนเปลี่ยนการตั้งค่า"
+          }
+        }
+      }
+    },
+    "Finished": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เกลาแล้ว"
+          }
+        }
+      }
+    },
+    "First connect your server and allow the microphone by recording once in OLIV. Leave Live Activities enabled for OLIV in iPhone Settings; recording from Toggle OLIV requires an active Live Activity.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เริ่มจากเชื่อมต่อเซิร์ฟเวอร์ แล้วอนุญาตไมโครโฟนด้วยการอัดเสียงใน OLIV หนึ่งครั้ง จากนั้นเปิด Live Activity ของ OLIV ไว้ในการตั้งค่า iPhone เพราะการอัดเสียงด้วย Toggle OLIV ต้องมี Live Activity ทำงานอยู่"
+          }
+        }
+      }
+    },
+    "For a trusted local network or private VPN. Prefer HTTPS whenever available.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "สำหรับเครือข่ายในบ้านหรือ VPN ส่วนตัวที่ไว้ใจได้ ถ้าใช้ HTTPS ได้ แนะนำให้ใช้ HTTPS"
+          }
+        }
+      }
+    },
+    "For a two-run clipboard shortcut, turn off Action button auto-finish. Follow Toggle OLIV with If Result has any value → Copy to Clipboard. The first run starts; the second finishes and copies. Choose Local Only to keep the clipboard on this iPhone.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ถ้าอยากใช้ Shortcuts แบบรันสองครั้งแล้วคัดลอกลงคลิปบอร์ด ให้ปิดการหยุดอัตโนมัติของปุ่มแอ็คชั่น แล้วต่อ Toggle OLIV ด้วย ถ้า ผลลัพธ์ มีค่าใดๆ → คัดลอกไปยังคลิปบอร์ด รันครั้งแรกจะเริ่มอัด ครั้งที่สองจะหยุดและคัดลอก เลือก เฉพาะในเครื่อง เพื่อเก็บคลิปบอร์ดไว้บน iPhone เครื่องนี้"
+          }
+        }
+      }
+    },
+    "Free trial until %@.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ทดลองใช้ฟรีถึง %@"
+          }
+        }
+      }
+    },
+    "From thought\nto text.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "จากความคิด\nสู่ตัวอักษร"
+          }
+        }
+      }
+    },
+    "Getting ready": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังเตรียมพร้อม"
+          }
+        }
+      }
+    },
+    "HTTP does not encrypt traffic between Oliv and your server. This option is limited to private network addresses.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HTTP ไม่เข้ารหัสข้อมูลระหว่าง Oliv กับเซิร์ฟเวอร์ของคุณ ตัวเลือกนี้จึงใช้ได้เฉพาะที่อยู่ในเครือข่ายส่วนตัว"
+          }
+        }
+      }
+    },
+    "Help Oliv recognize names, products, and specialist terms. One word or phrase per line.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ช่วยให้ Oliv รู้จักชื่อคน ชื่อสินค้า และศัพท์เฉพาะ บรรทัดละหนึ่งคำหรือวลี"
+          }
+        }
+      }
+    },
+    "History": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ประวัติ"
+          }
+        }
+      }
+    },
+    "History options": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตัวเลือกประวัติ"
+          }
+        }
+      }
+    },
+    "I have an API key": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ฉันมี API key แล้ว"
+          }
+        }
+      }
+    },
+    "In a text field, hold the globe and choose OLIV. Use the ไทย / EN key to change languages.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ในช่องพิมพ์ กดปุ่มลูกโลกค้างไว้แล้วเลือก OLIV ใช้ปุ่ม ไทย / EN เพื่อสลับภาษา"
+          }
+        }
+      }
+    },
+    "Just let\nit flow.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พูดไปเลย\nปล่อยให้ไหลลื่น"
+          }
+        }
+      }
+    },
+    "Keep at least one history entry.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ต้องเก็บประวัติไว้อย่างน้อยหนึ่งรายการ"
+          }
+        }
+      }
+    },
+    "Keep the same field and cursor while speaking. If you switch fields, edit text or hide the keyboard, use the finished result in OLIV instead. Inserted text is a draft: OLIV does not choose a conversation or send messages in LINE or other apps.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ระหว่างพูด ให้อยู่ที่ช่องพิมพ์และเคอร์เซอร์เดิม ถ้าสลับช่อง แก้ข้อความ หรือซ่อนคีย์บอร์ด ให้ใช้ข้อความที่เสร็จแล้วในแอป OLIV แทน ข้อความที่แทรกเป็นแค่ฉบับร่าง OLIV จะไม่เลือกห้องแชตหรือส่งข้อความใน LINE หรือแอปอื่นให้"
+          }
+        }
+      }
+    },
+    "Keep your usual keyboard": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้คีย์บอร์ดเดิมของคุณ"
+          }
+        }
+      }
+    },
+    "Language model": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "โมเดลภาษา"
+          }
+        }
+      }
+    },
+    "Last captured": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อัดเสียงล่าสุด"
+          }
+        }
+      }
+    },
+    "Leave blank to keep saved key": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เว้นว่างไว้เพื่อใช้ key ที่บันทึกไว้"
+          }
+        }
+      }
+    },
+    "Less switching.\nMore speaking.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "สลับน้อยลง\nพูดได้มากขึ้น"
+          }
+        }
+      }
+    },
+    "Let OLIV hear you": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ให้ OLIV ได้ยินเสียงคุณ"
+          }
+        }
+      }
+    },
+    "Let’s try again": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลองอีกครั้งกันนะ"
+          }
+        }
+      }
+    },
+    "Listening to you": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังฟังคุณอยู่"
+          }
+        }
+      }
+    },
+    "Make it yours": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ปรับให้เป็นแบบของคุณ"
+          }
+        }
+      }
+    },
+    "Microphone access is off. Enable OLIV in iPhone Settings → Privacy & Security → Microphone.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การเข้าถึงไมโครโฟนปิดอยู่ เปิดให้ OLIV ได้ที่ การตั้งค่า iPhone → ความเป็นส่วนตัวและความปลอดภัย → ไมโครโฟน"
+          }
+        }
+      }
+    },
+    "Microphone access is off. Turn it on for OLIV in Settings, then come back.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การเข้าถึงไมโครโฟนปิดอยู่ เปิดให้ OLIV ในการตั้งค่า แล้วกลับมาที่นี่"
+          }
+        }
+      }
+    },
+    "Microphone level": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ระดับเสียงไมโครโฟน"
+          }
+        }
+      }
+    },
+    "Microphone only when requested": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไมโครโฟนทำงานเฉพาะตอนที่คุณสั่ง"
+          }
+        }
+      }
+    },
+    "Move down": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ย้ายลง"
+          }
+        }
+      }
+    },
+    "Move up": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ย้ายขึ้น"
+          }
+        }
+      }
+    },
+    "Next": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ถัดไป"
+          }
+        }
+      }
+    },
+    "No matching words.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไม่พบคำที่ตรงกัน"
+          }
+        }
+      }
+    },
+    "No speech detected.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไม่ได้ยินเสียงพูด"
+          }
+        }
+      }
+    },
+    "No speech was detected. Nothing was copied.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไม่ได้ยินเสียงพูด จึงไม่มีอะไรถูกคัดลอก"
+          }
+        }
+      }
+    },
+    "No speech was detected. The microphone is off; nothing was sent.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไม่ได้ยินเสียงพูด ไมโครโฟนปิดแล้ว และไม่มีอะไรถูกส่งออกไป"
+          }
+        }
+      }
+    },
+    "No text remained.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไม่มีข้อความเหลืออยู่"
+          }
+        }
+      }
+    },
+    "Nothing to copy": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไม่มีอะไรให้คัดลอก"
+          }
+        }
+      }
+    },
+    "Nothing was copied. Try another recording when you’re ready.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไม่มีอะไรถูกคัดลอก พร้อมเมื่อไรก็ลองอัดเสียงใหม่ได้เลย"
+          }
+        }
+      }
+    },
+    "OLIV": {},
+    "OLIV Capture": {},
+    "OLIV KEYBOARD": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คีย์บอร์ด OLIV"
+          }
+        }
+      }
+    },
+    "OLIV Keyboard": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คีย์บอร์ด OLIV"
+          }
+        }
+      }
+    },
+    "OLIV could not complete the request (HTTP %lld). Your recording can be retried.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OLIV ทำรายการไม่สำเร็จ (HTTP %lld) คุณลองส่งเสียงที่อัดไว้อีกครั้งได้"
+          }
+        }
+      }
+    },
+    "OLIV could not finish this operation. Check available storage, microphone access, and your server connection.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OLIV ทำรายการนี้ไม่สำเร็จ โปรดตรวจสอบพื้นที่เก็บข้อมูล การเข้าถึงไมโครโฟน และการเชื่อมต่อเซิร์ฟเวอร์"
+          }
+        }
+      }
+    },
+    "OLIV could not finish this recording. Open the app to review or retry it.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OLIV อัดเสียงนี้ไม่สำเร็จ เปิดแอปเพื่อตรวจสอบหรือลองใหม่"
+          }
+        }
+      }
+    },
+    "OLIV expects 16 kHz mono 16-bit PCM WAV audio.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OLIV ใช้ไฟล์เสียง PCM WAV แบบ 16 kHz โมโน 16 บิต"
+          }
+        }
+      }
+    },
+    "OLIV is temporarily unavailable (HTTP %lld).%@ Your recording is preserved for retry.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "OLIV is temporarily unavailable (HTTP %1$lld).%2$@ Your recording is preserved for retry."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OLIV ใช้งานไม่ได้ชั่วคราว (HTTP %lld)%@ เก็บเสียงที่อัดไว้ให้ลองใหม่แล้ว"
+          }
+        }
+      }
+    },
+    "OLIV keyboard is ready": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คีย์บอร์ด OLIV พร้อมใช้แล้ว"
+          }
+        }
+      }
+    },
+    "OLIV now uses a public HTTPS API. Enter your new individual API key in Settings; your writing preferences and recordings were kept.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตอนนี้ OLIV ใช้ API แบบ HTTPS สาธารณะแล้ว โปรดใส่ API key ส่วนตัวอันใหม่ในการตั้งค่า การตั้งค่าการเขียนและเสียงที่อัดไว้ยังอยู่ครบ"
+          }
+        }
+      }
+    },
+    "OLIV screen": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หน้าจอ OLIV"
+          }
+        }
+      }
+    },
+    "OLIV’s layout does not include Apple’s prediction, autocorrection or swipe typing. Automatic finish detects speech, not who is speaking; nearby voices can delay it. If no speech is detected, capture cancels after a short wait. Releasing the Action button does not stop recording.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คีย์บอร์ด OLIV ไม่มีการคาดเดาคำ แก้คำอัตโนมัติ หรือปัดเพื่อพิมพ์แบบของ Apple หยุดอัตโนมัติจับแค่ว่ามีเสียงพูด ไม่ได้แยกว่าเสียงใคร เสียงคนรอบข้างอาจทำให้หยุดช้าลง ถ้าไม่ได้ยินเสียงพูด การอัดเสียงจะยกเลิกเองหลังรอสักครู่ และการปล่อยปุ่มแอ็คชั่นจะไม่หยุดอัดเสียง"
+          }
+        }
+      }
+    },
+    "Oliv": {},
+    "Oliv\nชื่อเฉพาะ\nYour project name": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oliv\nชื่อเฉพาะ\nชื่อโปรเจกต์ของคุณ"
+          }
+        }
+      }
+    },
+    "One gesture away": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อีกแค่แตะเดียว"
+          }
+        }
+      }
+    },
+    "Open Control Center, tap +, then Add a Control, and choose Toggle OLIV. Tap it whenever you want to speak.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปิดศูนย์ควบคุม แตะ + แล้วแตะเพิ่มส่วนควบคุม และเลือก Toggle OLIV อยากพูดเมื่อไรก็แตะได้เลย"
+          }
+        }
+      }
+    },
+    "Open OLIV and copy the latest transcript, ready to paste into any app.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปิด OLIV แล้วคัดลอกข้อความล่าสุด พร้อมวางในแอปไหนก็ได้"
+          }
+        }
+      }
+    },
+    "Open OLIV and immediately begin recording after setup is complete.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปิด OLIV แล้วเริ่มอัดเสียงทันทีเมื่อตั้งค่าเสร็จ"
+          }
+        }
+      }
+    },
+    "Open OLIV and start recording.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปิด OLIV แล้วเริ่มอัดเสียง"
+          }
+        }
+      }
+    },
+    "Open OLIV in that keyboard list and enable Allow Full Access. This lets the keyboard receive your requested transcript from the OLIV app. Ordinary typing stays on your iPhone.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แตะ OLIV ในรายการแป้นพิมพ์นั้น แล้วเปิด อนุญาตการเข้าถึงทั้งหมด เพื่อให้คีย์บอร์ดรับข้อความที่คุณขอจากแอป OLIV ได้ ส่วนการพิมพ์ปกติจะอยู่แค่บน iPhone ของคุณ"
+          }
+        }
+      }
+    },
+    "Open OLIV once to allow the microphone and Live Activities, then try again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปิด OLIV หนึ่งครั้งเพื่ออนุญาตไมโครโฟนและ Live Activity แล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Open OLIV once to finish setup, then try again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปิด OLIV หนึ่งครั้งเพื่อตั้งค่าให้เสร็จ แล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Open Settings": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปิดการตั้งค่า"
+          }
+        }
+      }
+    },
+    "Opens Oliv and starts recording": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปิด Oliv และเริ่มอัดเสียง"
+          }
+        }
+      }
+    },
+    "Original": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ต้นฉบับ"
+          }
+        }
+      }
+    },
+    "Passwords, some phone fields and apps that disallow third-party keyboards use the system keyboard. Background recording eligibility depends on iOS. Capture with OLIV opens the app to record; use Copy/Paste for that foreground route.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ช่องรหัสผ่าน ช่องเบอร์โทรบางช่อง และแอปที่ไม่อนุญาตคีย์บอร์ดอื่น จะใช้คีย์บอร์ดของระบบ การอัดเสียงในพื้นหลังทำได้หรือไม่ขึ้นอยู่กับ iOS ส่วน Capture with OLIV จะเปิดแอปขึ้นมาอัดเสียง ให้ใช้คัดลอก/วางเมื่ออัดด้วยวิธีนี้"
+          }
+        }
+      }
+    },
+    "Paste into the app you’re using, with your usual keyboard.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "วางลงในแอปที่กำลังใช้ ด้วยคีย์บอร์ดเดิมของคุณ"
+          }
+        }
+      }
+    },
+    "Paste or write something here.\nลองวางข้อความภาษาไทย หรือ English": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "วางหรือเขียนอะไรก็ได้ตรงนี้\nลองวางข้อความภาษาไทย หรือ English"
+          }
+        }
+      }
+    },
+    "Paste text. Give it a little clarity.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "วางข้อความ แล้วเกลาให้ชัดขึ้นอีกนิด"
+          }
+        }
+      }
+    },
+    "Preparing microphone…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังเตรียมไมโครโฟน…"
+          }
+        }
+      }
+    },
+    "Preparing your microphone.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังเตรียมไมโครโฟนของคุณ"
+          }
+        }
+      }
+    },
+    "Press and hold the Action button once, or use your assigned Back Tap gesture. Wait for Listening, then speak. By default, OLIV finishes after 1.5 seconds without detected speech. Invoke again to finish sooner. Keep the same field and cursor for automatic draft insertion; OLIV does not send the message.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กดปุ่มแอ็คชั่นค้างไว้หนึ่งครั้ง หรือใช้การแตะด้านหลังที่ตั้งไว้ รอจนขึ้นว่ากำลังฟัง แล้วพูดได้เลย โดยปกติ OLIV จะหยุดเองเมื่อไม่ได้ยินเสียงพูด 1.5 วินาที สั่งอีกครั้งถ้าอยากหยุดเร็วขึ้น อยู่ที่ช่องพิมพ์และเคอร์เซอร์เดิมเพื่อให้แทรกฉบับร่างอัตโนมัติ OLIV จะไม่ส่งข้อความให้"
+          }
+        }
+      }
+    },
+    "Processing details": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "รายละเอียดการประมวลผล"
+          }
+        }
+      }
+    },
+    "Processing details, %@": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "รายละเอียดการประมวลผล, %@"
+          }
+        }
+      }
+    },
+    "Quick access": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เข้าถึงด่วน"
+          }
+        }
+      }
+    },
+    "RULE %lld": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กฎข้อ %lld"
+          }
+        }
+      }
+    },
+    "Ready": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พร้อม"
+          }
+        }
+      }
+    },
+    "Ready for another try": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พร้อมลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Ready for your next thought": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พร้อมสำหรับความคิดต่อไปของคุณ"
+          }
+        }
+      }
+    },
+    "Ready to use": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พร้อมใช้"
+          }
+        }
+      }
+    },
+    "Ready where you type": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พร้อมใช้ตรงที่คุณพิมพ์"
+          }
+        }
+      }
+    },
+    "Record another thought": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อัดเสียงอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Record between a moment and two minutes of audio.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อัดเสียงได้ตั้งแต่สั้นๆ จนถึงสองนาที"
+          }
+        }
+      }
+    },
+    "Recording": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อัดเสียง"
+          }
+        }
+      }
+    },
+    "Recording duration": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ระยะเวลาอัดเสียง"
+          }
+        }
+      }
+    },
+    "Recording duration, %@": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ระยะเวลาอัดเสียง, %@"
+          }
+        }
+      }
+    },
+    "Recording stopped because automatic finish became unavailable. Nothing was inserted. Open OLIV to review the recording.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หยุดอัดเสียงแล้ว เพราะหยุดอัตโนมัติใช้งานไม่ได้ ยังไม่มีการแทรกข้อความ เปิด OLIV เพื่อตรวจสอบเสียงที่อัด"
+          }
+        }
+      }
+    },
+    "Recordings are sent only to the server you configure. Failed recordings stay on this iPhone for retry. Finished audio is removed after processing; text history is optional.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียงจะถูกส่งไปที่เซิร์ฟเวอร์ที่คุณตั้งค่าไว้เท่านั้น เสียงที่ส่งไม่สำเร็จจะเก็บไว้บน iPhone เครื่องนี้ให้ลองใหม่ เสียงที่ประมวลผลเสร็จแล้วจะถูกลบ ส่วนประวัติข้อความจะเก็บหรือไม่ก็ได้"
+          }
+        }
+      }
+    },
+    "Recovered an interrupted recording. It is ready to retry.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กู้คืนเสียงที่อัดค้างไว้แล้ว พร้อมให้ลองใหม่"
+          }
+        }
+      }
+    },
+    "Remove rule": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลบกฎ"
+          }
+        }
+      }
+    },
+    "Replace spoken phrases with the text you prefer. Rules run from top to bottom.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เปลี่ยนคำที่พูดเป็นคำที่คุณชอบ กฎจะทำงานจากบนลงล่าง"
+          }
+        }
+      }
+    },
+    "Replacement rule %lld options": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตัวเลือกกฎคำแทนที่ข้อ %lld"
+          }
+        }
+      }
+    },
+    "Replacement rules need a spoken phrase.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กฎคำแทนที่ต้องมีคำที่พูด"
+          }
+        }
+      }
+    },
+    "Replacement text": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คำแทนที่"
+          }
+        }
+      }
+    },
+    "Replacements": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คำแทนที่"
+          }
+        }
+      }
+    },
+    "Replacements allow at most %lld rules; remove %lld.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Replacements allow at most %1$lld rules; remove %2$lld."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คำแทนที่มีได้ไม่เกิน %lld กฎ โปรดลบออก %lld กฎ"
+          }
+        }
+      }
+    },
+    "Review history settings": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ดูการตั้งค่าประวัติ"
+          }
+        }
+      }
+    },
+    "Right where you need it": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อยู่ตรงที่คุณต้องการ"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "บันทึก"
+          }
+        }
+      }
+    },
+    "Save 16 kHz mono PCM recordings of up to two minutes.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "บันทึกเสียงแบบ PCM โมโน 16 kHz ได้นานสุดสองนาที"
+          }
+        }
+      }
+    },
+    "Save settings": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "บันทึกการตั้งค่า"
+          }
+        }
+      }
+    },
+    "Save the server address in Settings before connecting or recording.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "บันทึกที่อยู่เซิร์ฟเวอร์ในการตั้งค่าก่อนเชื่อมต่อหรืออัดเสียง"
+          }
+        }
+      }
+    },
+    "Save your server settings again to pair this address with its access token.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "บันทึกการตั้งค่าเซิร์ฟเวอร์อีกครั้ง เพื่อจับคู่ที่อยู่นี้กับโทเคนเข้าถึง"
+          }
+        }
+      }
+    },
+    "Saved OLIV data could not be read. Existing data has been preserved.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อ่านข้อมูล OLIV ที่บันทึกไว้ไม่ได้ แต่ข้อมูลเดิมยังอยู่ครบ"
+          }
+        }
+      }
+    },
+    "Saved data could not be loaded. Existing files were preserved. %@": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "โหลดข้อมูลที่บันทึกไว้ไม่ได้ แต่ไฟล์เดิมยังอยู่ครบ %@"
+          }
+        }
+      }
+    },
+    "Saved on this iPhone, ready when you need it.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เก็บไว้บน iPhone เครื่องนี้ พร้อมเมื่อคุณต้องการ"
+          }
+        }
+      }
+    },
+    "Saved recordings": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียงที่บันทึกไว้"
+          }
+        }
+      }
+    },
+    "Saved securely": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "บันทึกอย่างปลอดภัยแล้ว"
+          }
+        }
+      }
+    },
+    "Saved settings could not be read. Reconnect in Settings; your history and recordings were preserved.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อ่านการตั้งค่าที่บันทึกไว้ไม่ได้ โปรดเชื่อมต่อใหม่ในการตั้งค่า ประวัติและเสียงที่อัดไว้ยังอยู่ครบ"
+          }
+        }
+      }
+    },
+    "Saving new history is paused in Settings.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การบันทึกประวัติใหม่ถูกหยุดไว้ในการตั้งค่า"
+          }
+        }
+      }
+    },
+    "Say this. Write that.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พูดแบบนี้ เขียนแบบนั้น"
+          }
+        }
+      }
+    },
+    "Screen": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หน้าจอ"
+          }
+        }
+      }
+    },
+    "See all": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ดูทั้งหมด"
+          }
+        }
+      }
+    },
+    "Select OLIV where you write": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เลือก OLIV ตรงที่คุณเขียน"
+          }
+        }
+      }
+    },
+    "Select the keyboard": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เลือกคีย์บอร์ด"
+          }
+        }
+      }
+    },
+    "Server URL": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL เซิร์ฟเวอร์"
+          }
+        }
+      }
+    },
+    "Server found. Save your settings to check your API key.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พบเซิร์ฟเวอร์แล้ว บันทึกการตั้งค่าเพื่อตรวจสอบ API key ของคุณ"
+          }
+        }
+      }
+    },
+    "Set up Action button, Back Tap, or controls.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตั้งค่าปุ่มแอ็คชั่น การแตะด้านหลัง หรือส่วนควบคุม"
+          }
+        }
+      }
+    },
+    "Set up one way to start OLIV from any app.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตั้งค่าวิธีเริ่ม OLIV จากแอปไหนก็ได้สักหนึ่งวิธี"
+          }
+        }
+      }
+    },
+    "Settings": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การตั้งค่า"
+          }
+        }
+      }
+    },
+    "Settings saved.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "บันทึกการตั้งค่าแล้ว"
+          }
+        }
+      }
+    },
+    "Share finished text": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แชร์ข้อความที่เกลาแล้ว"
+          }
+        }
+      }
+    },
+    "Share text": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แชร์ข้อความ"
+          }
+        }
+      }
+    },
+    "Shorten the replacement for “%@”; each side allows %lld UTF-8 bytes.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Shorten the replacement for “%1$@”; each side allows %2$lld UTF-8 bytes."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ย่อคำแทนที่ของ “%@” ให้สั้นลง แต่ละฝั่งใส่ได้ไม่เกิน %lld ไบต์ UTF-8"
+          }
+        }
+      }
+    },
+    "Shorten the vocabulary entry “%@…”; entries allow %lld UTF-8 bytes.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Shorten the vocabulary entry “%1$@…”; entries allow %2$lld UTF-8 bytes."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ย่อคำศัพท์ “%@…” ให้สั้นลง แต่ละรายการใส่ได้ไม่เกิน %lld ไบต์ UTF-8"
+          }
+        }
+      }
+    },
+    "Shows the full result on Capture.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แสดงข้อความเต็มในหน้าอัดเสียง"
+          }
+        }
+      }
+    },
+    "Skip for now": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้ามไปก่อน"
+          }
+        }
+      }
+    },
+    "Speak\nnaturally.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พูดได้\nตามสบาย"
+          }
+        }
+      }
+    },
+    "Speak into the same field": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พูดลงในช่องพิมพ์เดิม"
+          }
+        }
+      }
+    },
+    "Speak. Make it clear.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พูดออกมา แล้วจะชัดเจนเอง"
+          }
+        }
+      }
+    },
+    "Speak. OLIV writes.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คุณพูด OLIV เขียน"
+          }
+        }
+      }
+    },
+    "Speech detection": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตรวจจับเสียงพูด"
+          }
+        }
+      }
+    },
+    "Spoken phrase": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คำที่พูด"
+          }
+        }
+      }
+    },
+    "Start a free trial, or add your own API key.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เริ่มทดลองใช้ฟรี หรือเพิ่ม API key ของคุณเอง"
+          }
+        }
+      }
+    },
+    "Start dictation and finish automatically after a pause, inserting into the active OLIV keyboard. Run again to finish sooner. Automatic finish can be disabled in OLIV. The microphone stays off between captures.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เริ่มอัดเสียงและหยุดเองเมื่อคุณเว้นจังหวะ แล้วแทรกข้อความลงในคีย์บอร์ด OLIV ที่เปิดอยู่ สั่งอีกครั้งถ้าอยากหยุดเร็วขึ้น ปิดการหยุดอัตโนมัติได้ใน OLIV ไมโครโฟนจะปิดอยู่ระหว่างการอัดแต่ละครั้ง"
+          }
+        }
+      }
+    },
+    "Start free trial": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เริ่มทดลองใช้ฟรี"
+          }
+        }
+      }
+    },
+    "Start once. Speak. Pause.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เริ่มครั้งเดียว พูด แล้วเว้นจังหวะ"
+          }
+        }
+      }
+    },
+    "Start or finish a recording. Complete setup in OLIV first.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เริ่มหรือหยุดอัดเสียง โปรดตั้งค่าใน OLIV ให้เสร็จก่อน"
+          }
+        }
+      }
+    },
+    "Start recording": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เริ่มอัดเสียง"
+          }
+        }
+      }
+    },
+    "Start speaking": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เริ่มพูด"
+          }
+        }
+      }
+    },
+    "Start with Toggle OLIV and speak. After automatic finish and processing, use Copy Latest OLIV, then paste where you’re writing.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เริ่มด้วย Toggle OLIV แล้วพูดได้เลย เมื่อหยุดอัตโนมัติและประมวลผลเสร็จ ใช้ Copy Latest OLIV แล้ววางตรงที่คุณกำลังเขียน"
+          }
+        }
+      }
+    },
+    "Start with one press": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เริ่มได้ในกดเดียว"
+          }
+        }
+      }
+    },
+    "Starts recording from your microphone.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เริ่มอัดเสียงจากไมโครโฟนของคุณ"
+          }
+        }
+      }
+    },
+    "Step %@. %@. %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Step %1$@. %2$@. %3$@"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ขั้นตอนที่ %@ %@ %@"
+          }
+        }
+      }
+    },
+    "Stop": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หยุด"
+          }
+        }
+      }
+    },
+    "Stopped waiting. Your recording is saved for retry.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หยุดรอแล้ว เก็บเสียงที่อัดไว้ให้ลองใหม่"
+          }
+        }
+      }
+    },
+    "Stops recording and sends the audio to your Oliv server.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "หยุดอัดเสียงและส่งเสียงไปที่เซิร์ฟเวอร์ Oliv ของคุณ"
+          }
+        }
+      }
+    },
+    "Stored in iOS Keychain on this iPhone.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เก็บไว้ใน Keychain ของ iOS บน iPhone เครื่องนี้"
+          }
+        }
+      }
+    },
+    "Take your time. Tap below when you’re finished.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไม่ต้องรีบ พูดจบแล้วแตะด้านล่างได้เลย"
+          }
+        }
+      }
+    },
+    "Tap here": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แตะตรงนี้"
+          }
+        }
+      }
+    },
+    "Tap once. Say what you mean.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แตะครั้งเดียว แล้วพูดสิ่งที่อยากบอก"
+          }
+        }
+      }
+    },
+    "Tap the button below, then Keyboards. Turn on OLIV and Allow Full Access.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แตะปุ่มด้านล่าง แล้วแตะ แป้นพิมพ์ เปิด OLIV และ อนุญาตการเข้าถึงทั้งหมด"
+          }
+        }
+      }
+    },
+    "Tap, then say something the way you normally talk. Mix Thai and English.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แตะ แล้วพูดตามที่คุณพูดปกติ ไทยปนอังกฤษก็ได้"
+          }
+        }
+      }
+    },
+    "Test connection": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ทดสอบการเชื่อมต่อ"
+          }
+        }
+      }
+    },
+    "Text cleanup": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เกลาข้อความ"
+          }
+        }
+      }
+    },
+    "Text copied, but the history could not be updated.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คัดลอกข้อความแล้ว แต่อัปเดตประวัติไม่ได้"
+          }
+        }
+      }
+    },
+    "Text protection": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การปกป้องข้อความ"
+          }
+        }
+      }
+    },
+    "Text to clean": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้อความที่จะเกลา"
+          }
+        }
+      }
+    },
+    "Thai and English in one sentence, turned into clean text in any app.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พูดไทยปนอังกฤษในประโยคเดียว ก็ได้ข้อความเรียบร้อยในทุกแอป"
+          }
+        }
+      }
+    },
+    "Thai formatting": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "จัดรูปแบบภาษาไทย"
+          }
+        }
+      }
+    },
+    "Thai, English, or a little of both.\nYour words, with room to breathe.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไทย อังกฤษ หรือปนกันก็ได้\nพูดตามสบาย ไม่ต้องรีบ"
+          }
+        }
+      }
+    },
+    "That recording was too short. Tap record and speak for at least a moment.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียงที่อัดสั้นเกินไป แตะอัดเสียงแล้วพูดนานขึ้นอีกนิด"
+          }
+        }
+      }
+    },
+    "The API is busy or its quota was reached. Try again after %@. Your recording is preserved.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API ไม่ว่างหรือใช้เกินโควตาแล้ว ลองอีกครั้งหลัง %@ เสียงที่อัดไว้ยังอยู่ครบ"
+          }
+        }
+      }
+    },
+    "The API key is invalid, expired or revoked. Update it in Settings and retry.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API key ไม่ถูกต้อง หมดอายุ หรือถูกยกเลิกแล้ว โปรดอัปเดตในการตั้งค่าแล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "The PCM sample rate or recording size is invalid.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อัตราสุ่ม PCM หรือขนาดของเสียงที่อัดไม่ถูกต้อง"
+          }
+        }
+      }
+    },
+    "The access token could not be read or saved securely. Unlock your iPhone and try again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อ่านหรือบันทึกโทเคนเข้าถึงอย่างปลอดภัยไม่ได้ โปรดปลดล็อก iPhone แล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "The access token must contain printable ASCII characters without spaces.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "โทเคนเข้าถึงต้องเป็นอักขระ ASCII ที่แสดงผลได้ และไม่มีช่องว่าง"
+          }
+        }
+      }
+    },
+    "The automatic finish timing is invalid.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เวลาหยุดอัตโนมัติไม่ถูกต้อง"
+          }
+        }
+      }
+    },
+    "The connection to OLIV failed. Your recording can be retried.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เชื่อมต่อ OLIV ไม่สำเร็จ คุณลองส่งเสียงที่อัดไว้อีกครั้งได้"
+          }
+        }
+      }
+    },
+    "The finishing touches": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เก็บรายละเอียดอีกนิด"
+          }
+        }
+      }
+    },
+    "The free trial is closed right now. Try again later.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตอนนี้ปิดรับทดลองใช้ฟรีอยู่ ลองใหม่ภายหลัง"
+          }
+        }
+      }
+    },
+    "The keyboard focus is no longer valid.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คีย์บอร์ดไม่ได้อยู่ที่ช่องพิมพ์เดิมแล้ว"
+          }
+        }
+      }
+    },
+    "The keyboard handoff could not be read safely.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อ่านข้อความที่ส่งต่อให้คีย์บอร์ดอย่างปลอดภัยไม่ได้"
+          }
+        }
+      }
+    },
+    "The keyboard handoff exceeded its storage limit.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้อความที่ส่งต่อให้คีย์บอร์ดเกินพื้นที่ที่จำกัดไว้"
+          }
+        }
+      }
+    },
+    "The microphone could not start. Check whether a call or another recording is using it.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เริ่มไมโครโฟนไม่ได้ ตรวจดูว่าสายโทรหรือการอัดเสียงอื่นกำลังใช้อยู่หรือไม่"
+          }
+        }
+      }
+    },
+    "The microphone turns on only when you start a recording, and off as soon as you finish.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไมโครโฟนเปิดเฉพาะตอนเริ่มอัดเสียง และปิดทันทีเมื่อคุณอัดเสร็จ"
+          }
+        }
+      }
+    },
+    "The old shared token is retired. Enter a new individual API key in Settings and save it.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "โทเคนแบบใช้ร่วมกันอันเก่าเลิกใช้แล้ว โปรดใส่ API key ส่วนตัวอันใหม่ในการตั้งค่า แล้วบันทึก"
+          }
+        }
+      }
+    },
+    "The original transcription, before cleanup and formatting.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้อความต้นฉบับก่อนเกลาและจัดรูปแบบ"
+          }
+        }
+      }
+    },
+    "The recording is not a complete PCM WAV file.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียงที่อัดไม่ใช่ไฟล์ PCM WAV ที่สมบูรณ์"
+          }
+        }
+      }
+    },
+    "The request was cancelled.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ยกเลิกคำขอแล้ว"
+          }
+        }
+      }
+    },
+    "The same core controls as the other OLIV clients.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตัวเลือกหลักเหมือนกับ OLIV เวอร์ชันอื่น"
+          }
+        }
+      }
+    },
+    "The server answered but isn't ready. Try again in a moment.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เซิร์ฟเวอร์ตอบกลับแล้วแต่ยังไม่พร้อม ลองอีกครั้งในอีกสักครู่"
+          }
+        }
+      }
+    },
+    "The server could not be reached. Check your internet connection and retry.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "The server returned an unreadable response. Check that the endpoint is an OLIV server.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เซิร์ฟเวอร์ตอบกลับมาแบบอ่านไม่ได้ ตรวจสอบว่าที่อยู่นี้เป็นเซิร์ฟเวอร์ OLIV"
+          }
+        }
+      }
+    },
+    "The server returned more data than expected.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เซิร์ฟเวอร์ส่งข้อมูลกลับมามากเกินไป"
+          }
+        }
+      }
+    },
+    "The server returned no finished text. Nothing was copied.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เซิร์ฟเวอร์ไม่ได้ส่งข้อความกลับมา จึงไม่มีอะไรถูกคัดลอก"
+          }
+        }
+      }
+    },
+    "The server took too long to respond. Your recording can be retried.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เซิร์ฟเวอร์ตอบกลับช้าเกินไป คุณลองส่งเสียงที่อัดไว้อีกครั้งได้"
+          }
+        }
+      }
+    },
+    "The shared keyboard storage is unavailable.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้พื้นที่เก็บข้อมูลร่วมของคีย์บอร์ดไม่ได้"
+          }
+        }
+      }
+    },
+    "The text you submitted, before cleanup.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้อความที่คุณส่งมา ก่อนเกลา"
+          }
+        }
+      }
+    },
+    "There is no transcript to copy yet. Record something in OLIV first.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ยังไม่มีข้อความให้คัดลอก ลองอัดเสียงใน OLIV ก่อน"
+          }
+        }
+      }
+    },
+    "These recordings are saved on this iPhone.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียงเหล่านี้เก็บไว้บน iPhone เครื่องนี้"
+          }
+        }
+      }
+    },
+    "This API key does not permit this operation. Ask the administrator for the required dictate or clean scope.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API key นี้ไม่มีสิทธิ์ทำรายการนี้ โปรดขอสิทธิ์อัดเสียงหรือเกลาข้อความจากผู้ดูแลระบบ"
+          }
+        }
+      }
+    },
+    "This audio will be removed from this iPhone.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียงนี้จะถูกลบออกจาก iPhone เครื่องนี้"
+          }
+        }
+      }
+    },
+    "This keyboard supports ordinary typing, Thai/English, shift, numbers, symbols, long-press accents and spacebar cursor movement. It does not include Apple’s predictive text, autocorrect or swipe-typing engine.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คีย์บอร์ดนี้พิมพ์ได้ตามปกติ สลับไทย/อังกฤษได้ มีปุ่ม Shift ตัวเลข สัญลักษณ์ กดค้างเพื่อใส่เครื่องหมายเสียง และเลื่อนเคอร์เซอร์ด้วยปุ่มเว้นวรรค แต่ไม่มีการคาดเดาคำ แก้คำอัตโนมัติ หรือปัดเพื่อพิมพ์แบบของ Apple"
+          }
+        }
+      }
+    },
+    "This recording or its vocabulary exceeds the server's request limit.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียงที่อัดหรือคำศัพท์เกินขีดจำกัดของเซิร์ฟเวอร์"
+          }
+        }
+      }
+    },
+    "This result cannot be delivered through the keyboard.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ส่งข้อความนี้ผ่านคีย์บอร์ดไม่ได้"
+          }
+        }
+      }
+    },
+    "This saved recording is no longer available.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียงที่บันทึกไว้นี้ไม่มีอยู่แล้ว"
+          }
+        }
+      }
+    },
+    "This text will be sent to your configured Oliv server when you tap Clean text.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้อความนี้จะถูกส่งไปที่เซิร์ฟเวอร์ Oliv ที่คุณตั้งค่าไว้ เมื่อคุณแตะ เกลาข้อความ"
+          }
+        }
+      }
+    },
+    "Tidy existing text with the same vocabulary, replacements, and formatting you use for voice.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "จัดข้อความที่มีอยู่ให้เรียบร้อย ด้วยคำศัพท์ คำแทนที่ และรูปแบบเดียวกับที่ใช้ตอนพูด"
+          }
+        }
+      }
+    },
+    "Today's free trials are taken. Try again tomorrow.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "สิทธิ์ทดลองใช้ฟรีของวันนี้หมดแล้ว ลองใหม่พรุ่งนี้"
+          }
+        }
+      }
+    },
+    "Toggle OLIV": {},
+    "Too many keyboard handoffs are pending. Try again shortly.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "มีข้อความรอส่งต่อให้คีย์บอร์ดมากเกินไป ลองอีกครั้งในอีกสักครู่"
+          }
+        }
+      }
+    },
+    "Total processing": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เวลาประมวลผลรวม"
+          }
+        }
+      }
+    },
+    "Transcript version": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เวอร์ชันข้อความ"
+          }
+        }
+      }
+    },
+    "Transcription": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แปลงเสียงเป็นข้อความ"
+          }
+        }
+      }
+    },
+    "Try again": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Try another word or phrase from your transcript.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลองค้นหาคำหรือวลีอื่นจากข้อความของคุณ"
+          }
+        }
+      }
+    },
+    "Try it now": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลองเลย"
+          }
+        }
+      }
+    },
+    "Typing keeps the microphone off. Capture releases it before processing your words.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตอนพิมพ์ ไมโครโฟนจะปิดอยู่ และเมื่ออัดเสียงเสร็จ ไมโครโฟนจะปิดก่อนเริ่มประมวลผล"
+          }
+        }
+      }
+    },
+    "Typing stays on your iPhone. Full Access only lets the keyboard receive text you dictated in OLIV.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "สิ่งที่พิมพ์จะอยู่แค่บน iPhone ของคุณ การเข้าถึงทั้งหมดมีไว้ให้คีย์บอร์ดรับข้อความที่คุณพูดใน OLIV เท่านั้น"
+          }
+        }
+      }
+    },
+    "Use Capture with OLIV when opening the app suits your flow.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้ Capture with OLIV เมื่อการเปิดแอปเหมาะกับการใช้งานของคุณ"
+          }
+        }
+      }
+    },
+    "Use HTTPS, or explicitly enable HTTP for a local or private VPN address.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้ HTTPS หรือเปิดอนุญาต HTTP สำหรับที่อยู่ในเครือข่ายภายในหรือ VPN ส่วนตัว"
+          }
+        }
+      }
+    },
+    "Use it in every app": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้ได้ในทุกแอป"
+          }
+        }
+      }
+    },
+    "Use my own server or API key": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้เซิร์ฟเวอร์หรือ API key ของฉันเอง"
+          }
+        }
+      }
+    },
+    "Use the OLIV keyboard for automatic insertion, or keep your usual keyboard and paste. The microphone opens only when you start a capture.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้คีย์บอร์ด OLIV เพื่อแทรกข้อความอัตโนมัติ หรือใช้คีย์บอร์ดเดิมแล้ววางเอง ไมโครโฟนจะเปิดเฉพาะตอนที่คุณเริ่มอัดเสียง"
+          }
+        }
+      }
+    },
+    "Use the keyboard switcher to choose OLIV. You can keep it selected for everyday Thai and English typing.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใช้ปุ่มสลับคีย์บอร์ดเพื่อเลือก OLIV จะเลือกไว้ใช้พิมพ์ไทยและอังกฤษทุกวันเลยก็ได้"
+          }
+        }
+      }
+    },
+    "Use the same capture gesture, then paste.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เริ่มอัดเสียงด้วยวิธีเดิม แล้ววางข้อความ"
+          }
+        }
+      }
+    },
+    "Vocabulary allows at most %lld entries; remove %lld.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Vocabulary allows at most %1$lld entries; remove %2$lld."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คำศัพท์มีได้ไม่เกิน %lld รายการ โปรดลบออก %lld รายการ"
+          }
+        }
+      }
+    },
+    "Vocabulary corrections": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แก้ตามคำศัพท์"
+          }
+        }
+      }
+    },
+    "Voice waveform": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คลื่นเสียง"
+          }
+        }
+      }
+    },
+    "With OLIV selected in your field, press and hold the Action button once. Wait for Listening, speak, then pause. OLIV finishes after 1.5 seconds without detected speech. Invoke again to finish sooner. No speech cancels the capture after a short wait. The microphone stops before transcription and stays off while idle.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เมื่อเลือก OLIV ในช่องพิมพ์แล้ว ให้กดปุ่มแอ็คชั่นค้างไว้หนึ่งครั้ง รอจนขึ้นว่ากำลังฟัง พูด แล้วเว้นจังหวะ OLIV จะหยุดเองเมื่อไม่ได้ยินเสียงพูด 1.5 วินาที สั่งอีกครั้งถ้าอยากหยุดเร็วขึ้น ถ้าไม่มีเสียงพูด การอัดเสียงจะยกเลิกเองหลังรอสักครู่ ไมโครโฟนจะหยุดก่อนแปลงเป็นข้อความ และปิดอยู่ตลอดเมื่อไม่ได้ใช้งาน"
+          }
+        }
+      }
+    },
+    "Words you use": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คำที่คุณใช้"
+          }
+        }
+      }
+    },
+    "Working on your words…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังเรียบเรียงข้อความ…"
+          }
+        }
+      }
+    },
+    "Writing preferences": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การตั้งค่าการเขียน"
+          }
+        }
+      }
+    },
+    "Writing…": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กำลังเขียน…"
+          }
+        }
+      }
+    },
+    "Your Oliv server is transcribing and applying your text preferences.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เซิร์ฟเวอร์ Oliv ของคุณกำลังแปลงเสียงเป็นข้อความและจัดตามที่คุณตั้งค่าไว้"
+          }
+        }
+      }
+    },
+    "Your connection": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การเชื่อมต่อของคุณ"
+          }
+        }
+      }
+    },
+    "Your finished dictations and cleaned text will appear here.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้อความที่อัดเสียงเสร็จและที่เกลาแล้วจะแสดงที่นี่"
+          }
+        }
+      }
+    },
+    "Your free trial has ended. Tap to continue.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ทดลองใช้ฟรีหมดแล้ว แตะเพื่อใช้ต่อ"
+          }
+        }
+      }
+    },
+    "Your history.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ประวัติของคุณ"
+          }
+        }
+      }
+    },
+    "Your keyboard.\nYour voice.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "คีย์บอร์ดของคุณ\nเสียงของคุณ"
+          }
+        }
+      }
+    },
+    "Your server. Your vocabulary. Your way of writing.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เซิร์ฟเวอร์ของคุณ คำศัพท์ของคุณ สไตล์การเขียนของคุณ"
+          }
+        }
+      }
+    },
+    "Your text": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้อความของคุณ"
+          }
+        }
+      }
+    },
+    "Your text is ready here. Automatic insertion was unavailable because the original keyboard field could not be confirmed. Copy the result to continue.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้อความของคุณพร้อมแล้วตรงนี้ แทรกอัตโนมัติไม่ได้เพราะยืนยันช่องพิมพ์เดิมไม่ได้ คัดลอกข้อความเพื่อใช้ต่อ"
+          }
+        }
+      }
+    },
+    "Your text is ready here. OLIV could not connect to the active keyboard. Enable Allow Full Access for OLIV and keep the same field open when using Toggle OLIV.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้อความของคุณพร้อมแล้วตรงนี้ OLIV เชื่อมต่อกับคีย์บอร์ดที่เปิดอยู่ไม่ได้ โปรดเปิด อนุญาตการเข้าถึงทั้งหมด ให้ OLIV และเปิดช่องพิมพ์เดิมไว้ตอนใช้ Toggle OLIV"
+          }
+        }
+      }
+    },
+    "Your voice, ready to use. Open OLIV and start recording.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียงของคุณ พร้อมใช้งาน เปิด OLIV แล้วเริ่มอัดเสียงได้เลย"
+          }
+        }
+      }
+    },
+    "Your words": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้อความของคุณ"
+          }
+        }
+      }
+    },
+    "https://oliv.example.com": {},
+    "iOS could not start OLIV’s Live Activity. Check iPhone Settings → Apps → OLIV → Live Activities, then try Toggle OLIV again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS เริ่ม Live Activity ของ OLIV ไม่ได้ ตรวจสอบที่ การตั้งค่า iPhone → แอป → OLIV → Live Activity แล้วลอง Toggle OLIV อีกครั้ง"
+          }
+        }
+      }
+    },
+    "iOS could not start the microphone. Recording did not begin. If a call or another recording is active, finish it before trying Toggle OLIV again.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iOS เริ่มไมโครโฟนไม่ได้ จึงยังไม่ได้อัดเสียง ถ้ามีสายโทรหรือการอัดเสียงอื่นอยู่ ให้จบก่อนแล้วลอง Toggle OLIV อีกครั้ง"
+          }
+        }
+      }
+    },
+    "iPhone Settings → Action Button → swipe to Controls → Choose a Control → Toggle OLIV. By default, one press starts a capture that finishes after you pause.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การตั้งค่า iPhone → ปุ่มแอ็คชั่น → ปัดไปที่ส่วนควบคุม → เลือกส่วนควบคุม → Toggle OLIV โดยปกติ กดหนึ่งครั้งเพื่อเริ่มอัดเสียง แล้วจะหยุดเองเมื่อคุณเว้นจังหวะ"
+          }
+        }
+      }
+    },
+    "iPhone Settings → Action Button → swipe to Controls → Choose a Control → Toggle OLIV. On any other iPhone, add Toggle OLIV to Control Center. Leave Live Activities enabled for OLIV in iPhone Settings.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การตั้งค่า iPhone → ปุ่มแอ็คชั่น → ปัดไปที่ส่วนควบคุม → เลือกส่วนควบคุม → Toggle OLIV ถ้าเป็น iPhone รุ่นอื่น ให้เพิ่ม Toggle OLIV ลงในศูนย์ควบคุม และเปิด Live Activity ของ OLIV ไว้ในการตั้งค่า iPhone"
+          }
+        }
+      }
+    },
+    "iPhone Settings → Action Button → swipe to Controls → Choose a Control → Toggle OLIV. Then press and hold the button, speak, and pause.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การตั้งค่า iPhone → ปุ่มแอ็คชั่น → ปัดไปที่ส่วนควบคุม → เลือกส่วนควบคุม → Toggle OLIV จากนั้นกดปุ่มค้างไว้ พูด แล้วเว้นจังหวะ"
+          }
+        }
+      }
+    },
+    "iPhone Settings → General → Keyboard → Keyboards → Add New Keyboard → OLIV.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การตั้งค่า iPhone → ทั่วไป → แป้นพิมพ์ → แป้นพิมพ์ → เพิ่มแป้นพิมพ์ใหม่ → OLIV"
+          }
+        }
+      }
+    },
+    "iPhone Settings → General → Keyboard → Keyboards → Add New Keyboard → OLIV. Enable Allow Full Access so OLIV can hand the finished text to its keyboard. The keyboard does not send your typing to a server.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "การตั้งค่า iPhone → ทั่วไป → แป้นพิมพ์ → แป้นพิมพ์ → เพิ่มแป้นพิมพ์ใหม่ → OLIV เปิด อนุญาตการเข้าถึงทั้งหมด เพื่อให้ OLIV ส่งข้อความที่เสร็จแล้วไปยังคีย์บอร์ดได้ คีย์บอร์ดจะไม่ส่งสิ่งที่คุณพิมพ์ไปยังเซิร์ฟเวอร์"
+          }
+        }
+      }
+    },
+    "oliv": {},
+    "โอลิฟ": {},
+    "“พรุ่งนี้มี meeting ตอนสิบโมงนะครับ”": {}
+  },
+  "version": "1.0"
+}

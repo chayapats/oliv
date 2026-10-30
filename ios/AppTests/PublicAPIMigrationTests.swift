@@ -69,8 +69,7 @@ final class PublicAPIMigrationTests: XCTestCase {
                        "The unauthenticated GET may use a non-secret configuration placeholder")
         XCTAssertNil(try credentials.read())
         XCTAssertFalse(model.isCheckingConnection)
-        XCTAssertTrue(model.connectionMessage?.contains("API reachable") == true)
-        XCTAssertTrue(model.connectionMessage?.contains("not verified") == true)
+        XCTAssertEqual(model.connectionMessage, "Server found. Save your settings to check your API key.")
         XCTAssertEqual(model.phase, .idle)
         XCTAssertEqual(capture.startCount, 0)
         XCTAssertTrue(model.history.isEmpty)
@@ -205,6 +204,61 @@ private struct PublicAPIHarness {
     func removeDirectory() { try? FileManager.default.removeItem(at: directory) }
 }
 
+@MainActor
+final class FreeTrialTests: XCTestCase {
+    private func makeModel(_ request: @escaping (URL) async throws -> TrialKey,
+                           credentials: MemoryCredentialStore = MemoryCredentialStore()) -> (AppModel, URL) {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let model = AppModel(directory: directory, credentials: credentials,
+                             capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
+                             clientFactory: { _ in PublicAPITestService() }, requestTrialKey: request)
+        model.trialServerURL = "https://oliv.example.com"
+        return (model, directory)
+    }
+
+    func testTrialConnectsWithoutTheUserSeeingOrEnteringAKey() async throws {
+        let credentials = MemoryCredentialStore()
+        let end = Date().addingTimeInterval(604_800)
+        let (model, directory) = makeModel({ _ in TrialKey(token: "oliv_trial_key", expiresAt: end) }, credentials: credentials)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        XCTAssertTrue(model.needsSetup)
+        await model.startTrial()
+        XCTAssertTrue(model.isConfigured)
+        XCTAssertEqual(try credentials.read(), "oliv_trial_key")
+        XCTAssertEqual(model.tokenInput, "")
+        XCTAssertEqual(model.settings.trialExpiresAt, end)
+        XCTAssertFalse(model.needsSetup)
+        XCTAssertFalse(model.trialHasEnded)
+    }
+
+    func testTrialRefusalLeavesTheAppUnconfiguredWithAPlainMessage() async throws {
+        let (model, directory) = makeModel({ _ in throw TrialRefusal.limitReached })
+        defer { try? FileManager.default.removeItem(at: directory) }
+        await model.startTrial()
+        XCTAssertFalse(model.isConfigured)
+        XCTAssertEqual(model.trialMessage, "Today's free trials are taken. Try again tomorrow.")
+    }
+
+    func testTypingAnOwnKeyEndsTrialMode() async throws {
+        let (model, directory) = makeModel({ _ in TrialKey(token: "oliv_trial_key", expiresAt: Date().addingTimeInterval(60)) })
+        defer { try? FileManager.default.removeItem(at: directory) }
+        await model.startTrial()
+        model.tokenInput = "my-own-key"
+        model.saveSettings()
+        XCTAssertNil(model.settings.trialExpiresAt)
+    }
+
+    func testSetupStaysOpenAfterConnectingUntilFinished() async throws {
+        let (model, directory) = makeModel({ _ in TrialKey(token: "oliv_trial_key", expiresAt: Date().addingTimeInterval(60)) })
+        defer { try? FileManager.default.removeItem(at: directory) }
+        XCTAssertTrue(model.isInSetup)
+        await model.startTrial()
+        XCTAssertTrue(model.isInSetup)
+        model.finishSetup()
+        XCTAssertFalse(model.isInSetup)
+    }
+}
+
 private actor PublicAPITestService: OlivServing {
     enum Mode: Sendable { case success, dictationRateLimit(Date), cleanupRateLimit(Date) }
     struct Counts: Sendable { let health: Int; let dictate: Int; let clean: Int }
@@ -215,6 +269,7 @@ private actor PublicAPITestService: OlivServing {
 
     init(mode: Mode = .success) { self.mode = mode }
     func counts() -> Counts { Counts(health: healthCalls, dictate: dictateCalls, clean: cleanCalls) }
+    func verifyKey() async throws {}
     func health() async throws -> ServerHealth {
         healthCalls += 1
         return try JSONDecoder().decode(ServerHealth.self, from: Data(#"{"ok":true}"#.utf8))

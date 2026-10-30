@@ -19,7 +19,7 @@ public enum WAVEncoder {
     public static func encode(samples: [Int16], sampleRate: Int = RecordingLimits.sampleRate) throws -> Data {
         guard sampleRate > 0, sampleRate <= Int(UInt32.max / 2),
               samples.count <= (Int(UInt32.max) - 36) / 2 else {
-            throw OlivError.invalidAudio("The PCM sample rate or recording size is invalid.")
+            throw OlivError.invalidAudio(String(localized: "The PCM sample rate or recording size is invalid.", bundle: .main))
         }
         var data = try header(sampleRate: sampleRate, byteCount: samples.count * 2)
         for sample in samples {
@@ -35,7 +35,7 @@ public enum WAVEncoder {
         let layout = try PCMLayout(data: data)
         guard layout.sampleRate == RecordingLimits.sampleRate,
               layout.channelCount == 1, layout.bitsPerSample == 16 else {
-            throw OlivError.invalidAudio("OLIV expects 16 kHz mono 16-bit PCM WAV audio.")
+            throw OlivError.invalidAudio(String(localized: "OLIV expects 16 kHz mono 16-bit PCM WAV audio.", bundle: .main))
         }
         var result = try header(sampleRate: layout.sampleRate, byteCount: layout.dataRange.count)
         let start = data.index(data.startIndex, offsetBy: layout.dataRange.lowerBound)
@@ -48,7 +48,7 @@ public enum WAVEncoder {
         guard sampleRate > 0, sampleRate <= Int(UInt32.max / 2),
               byteCount >= 0, byteCount <= Int(UInt32.max) - 36,
               byteCount.isMultiple(of: 2) else {
-            throw OlivError.invalidAudio("The PCM sample rate or recording size is invalid.")
+            throw OlivError.invalidAudio(String(localized: "The PCM sample rate or recording size is invalid.", bundle: .main))
         }
         var data = Data(capacity: 44 + byteCount)
         func ascii(_ value: String) { data.append(contentsOf: value.utf8) }
@@ -103,7 +103,7 @@ private struct PCMLayout {
 
     init(data: Data) throws {
         let bytes = [UInt8](data)
-        func fail() -> OlivError { .invalidAudio("The recording is not a complete PCM WAV file.") }
+        func fail() -> OlivError { .invalidAudio(String(localized: "The recording is not a complete PCM WAV file.", bundle: .main)) }
         func matches(_ offset: Int, _ value: String) -> Bool {
             Array(bytes[offset..<(offset + value.utf8.count)]) == Array(value.utf8)
         }

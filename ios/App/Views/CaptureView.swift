@@ -191,7 +191,7 @@ struct CaptureView: View {
                 .accessibilityIdentifier("cancelButton")
                 .padding(.top, 5)
             } else {
-                Text(model.isConfigured ? "Tap once. Say what you mean." : "Connect your server to start recording.")
+                Text(model.isConfigured ? "Tap once. Say what you mean." : "Connect to start recording.")
                     .font(.caption)
                     .foregroundStyle(OlivTheme.secondary)
                     .frame(maxWidth: .infinity)
@@ -218,17 +218,17 @@ struct CaptureView: View {
                     VStack(alignment: .leading, spacing: 5) {
                         Text("A small setup. A smoother flow.")
                             .font(.subheadline.weight(.semibold))
-                        Text("Add your Oliv server and API token to turn speech into finished text.")
+                        Text("Start a free trial, or add your own API key.")
                             .font(.caption)
                             .foregroundStyle(OlivTheme.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 Button {
-                    model.selectedTab = 2
+                    model.isInSetup = true
                 } label: {
                     HStack {
-                        Text("Connect your server")
+                        Text("Connect")
                         Spacer()
                         Image(systemName: "arrow.right")
                     }
@@ -295,7 +295,7 @@ struct CaptureView: View {
         }
     }
 
-    private var captureEyebrow: String {
+    private var captureEyebrow: LocalizedStringKey {
         switch model.phase {
         case .preparing: "Getting ready"
         case .recording: "Listening to you"
@@ -306,7 +306,7 @@ struct CaptureView: View {
         }
     }
 
-    private var captureTitle: String {
+    private var captureTitle: LocalizedStringKey {
         switch model.phase {
         case .preparing: "A moment\nfor your voice."
         case .recording: "Just let\nit flow."
@@ -315,7 +315,7 @@ struct CaptureView: View {
         }
     }
 
-    private var captureSubtitle: String {
+    private var captureSubtitle: LocalizedStringKey {
         switch model.phase {
         case .preparing: "Preparing your microphone."
         case .recording: "Take your time. Tap below when you’re finished."
@@ -324,7 +324,7 @@ struct CaptureView: View {
         }
     }
 
-    private var recordButtonTitle: String {
+    private var recordButtonTitle: LocalizedStringKey {
         switch model.phase {
         case .preparing: "Preparing microphone…"
         case .recording: "Finish recording"

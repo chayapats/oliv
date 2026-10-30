@@ -29,16 +29,16 @@ public struct OlivOptions: Codable, Equatable, Sendable {
     public func validateServerLimits() throws {
         let entries = Self.maximumEntries, bytes = Self.maximumEntryBytes
         guard vocabulary.count <= entries else {
-            throw OlivError.invalidOptions("Vocabulary allows at most \(entries) entries; remove \(vocabulary.count - entries).")
+            throw OlivError.invalidOptions(String(localized: "Vocabulary allows at most \(entries) entries; remove \(vocabulary.count - entries).", bundle: .main))
         }
         if let long = vocabulary.first(where: { $0.utf8.count > bytes }) {
-            throw OlivError.invalidOptions("Shorten the vocabulary entry “\(long.prefix(24))…”; entries allow \(bytes) UTF-8 bytes.")
+            throw OlivError.invalidOptions(String(localized: "Shorten the vocabulary entry “\(long.prefix(24))…”; entries allow \(bytes) UTF-8 bytes.", bundle: .main))
         }
         guard replacements.count <= entries else {
-            throw OlivError.invalidOptions("Replacements allow at most \(entries) rules; remove \(replacements.count - entries).")
+            throw OlivError.invalidOptions(String(localized: "Replacements allow at most \(entries) rules; remove \(replacements.count - entries).", bundle: .main))
         }
         if let long = replacements.first(where: { $0.spoken.utf8.count > bytes || $0.written.utf8.count > bytes }) {
-            throw OlivError.invalidOptions("Shorten the replacement for “\(long.spoken.prefix(24))”; each side allows \(bytes) UTF-8 bytes.")
+            throw OlivError.invalidOptions(String(localized: "Shorten the replacement for “\(long.spoken.prefix(24))”; each side allows \(bytes) UTF-8 bytes.", bundle: .main))
         }
     }
 
@@ -46,10 +46,10 @@ public struct OlivOptions: Codable, Equatable, Sendable {
         var sources = Set<String>()
         for rule in replacements {
             guard !rule.spoken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                throw OlivError.invalidOptions("Replacement rules need a spoken phrase.")
+                throw OlivError.invalidOptions(String(localized: "Replacement rules need a spoken phrase.", bundle: .main))
             }
             guard sources.insert(rule.spoken).inserted else {
-                throw OlivError.invalidOptions("Each spoken phrase can have only one replacement rule.")
+                throw OlivError.invalidOptions(String(localized: "Each spoken phrase can have only one replacement rule.", bundle: .main))
             }
         }
     }
@@ -207,24 +207,24 @@ public enum OlivError: Error, LocalizedError, Equatable, Sendable {
         switch self {
         case .invalidConfiguration(let message), .invalidOptions(let message), .invalidAudio(let message):
             return message
-        case .requestTooLarge: return "This recording or its vocabulary exceeds the server's request limit."
-        case .responseTooLarge: return "The server returned more data than expected."
-        case .invalidResponse: return "The server returned an unreadable response. Check that the endpoint is an OLIV server."
-        case .unauthorized: return "The API key is invalid, expired or revoked. Update it in Settings and retry."
-        case .forbidden(.missingScope): return "This API key does not permit this operation. Ask the administrator for the required dictate or clean scope."
-        case .forbidden(.edgePolicy): return "Cloudflare denied this request. Contact the administrator with your OLIV app version."
-        case .forbidden(.unknown): return "Access was denied. Ask the administrator to check the API key scopes and public API access policy."
+        case .requestTooLarge: return String(localized: "This recording or its vocabulary exceeds the server's request limit.", bundle: .main)
+        case .responseTooLarge: return String(localized: "The server returned more data than expected.", bundle: .main)
+        case .invalidResponse: return String(localized: "The server returned an unreadable response. Check that the endpoint is an OLIV server.", bundle: .main)
+        case .unauthorized: return String(localized: "The API key is invalid, expired or revoked. Update it in Settings and retry.", bundle: .main)
+        case .forbidden(.missingScope): return String(localized: "This API key does not permit this operation. Ask the administrator for the required dictate or clean scope.", bundle: .main)
+        case .forbidden(.edgePolicy): return String(localized: "Cloudflare denied this request. Contact the administrator with your OLIV app version.", bundle: .main)
+        case .forbidden(.unknown): return String(localized: "Access was denied. Ask the administrator to check the API key scopes and public API access policy.", bundle: .main)
         case .rateLimited(let date):
-            return "The API is busy or its quota was reached. Try again after \(date.formatted(date: .abbreviated, time: .standard)). Your recording is preserved."
+            return String(localized: "The API is busy or its quota was reached. Try again after \(date.formatted(date: .abbreviated, time: .standard)). Your recording is preserved.", bundle: .main)
         case .serviceUnavailable(let statusCode, let date):
             let retry = date.map { " Try again after \($0.formatted(date: .abbreviated, time: .standard))." } ?? ""
-            return "OLIV is temporarily unavailable (HTTP \(statusCode)).\(retry) Your recording is preserved for retry."
-        case .server(let statusCode): return "OLIV could not complete the request (HTTP \(statusCode)). Your recording can be retried."
-        case .timedOut: return "The server took too long to respond. Your recording can be retried."
-        case .networkUnavailable: return "The server could not be reached. Check your internet connection and retry."
-        case .transport: return "The connection to OLIV failed. Your recording can be retried."
-        case .missingRecording: return "This saved recording is no longer available."
-        case .corruptedStore: return "Saved OLIV data could not be read. Existing data has been preserved."
+            return String(localized: "OLIV is temporarily unavailable (HTTP \(statusCode)).\(retry) Your recording is preserved for retry.", bundle: .main)
+        case .server(let statusCode): return String(localized: "OLIV could not complete the request (HTTP \(statusCode)). Your recording can be retried.", bundle: .main)
+        case .timedOut: return String(localized: "The server took too long to respond. Your recording can be retried.", bundle: .main)
+        case .networkUnavailable: return String(localized: "The server could not be reached. Check your internet connection and retry.", bundle: .main)
+        case .transport: return String(localized: "The connection to OLIV failed. Your recording can be retried.", bundle: .main)
+        case .missingRecording: return String(localized: "This saved recording is no longer available.", bundle: .main)
+        case .corruptedStore: return String(localized: "Saved OLIV data could not be read. Existing data has been preserved.", bundle: .main)
         }
     }
 }

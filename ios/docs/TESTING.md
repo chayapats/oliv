@@ -12,6 +12,27 @@ Server URLs in this record and its screenshots are redacted to `oliv.example.com
 - Endpoint: the operator's public HTTPS OLIV server, verified from this Mac and Simulator with ordinary TLS validation. The old private-VPN endpoint is retired.
 - No backend deployment, server models, other VM services, or Linux evaluation recordings were changed.
 
+## Repeated Action button starts — build 18
+
+Reported as unreliable since build 4. Reproduced on a physical iPhone 17 (iOS 27) with `ActionButtonUITests`, which presses the real Action button through `XCUIDevice` while Notes is in front (`OlivActionButtonValidation` scheme). Results come from the app's own diagnostics, so each press is classified by what the app recorded.
+
+| Condition | Started |
+|---|---|
+| Before the fix, process launched by the intent, repeated presses | 0 of 20 (`561015905`, `!pla`) |
+| Same, with 6 s of `setActive` retries | 1 of 9, so waiting doesn't help |
+| Process launched on screen, repeated presses, no restart | 9 of 9 |
+| Process terminated before every press | 8 of 8 |
+| **After the fix**, process launched by the intent, 12 presses, gaps of 12 to 42 s | **12 of 12** |
+
+iOS lets a process it launched in the background start audio once. Each later start in that process fails until the process is gone, while a new process always works. A capture that ran in the background now ends its process about 1.5 s after finishing, with its results already on disk, so the next press gets a fresh launch. A result finished in the last 10 minutes is restored when OLIV opens.
+
+Still open:
+
+- The 2026-10-29 device log also shows `2003329396` (`what`) from `AVAudioEngine.start()` on two presses, with a later press succeeding. It wasn't reproduced. `startWithRetry` now tries three times and records `audioEngineStartRetry`, so its effect is unproven until a device reports one.
+- A press within about 1.5 s of the previous capture ending can still reach the old process.
+- These runs used a quiet room's no-speech path. The insertion and upload paths are covered by earlier evidence and unit tests, not by this table.
+- Toggle OLIV from Action Button → Controls and from Control Center hasn't been run: the test phone's button is assigned a shortcut.
+
 ## Host keyboard crash and Safari completion — 2026-10-30
 
 **Keyboard missing in some apps (fixed).** Two device crash reports from build 14 (`OlivKeyboard`, iOS 27.0.1) share one stack: `viewDidAppear → requestBridgeEvent → refreshFocus → UUID._unconditionallyBridgeFromObjectiveC`, `EXC_BREAKPOINT`/SIGTRAP. Swift imports `UITextDocumentProxy.documentIdentifier` as non-optional, but the remote proxy returns nil whenever no host text session is attached. A probe logged nil in every `viewDidLoad`, before the first document callback, and in every `viewWillDisappear`. `viewDidAppear` arrives through UIKit's queueing proxy and can land after a host has already dropped focus. The trap killed the extension, so the field showed no keyboard until it was refocused (the "tap elsewhere, tap again" report). The crashing path requires Full Access.

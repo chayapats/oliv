@@ -4,7 +4,9 @@
 <dict>
     <key>CFBundleDisplayName</key>
     <string>OLIV</string>
-    <key>CFBundleName</key>
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleLocalizations</key><array><string>en</string><string>th</string></array>
+  <key>CFBundleName</key>
     <string>$(PRODUCT_NAME)</string>
     <key>CFBundleIdentifier</key>
     <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>

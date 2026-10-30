@@ -16,10 +16,10 @@ Safari's inline URL completion remains a known limitation. Manual comparison rep
 
 ## Setup and everyday use
 
-1. Complete OLIV server/token setup and microphone permission in the main app. Keep Live Activities enabled for background dictation.
+1. Complete first-run setup in the main app, which covers the connection and microphone permission. Keep Live Activities enabled for background dictation.
 2. In iPhone Settings, add OLIV under **General → Keyboard → Keyboards → Add New Keyboard**.
 3. Enable **Allow Full Access** for OLIV if automatic dictation insertion is desired. Ordinary typing does not require this access.
-4. Select OLIV in the destination app's text field. Create a shortcut containing **Toggle OLIV** and assign it in **Settings → Action Button → Shortcut**. **Capture with OLIV** opens the app and does not retain the destination keyboard field.
+4. Select OLIV in the destination app's text field. Put **Toggle OLIV** on **Settings → Action Button → Controls**, or add it to Control Center. **Capture with OLIV** opens the app and does not retain the destination keyboard field.
 5. **Press and hold once** until Listening/the orange microphone indicator appears, speak, then pause. With **Action button auto-finish** on (the default), 1.5 seconds of classified non-speech after speech finishes capture. Invoke again to finish sooner. The unchanged eligible field receives the result as a draft; OLIV does not send it. No microphone button or new spacebar control is added to the keyboard.
 
 The keyboard must already be active. The app cannot silently replace Apple's keyboard in the current field. Opening OLIV's foreground Capture flow does not carry a target field forward; the result remains available in OLIV for copying. Build 4 removes Toggle’s implicit foreground continuation so a failed start cannot move away from the target app and silently change the workflow.

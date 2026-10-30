@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Bindable var model: AppModel
     @FocusState private var fieldIsFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var showsOwnServer = false
 
     var body: some View {
         ScrollView {
@@ -86,13 +87,62 @@ struct SettingsView: View {
         OlivCard {
             VStack(alignment: .leading, spacing: 20) {
                 HStack(alignment: .top, spacing: 12) {
-                    SectionHeading(title: "Your connection", caption: "Connect to your OLIV server.")
+                    SectionHeading(title: "Your connection", caption: connectionCaption)
                     Spacer(minLength: 0)
                     Image(systemName: "network")
                         .font(.title2.weight(.light))
                         .foregroundStyle(OlivTheme.olive)
                 }
 
+                if model.settings.trialExpiresAt != nil {
+                    Toggle("Use my own server or API key", isOn: $showsOwnServer)
+                        .font(.subheadline)
+                        .accessibilityIdentifier("ownServerToggle")
+                }
+
+                if model.settings.trialExpiresAt == nil || showsOwnServer {
+                    ownServerFields
+                }
+
+                Button {
+                    fieldIsFocused = false
+                    Task { await model.checkConnection() }
+                } label: {
+                    HStack(spacing: 9) {
+                        if model.isCheckingConnection {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                        }
+                        Text(model.isCheckingConnection ? "Checking…" : "Test connection")
+                        Spacer(minLength: 0)
+                    }
+                }
+                .buttonStyle(OlivSecondaryButtonStyle())
+                .disabled(model.isCheckingConnection || model.isBusy)
+                .accessibilityIdentifier("testConnectionButton")
+
+                if let message = model.connectionMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(OlivTheme.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("connectionStatus")
+                }
+            }
+            .disabled(model.isBusy)
+        }
+    }
+
+    private var connectionCaption: LocalizedStringKey {
+        if let end = model.settings.trialExpiresAt {
+            return "Free trial until \(end.formatted(date: .abbreviated, time: .omitted))."
+        }
+        return "Connect to your OLIV server."
+    }
+
+    @ViewBuilder private var ownServerFields: some View {
+        VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Server URL")
                         .font(.caption.weight(.semibold))
@@ -124,7 +174,7 @@ struct SettingsView: View {
                         .olivField()
                         .privacySensitive()
                         .accessibilityIdentifier("tokenField")
-                    Text("Stored in iOS Keychain on this iPhone. Use a key for this device with dictate permission; clean permission is needed for existing text.")
+                    Text("Stored in iOS Keychain on this iPhone.")
                         .font(.caption2)
                         .foregroundStyle(OlivTheme.secondary)
                 }
@@ -148,38 +198,6 @@ struct SettingsView: View {
                         .foregroundStyle(OlivTheme.warning)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-
-                Button {
-                    fieldIsFocused = false
-                    Task { await model.checkConnection() }
-                } label: {
-                    HStack(spacing: 9) {
-                        if model.isCheckingConnection {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                        }
-                        Text(model.isCheckingConnection ? "Checking server…" : "Test connection")
-                        Spacer(minLength: 0)
-                    }
-                }
-                .buttonStyle(OlivSecondaryButtonStyle())
-                .disabled(model.isCheckingConnection || model.isBusy)
-                .accessibilityIdentifier("testConnectionButton")
-
-                Text("Checks API availability only. Your key is verified when you dictate or clean text.")
-                    .font(.caption2)
-                    .foregroundStyle(OlivTheme.secondary)
-
-                if let message = model.connectionMessage {
-                    Text(message)
-                        .font(.caption)
-                        .foregroundStyle(OlivTheme.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("connectionStatus")
-                }
-            }
-            .disabled(model.isBusy)
         }
     }
 

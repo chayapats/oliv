@@ -10,6 +10,9 @@ struct KeyboardCaptureTarget: Sendable {
 @MainActor
 protocol KeyboardDelivering: AnyObject {
     func snapshotFocus() async -> KeyboardFocusLease?
+    /// Asks whether OLIV's keyboard is on screen with Full Access, without
+    /// leaving a capture diagnostic. Setup uses this; capture never does.
+    func isConnected() async -> Bool
     func publish(text: String, target: KeyboardFocusLease, recordingID: UUID) async -> Bool
     func cancel(recordingID: UUID)
 }
@@ -51,6 +54,8 @@ final class KeyboardDeliveryCoordinator: KeyboardDelivering {
             return nil
         }
     }
+
+    func isConnected() async -> Bool { await refreshedFocus() != nil }
 
     func snapshotFocus() async -> KeyboardFocusLease? {
         let focus = await refreshedFocus()

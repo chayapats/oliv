@@ -72,9 +72,10 @@ struct OlivSecondaryButtonStyle: ButtonStyle {
 }
 
 struct Eyebrow: View {
-    let text: String
+    let text: LocalizedStringKey
     var body: some View {
-        Text(text.uppercased())
+        Text(text)
+            .textCase(.uppercase)
             .font(.caption2.weight(.bold))
             .tracking(2.0)
             .foregroundStyle(OlivTheme.secondary)
@@ -82,8 +83,8 @@ struct Eyebrow: View {
 }
 
 struct SectionHeading: View {
-    let title: String
-    var caption: String? = nil
+    let title: LocalizedStringKey
+    var caption: LocalizedStringKey? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -133,8 +134,8 @@ extension View {
 
 struct EmptyState: View {
     let symbol: String
-    let title: String
-    let description: String
+    let title: LocalizedStringKey
+    let description: LocalizedStringKey
 
     var body: some View {
         VStack(spacing: 17) {

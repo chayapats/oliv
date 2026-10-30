@@ -44,12 +44,12 @@ public enum KeyboardDeliveryError: Error, LocalizedError, Equatable, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidFocus: "The keyboard focus is no longer valid."
-        case .invalidText: "This result cannot be delivered through the keyboard."
-        case .corruptState: "The keyboard handoff could not be read safely."
-        case .stateTooLarge: "The keyboard handoff exceeded its storage limit."
-        case .receiptLimit: "Too many keyboard handoffs are pending. Try again shortly."
-        case .storageUnavailable: "The shared keyboard storage is unavailable."
+        case .invalidFocus: String(localized: "The keyboard focus is no longer valid.", bundle: .main)
+        case .invalidText: String(localized: "This result cannot be delivered through the keyboard.", bundle: .main)
+        case .corruptState: String(localized: "The keyboard handoff could not be read safely.", bundle: .main)
+        case .stateTooLarge: String(localized: "The keyboard handoff exceeded its storage limit.", bundle: .main)
+        case .receiptLimit: String(localized: "Too many keyboard handoffs are pending. Try again shortly.", bundle: .main)
+        case .storageUnavailable: String(localized: "The shared keyboard storage is unavailable.", bundle: .main)
         }
     }
 }

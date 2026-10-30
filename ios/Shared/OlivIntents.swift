@@ -10,11 +10,11 @@ private enum OlivIntentError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .appProcessRequired:
-            return "Open OLIV once to finish setup, then try again."
+            return String(localized: "Open OLIV once to finish setup, then try again.")
         case .noTranscript:
-            return "There is no transcript to copy yet. Record something in OLIV first."
+            return String(localized: "There is no transcript to copy yet. Record something in OLIV first.")
         case .processingFailed:
-            return "OLIV could not finish this recording. Open the app to review or retry it."
+            return String(localized: "OLIV could not finish this recording. Open the app to review or retry it.")
         case .startFailed(let guidance):
             return guidance
         }

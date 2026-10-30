@@ -14,10 +14,11 @@ settings:
     DEVELOPMENT_TEAM: SRAQ34JPLS
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: '0.1.0'
-    CURRENT_PROJECT_VERSION: '17'
+    CURRENT_PROJECT_VERSION: '18'
     IPHONEOS_DEPLOYMENT_TARGET: '18.0'
     TARGETED_DEVICE_FAMILY: '1'
     ENABLE_USER_SCRIPT_SANDBOXING: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
 targets:
   Oliv:
     type: application
@@ -171,6 +172,21 @@ schemes:
             - KeyboardVisualReferenceTests/testCaptureAppleEnglishLayers
             - KeyboardVisualReferenceTests/testCaptureAppleThaiLayers
             - KeyboardVisualReferenceTests/testCaptureOLIVEnglishAndThaiLayers
+  OlivActionButtonValidation:
+    build:
+      targets:
+        Oliv: all
+        OlivWidgets: all
+        OlivKeyboard: all
+    test:
+      config: Debug
+      environmentVariables:
+        OLIV_ACTION_BUTTON_TESTS: '1'
+      targets:
+        - name: OlivUITests
+          parallelizable: false
+          selectedTests:
+            - ActionButtonUITests
   OlivPhysicalAudioValidation:
     build:
       targets:

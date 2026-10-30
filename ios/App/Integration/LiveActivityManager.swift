@@ -15,7 +15,7 @@ final class LiveActivityManager {
         case disabled
 
         var errorDescription: String? {
-            "Enable Live Activities for OLIV in Settings to record from the Action button or Control Center."
+            String(localized: "Enable Live Activities for OLIV in Settings to record from the Action button or Control Center.")
         }
     }
 

@@ -34,6 +34,10 @@ struct ContentView: View {
         }
         .background(OlivTheme.background.ignoresSafeArea())
         .tint(OlivTheme.olive)
+        .fullScreenCover(isPresented: .init(get: { model.needsSetup || model.isInSetup },
+                                            set: { _ in })) {
+            SetupView(model: model)
+        }
     }
 
     private var statusBanners: some View {
@@ -47,6 +51,19 @@ struct ContentView: View {
                     .padding(.horizontal, 12)
                     .background(OlivTheme.warm)
                     .accessibilityIdentifier("demoBanner")
+            }
+            if model.trialHasEnded {
+                Button {
+                    Task { await model.startTrial() }
+                } label: {
+                    Label("Your free trial has ended. Tap to continue.", systemImage: "clock")
+                        .font(.subheadline.weight(.medium))
+                        .frame(maxWidth: .infinity)
+                        .padding(14)
+                }
+                .disabled(model.isStartingTrial)
+                .background(OlivTheme.warm)
+                .accessibilityIdentifier("trialEndedBanner")
             }
             if let message = model.message, !message.isEmpty {
                 HStack(alignment: .top, spacing: 12) {

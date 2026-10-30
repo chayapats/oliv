@@ -19,13 +19,21 @@ enum PreviewEnvironment {
         let service = FixtureOlivService(mode: mode)
         let automaticKeyboardFixture = args.contains("--keyboard-test-host")
             && args.contains("--keyboard-auto-finish-fixture")
-        let model = AppModel(directory: directory, credentials: MemoryCredentialStore(token: "fixture-token"),
+        let firstRun = args.contains("--first-run")
+        let model = AppModel(directory: directory,
+            credentials: MemoryCredentialStore(token: firstRun ? nil : "fixture-token"),
             capture: FixtureAudioCapture(directory: directory,
                                          synthesizesSpeechObservations: automaticKeyboardFixture),
             liveActivitiesEnabled: false,
             keyboardDelivery: !realAudioFixture && (args.contains("--keyboard-test-host") || args.contains("--keyboard-integration-demo"))
                 ? KeyboardDeliveryCoordinator.makeDefault() : nil,
-            clientFactory: { _ in service })
+            clientFactory: { _ in service },
+            requestTrialKey: { _ in TrialKey(token: "fixture-trial", expiresAt: Date().addingTimeInterval(604_800)) })
+        if firstRun {
+            model.isDemo = true
+            model.trialServerURL = "https://oliv.example"
+            return model
+        }
         model.settings.serverURL = "https://oliv.example"
         if args.contains("--keyboard-test-host") {
             // Existing handoff tests deliberately finish/cancel by explicit UI
@@ -33,8 +41,12 @@ enum PreviewEnvironment {
             model.settings.automaticActionButtonFinish = automaticKeyboardFixture
         }
         model.saveSettings()
+        model.isInSetup = false
         model.isDemo = true
-        if args.contains("--unconfigured") { model.settings.serverURL = "" }
+        if args.contains("--unconfigured") {
+            model.settings.serverURL = ""
+            model.settings.finishedSetup = true
+        }
         return model
     }
 }
@@ -208,6 +220,7 @@ actor FixtureOlivService: OlivServing {
         try JSONDecoder().decode(ServerHealth.self, from: Data(
             #"{"ok":true,"whisper":true,"gemma":true,"version":"fixture","prompt":"v5","llm_timeout":5}"#.utf8))
     }
+    func verifyKey() async throws {}
     static func reply(cleanupFallback: Bool = false) -> DictationReply {
         DictationReply(raw: "เอ่อ พรุ่งนี้ส่ง design ให้ทีม review ตอนเก้าโมงนะครับ",
             finalText: "พรุ่งนี้ส่ง design ให้ทีม review ตอน 9 โมงนะครับ",
