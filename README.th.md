@@ -123,18 +123,62 @@ OLIV 0.2.0 เอา Python ออกจากแอปทั้งหมด ก
 
 **สเปกที่ต้องมี:** Mac ชิป Apple Silicon (M1 ขึ้นไป) และ macOS 14 Sonoma ขึ้นไป ถ้าใช้ OLIV API engine ต้องมีอินเทอร์เน็ตและ API key แต่ไม่ต้องโหลดโมเดลลงเครื่อง
 
-## Linux, Windows และ server ของคุณเอง
+## เลือกวิธีใช้งาน OLIV ได้ 3 แบบ
 
-<a href="server/README.md"><picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/server-hero-dark.png">
-  <img src="docs/img/readme/server-hero-light.png" alt="OLIV Server: เครื่อง GPU เครื่องเดียว ทุกอุปกรณ์พูดแล้วพิมพ์ได้ client บน Mac, Linux และ Windows ต่อผ่าน HTTPS ไปยังเครื่อง GPU ที่รัน oliv-api, ถอดเสียง, เกลาข้อความด้วย Gemma และ dashboard" width="100%">
-</picture></a>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/setup-paths-dark.png">
+  <img src="docs/img/readme/setup-paths-light.png" alt="วิธีใช้ OLIV สามแบบ แบบที่ 1 ในเครื่อง Mac (ค่าเริ่มต้น): Typhoon, Rust core และ Gemma ทำงานบน Mac ทั้งหมด ไม่ต้องใช้อินเทอร์เน็ต เสียงไม่ถูกส่งไปไหน โหลดโมเดลประมาณ 5 GB ความหมายถูก 98% แบบที่ 2 server ของคุณเอง: Mac, Linux และ Windows ส่งเสียงไปยังเครื่อง GPU ของคุณ ไม่ต้องโหลดโมเดลลงเครื่อง client ต้องมี Linux กับการ์ด NVIDIA แบบที่ 3 Groq สำหรับถอดเสียง: เสียงถูกส่งไป Groq เลือกเปิดเกลาข้อความด้วย Gemma บน Mac ได้ 91% ถ้าเปิด 85% ถ้าปิด ต้องมี Groq API key" width="100%">
+</picture>
 
-แอป Mac ประมวลผลทุกอย่างในเครื่อง ถ้าอยากใช้บนคอมเครื่องอื่นด้วย ให้รัน pipeline เดียวกันไว้บนเครื่อง GPU ของคุณเองครั้งเดียว
+ทุกอย่างตั้งค่าได้จากแถบเมนูด้านบน คลิกไอคอน OLIV แล้วเลือก **Settings…**
 
-- **[OLIV Server](server/README.md)** รันการถอดเสียงและเกลาข้อความบน Linux ที่มีการ์ด NVIDIA ผ่าน HTTPS API เดียว แยก key ให้แต่ละอุปกรณ์ และใช้ text core ที่เขียนด้วย Rust ตัวเดียวกับแอป Mac
-- **[OLIV desktop](desktop/README.md)** คือ client ขนาดเล็กที่เขียนด้วย Rust สำหรับ Linux (Hyprland/Wayland) และ Windows 10/11 กด Shift ขวาค้างไว้ พูด แล้วปล่อย ข้อความจะถูกวางลงในแอปที่เปิดอยู่
-- **แอป Mac** ก็ใช้ server ของคุณได้ ที่ Settings ▸ Cloud services ▸ OLIV API
+### 1. ในเครื่อง Mac (ค่าเริ่มต้น ไม่ต้องใช้เน็ต)
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/setup-local-dark.png">
+  <img src="docs/img/readme/setup-local-light.png" alt="หน้า Dictation engine ใน Settings ของ OLIV: 1 เมนู Dictation engine ในแถบด้านซ้าย 2 เลือก Typhoon Whisper Turbo ที่มีป้าย Default และ Downloaded 3 แถบข้อความ Audio stays on this Mac" width="100%">
+</picture>
+
+1. เปิดหน้า **Dictation engine**
+2. เลือก **Typhoon Whisper Turbo** ไว้ (เป็นค่าเริ่มต้นอยู่แล้ว ติดตั้งใหม่ไม่ต้องเปลี่ยนอะไร)
+3. ดูว่าแถบด้านบนขึ้น **Audio stays on this Mac.** และเปิด **Text cleanup** ไว้ จะได้ความแม่น 98% เต็ม
+
+หลังดาวน์โหลดโมเดลครั้งแรก (ประมาณ 5 GB) ใช้งานได้โดยไม่ต้องต่ออินเทอร์เน็ต และเสียงของคุณไม่ถูกอัปโหลดไปไหน
+
+### 2. ผ่าน OLIV server ของคุณเอง
+
+สำหรับ dev หรือทีม รันการถอดเสียงและเกลาข้อความบนเครื่อง Linux ที่มีการ์ด NVIDIA แล้วให้ Mac, Linux และ Windows ทุกเครื่องเชื่อมเข้ามา ติดตั้ง server ตาม [server/README.md](server/README.md) และสร้าง key แยกให้แต่ละเครื่องด้วย `oliv-keys` จากนั้นตั้งค่าบน Mac:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/setup-server-dark.png">
+  <img src="docs/img/readme/setup-server-light.png" alt="หน้า Cloud services และ Dictation engine ใน Settings ของ OLIV: 1 เปิด Enable OLIV API 2 ใส่ Server URL https://oliv.example.com 3 ใส่ Individual API key 4 กด Check connection 5 เลือก OLIV API ในหมวด Cloud engines" width="100%">
+</picture>
+
+1. ในหน้า **Cloud services** เปิด **Enable OLIV API**
+2. ใส่ **Server URL** เฉพาะ URL หลัก (เช่น `https://oliv.example.com`)
+3. วาง **Individual API key** ของเครื่องนี้ key จะถูกเก็บใน macOS Keychain
+4. กด **Check connection**
+5. ในหน้า **Dictation engine** เลือก **OLIV API**
+
+แบบนี้ Mac ไม่ต้องโหลดโมเดลเลย เสียงไปแค่ server ของคุณ และผู้ให้บริการที่ถือ TLS หน้า server (ถ้ามี) และ Dictionary จะ sync ข้ามเครื่องให้ บน Linux และ Windows ใช้ [OLIV desktop client](desktop/README.md)
+
+### 3. ใช้ Groq ถอดเสียง
+
+Groq รัน Whisper large-v3 บนคลาวด์ แล้ว OLIV ยังเกลาข้อความต่อบน Mac ได้
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/setup-groq-dark.png">
+  <img src="docs/img/readme/setup-groq-light.png" alt="Settings ของ OLIV: 1 เปิด Enable Groq ในหน้า Cloud services 2 วาง Groq API key 3 เลือก Groq ในหมวด Cloud engines ของหน้า Dictation engine 4 สวิตช์ Enable text cleanup ในหน้า Text cleanup เปิดได้ 91% ปิดได้ 85%" width="100%">
+</picture>
+
+1. สร้าง API key ที่ [console.groq.com](https://console.groq.com/keys) แล้วไปที่หน้า **Cloud services** เปิด **Enable Groq**
+2. วาง key ลงไป key จะถูกเก็บใน macOS Keychain
+3. ในหน้า **Dictation engine** เลือก **Groq**
+4. ในหน้า **Text cleanup** เลือกว่าจะให้ OLIV ทำอะไรต่อหลัง Groq ถอดเสียง
+   - **เปิด (ความหมายถูก 91%):** Gemma ทำงานบน Mac (โหลดประมาณ 3.3 GB) เปลี่ยนศัพท์ที่สะกดเป็นไทยกลับเป็นอังกฤษ แปลงตัวเลขไทย และใช้ Dictionary ครบทุกส่วน
+   - **ปิด (85%):** ไม่ต้องโหลดโมเดล ใช้ได้เฉพาะคำใน Dictionary ที่ตั้ง **Correct a misspelling** ไว้ ส่วนคำที่เพิ่มไว้เฉยๆ จะถูกส่งไปให้ Groq เป็นคำใบ้ตอนถอดเสียง
+
+ระหว่างเลือก engine นี้ เสียงของคุณจะถูกส่งไปที่ Groq ถ้า Groq ล่ม OLIV จะลองใหม่หนึ่งครั้งด้วย Typhoon Whisper Turbo แต่ต้องโหลดโมเดลนั้นไว้แล้ว
 
 ## ความเป็นส่วนตัว
 

@@ -123,18 +123,62 @@ OLIV 0.2.0 removed Python from the app. Text processing and API requests use a s
 
 **Requirements:** an Apple Silicon Mac (M1 or newer) with macOS 14 Sonoma or later. The OLIV API engine needs an internet connection and an API key instead of local models.
 
-## Linux, Windows and your own server
+## Three ways to run OLIV
 
-<a href="server/README.md"><picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/server-hero-dark.png">
-  <img src="docs/img/readme/server-hero-light.png" alt="OLIV Server: one GPU box, every device dictates. Mac, Linux and Windows clients connect over HTTPS to a GPU machine running oliv-api, speech-to-text, Gemma cleanup and a dashboard." width="100%">
-</picture></a>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/setup-paths-dark.png">
+  <img src="docs/img/readme/setup-paths-light.png" alt="Three ways to run OLIV. One, on your Mac (default): Typhoon, the Rust core and Gemma all run on the Mac, no internet needed, audio goes nowhere, about 5 GB download, 98% meaning match. Two, your own OLIV server: Mac, Linux and Windows send audio to your GPU server, no model download on clients, needs Linux with an NVIDIA GPU. Three, Groq for speech-to-text: audio goes to Groq, optional Gemma cleanup on the Mac, 91% with cleanup or 85% without, needs a Groq API key." width="100%">
+</picture>
 
-The Mac app runs everything on-device. For your other computers, run the same pipeline once on a GPU machine you control:
+All settings live in the menu bar: click the OLIV icon, then **Settings…**.
 
-- **[OLIV Server](server/README.md)** runs speech-to-text and cleanup on Linux with an NVIDIA GPU behind one HTTPS API, with a separate key for each device. It uses the same Rust text core as the Mac app.
-- **[OLIV desktop](desktop/README.md)** is a small Rust client for Linux (Hyprland/Wayland) and Windows 10/11. Hold Right Shift, speak, let go, and the text is pasted into the focused app.
-- **The Mac app** can use your server too: Settings ▸ Cloud services ▸ OLIV API.
+### 1. On your Mac (default, offline)
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/setup-local-dark.png">
+  <img src="docs/img/readme/setup-local-light.png" alt="OLIV Settings, Dictation engine page: 1, the Dictation engine item in the sidebar; 2, Typhoon Whisper Turbo selected, marked Default and Downloaded; 3, the banner Audio stays on this Mac." width="100%">
+</picture>
+
+1. Open **Dictation engine**.
+2. Keep **Typhoon Whisper Turbo** selected. It's the default, so a fresh install needs no changes.
+3. Check that the banner says **Audio stays on this Mac.** Leave **Text cleanup** on for the full 98%.
+
+After the one-time model download (about 5 GB), dictation works without internet and your audio is never uploaded.
+
+### 2. Your own OLIV server
+
+For developers and teams. Run speech-to-text and cleanup on a Linux machine with an NVIDIA GPU, then point your Mac, Linux and Windows computers at it. Set up the server with [server/README.md](server/README.md) and create a key for each device with `oliv-keys`. Then, on the Mac:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/setup-server-dark.png">
+  <img src="docs/img/readme/setup-server-light.png" alt="OLIV Settings, Cloud services and Dictation engine pages: 1, turn on Enable OLIV API; 2, Server URL https://oliv.example.com; 3, Individual API key; 4, Check connection; 5, choose OLIV API under Cloud engines." width="100%">
+</picture>
+
+1. In **Cloud services**, turn on **Enable OLIV API**.
+2. Enter your **Server URL**, the base URL only (for example `https://oliv.example.com`).
+3. Paste this device's **Individual API key**. It's stored in the macOS Keychain.
+4. Click **Check connection**.
+5. In **Dictation engine**, choose **OLIV API**.
+
+The Mac downloads no models in this mode. Audio goes only to your server and to whatever terminates TLS in front of it, and your Dictionary syncs across your devices. On Linux and Windows, use the [OLIV desktop client](desktop/README.md).
+
+### 3. Groq for speech-to-text
+
+Groq runs Whisper large-v3 in the cloud. OLIV can still clean up the text on your Mac.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/setup-groq-dark.png">
+  <img src="docs/img/readme/setup-groq-light.png" alt="OLIV Settings: 1, turn on Enable Groq in Cloud services; 2, paste the Groq API key; 3, choose Groq under Cloud engines in Dictation engine; 4, the Enable text cleanup switch in Text cleanup, 91% when on and 85% when off." width="100%">
+</picture>
+
+1. Create an API key at [console.groq.com](https://console.groq.com/keys). In **Cloud services**, turn on **Enable Groq**.
+2. Paste the key. It's stored in the macOS Keychain.
+3. In **Dictation engine**, choose **Groq**.
+4. In **Text cleanup**, choose how much OLIV does after Groq:
+   - **On (91% meaning match):** Gemma runs on your Mac (about 3.3 GB download), restores English words, formats Thai numbers and applies your whole Dictionary.
+   - **Off (85%):** no model to download. Only Dictionary entries with **Correct a misspelling** are applied. Plain Dictionary words are sent to Groq as recognition hints.
+
+Your audio goes to Groq while this engine is selected. If Groq fails, OLIV retries once on Typhoon Whisper Turbo, but only if that model is downloaded.
 
 ## Privacy
 
