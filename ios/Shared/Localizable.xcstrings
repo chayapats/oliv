@@ -576,6 +576,16 @@
         }
       }
     },
+    "Connected, but this API key can't dictate. Ask the administrator to add the dictate scope.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เชื่อมต่อแล้ว แต่ API key นี้ใช้ถอดเสียงไม่ได้ ให้ผู้ดูแลเพิ่มสิทธิ์ dictate"
+          }
+        }
+      }
+    },
     "Connected. Your API key works.": {
       "localizations": {
         "th": {

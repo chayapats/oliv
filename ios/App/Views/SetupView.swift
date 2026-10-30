@@ -13,6 +13,12 @@ struct SetupView: View {
 
     private enum Step: Int, CaseIterable { case welcome, microphone, dictation, keyboard, trigger }
 
+    init(model: AppModel) {
+        _model = Bindable(model)
+        // Reopening after the trial started continues with the remaining steps.
+        _step = State(initialValue: model.isConfigured ? .microphone : .welcome)
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
@@ -101,10 +107,15 @@ struct SetupView: View {
                 .accessibilityIdentifier("allowMicrophoneButton")
             }
         }
-        .onAppear { if model.microphoneAllowed { step = .dictation } }
+        .onAppear { checkMicrophone() }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
-            if model.microphoneAllowed { step = .dictation }
+            checkMicrophone()
         }
+    }
+
+    private func checkMicrophone() {
+        model.refreshMicrophonePermission()
+        if model.microphoneAllowed { step = .dictation }
     }
 
     private var dictation: some View {
@@ -143,7 +154,9 @@ struct SetupView: View {
                     .font(.subheadline)
                     .foregroundStyle(OlivTheme.warning)
             }
+            // Leaving would take the Stop button away from a running recording.
             nextButton(model.latest?.reply.hasText == true ? "Next" : "Skip for now", to: .keyboard)
+                .disabled(model.isBusy)
         }
     }
 

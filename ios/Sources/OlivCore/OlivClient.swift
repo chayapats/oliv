@@ -112,6 +112,7 @@ public struct OlivClient: Sendable {
 
     /// Checks this key without spending quota or sending speech. The dictionary
     /// route accepts every key with scope dictate and is not charged per request.
+    /// A valid key without that scope throws `.forbidden(reason: .missingScope)`.
     public func verifyKey() async throws {
         _ = try await perform(path: "v1/dictionary", body: nil, authenticated: true)
     }

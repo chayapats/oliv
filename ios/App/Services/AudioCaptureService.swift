@@ -7,11 +7,12 @@ import OlivCore
 protocol AudioCapturing: AnyObject {
     var recoveryURL: URL { get }
     var hasPermission: Bool { get }
+    var permissionDenied: Bool { get }
     var analysisFailed: Bool { get }
     var onInterruption: (() -> Void)? { get set }
     func requestPermission() async -> Bool
-    func start() throws
-    func start(detectSpeech: Bool) throws
+    func start() async throws
+    func start(detectSpeech: Bool) async throws
     func takeSpeechObservations() -> [AudioSpeechObservation]
     func meter() -> (duration: TimeInterval, level: Double, decibels: Float)
     func stop() throws -> Data
@@ -20,10 +21,14 @@ protocol AudioCapturing: AnyObject {
 }
 
 extension AudioCapturing {
+    var permissionDenied: Bool { false }
     var analysisFailed: Bool { false }
-    func start(detectSpeech: Bool) throws { try start() }
+    func start(detectSpeech: Bool) async throws { try await start() }
     func takeSpeechObservations() -> [AudioSpeechObservation] { [] }
 }
+
+/// A cancel discarded this start while its engine waited to retry.
+struct AudioStartSuperseded: Error {}
 
 @MainActor
 final class AudioCaptureService: NSObject, AVAudioRecorderDelegate, AudioCapturing {
@@ -61,6 +66,7 @@ final class AudioCaptureService: NSObject, AVAudioRecorderDelegate, AudioCapturi
     }
 
     var hasPermission: Bool { AVAudioApplication.shared.recordPermission == .granted }
+    var permissionDenied: Bool { AVAudioApplication.shared.recordPermission == .denied }
     func requestPermission() async -> Bool {
         if hasPermission { return true }
         return await AVAudioApplication.requestRecordPermission()
@@ -80,9 +86,9 @@ final class AudioCaptureService: NSObject, AVAudioRecorderDelegate, AudioCapturi
         pipeline?.takeSpeechObservations() ?? []
     }
 
-    func start() throws { try start(detectSpeech: false) }
+    func start() async throws { try await start(detectSpeech: false) }
 
-    func start(detectSpeech: Bool) throws {
+    func start(detectSpeech: Bool) async throws {
         guard hasPermission else { throw AppCaptureError.microphoneDenied }
         guard recorder == nil, engine == nil, pipeline == nil else { throw AppCaptureError.unavailable }
         stoppedAnalysisFailed = false
@@ -104,7 +110,7 @@ final class AudioCaptureService: NSObject, AVAudioRecorderDelegate, AudioCapturi
             try session.setActive(true)
             CaptureDiagnostics.record(event: .audioSessionActivated)
             if detectSpeech {
-                try startSpeechEngine()
+                try await startSpeechEngine()
                 return
             }
             let audioSettings: [String: Any] = [
@@ -125,6 +131,9 @@ final class AudioCaptureService: NSObject, AVAudioRecorderDelegate, AudioCapturi
             recorder = newRecorder
             CaptureDiagnostics.record(event: .recorderStarted)
             try FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: recoveryURL.path)
+        } catch is AudioStartSuperseded {
+            // Whoever discarded it already cleaned up, and a newer start may own the session.
+            throw CancellationError()
         } catch {
             let wasAnalysisFailed = analysisFailed
             recorder?.stop()
@@ -140,7 +149,7 @@ final class AudioCaptureService: NSObject, AVAudioRecorderDelegate, AudioCapturi
         }
     }
 
-    private func startSpeechEngine() throws {
+    private func startSpeechEngine() async throws {
         CaptureDiagnostics.record(event: .recorderStarting)
         let newEngine = AVAudioEngine()
         let input = newEngine.inputNode
@@ -158,19 +167,26 @@ final class AudioCaptureService: NSObject, AVAudioRecorderDelegate, AudioCapturi
         }
         newEngine.prepare()
         CaptureDiagnostics.record(event: .audioEngineStarting)
-        try startWithRetry(newEngine)
+        try await Self.startWithRetry(isCurrent: { [weak self] in self?.engine === newEngine }) {
+            try newEngine.start()
+        }
         engineHasStarted = true
         CaptureDiagnostics.record(event: .recorderStarted)
     }
 
     /// The input can be briefly unavailable right after activation: real devices
     /// have reported 2003329396 (`what`) here while a later start succeeded.
-    private func startWithRetry(_ engine: AVAudioEngine) throws {
+    /// Only the engine retries: the session stays active, because a process
+    /// launched in the background can't activate it again. The wait yields the
+    /// main actor, so `isCurrent` must hold before touching the audio again.
+    static func startWithRetry(delay: Duration = .milliseconds(250), isCurrent: () -> Bool,
+                               start: () throws -> Void) async throws {
         for attempt in 1...3 {
-            do { return try engine.start() }
+            do { return try start() }
             catch where attempt < 3 {
                 CaptureDiagnostics.record(event: .audioEngineStartRetry, error: error)
-                Thread.sleep(forTimeInterval: 0.25)
+                try await Task.sleep(for: delay)
+                guard isCurrent() else { throw AudioStartSuperseded() }
             }
         }
     }

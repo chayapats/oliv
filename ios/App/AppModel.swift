@@ -35,6 +35,8 @@ final class AppModel {
     /// Stays set after connecting so setup can finish its remaining steps.
     var isInSetup = false
     var trialMessage: String?
+    /// Stored, because iOS doesn't tell SwiftUI when this permission changes.
+    private(set) var microphoneDenied = false
     var hasToken = false
     var selectedTab = 0
     var isDemo = false
@@ -165,7 +167,9 @@ final class AppModel {
             Task { @MainActor [weak self] in await self?.stopFromIntent() }
         }
         // Decided once: editing the address in Settings must never reopen setup.
-        isInSetup = settings.finishedSetup != true && !isConfigured
+        // An explicit false is a trial that started here and hasn't finished yet;
+        // nil with a connection is an install from before setup existed.
+        isInSetup = settings.finishedSetup == false || (settings.finishedSetup == nil && !isConfigured)
         persistedSettings = settings
         restoreCompletion()
         lifecycleObservers = [
@@ -289,6 +293,7 @@ final class AppModel {
         approved.allowsInsecureHTTP = false
         approved.requiresNewAPIKey = false
         approved.trialExpiresAt = key.expiresAt
+        if isInSetup { approved.finishedSetup = false }
         approved.credentialBinding = Self.credentialBinding(token: key.token, serverURL: trialServerURL)
         let data = try JSONEncoder().encode(approved)
         let previous = try credentials.read()
@@ -315,8 +320,12 @@ final class AppModel {
     }
 
     var microphoneAllowed: Bool { capture.hasPermission }
-    var microphoneDenied: Bool { AVAudioApplication.shared.recordPermission == .denied }
-    func requestMicrophone() async -> Bool { await capture.requestPermission() }
+    func refreshMicrophonePermission() { microphoneDenied = capture.permissionDenied }
+    func requestMicrophone() async -> Bool {
+        let granted = await capture.requestPermission()
+        refreshMicrophonePermission()
+        return granted
+    }
     func keyboardIsConnected() async -> Bool { await keyboardDelivery?.isConnected() ?? false }
 
     func finishSetup() {
@@ -353,8 +362,13 @@ final class AppModel {
                 connectionMessage = String(localized: "Server found. Save your settings to check your API key.")
                 return
             }
-            try await clientFactory(try configuration()).verifyKey()
-            connectionMessage = String(localized: "Connected. Your API key works.")
+            do {
+                try await clientFactory(try configuration()).verifyKey()
+                connectionMessage = String(localized: "Connected. Your API key works.")
+            } catch OlivError.forbidden(reason: .missingScope) {
+                // The server knew the key, so only this permission is missing.
+                connectionMessage = String(localized: "Connected, but this API key can't dictate. Ask the administrator to add the dictate scope.")
+            }
         } catch { connectionMessage = safeDescription(error) }
     }
 
@@ -531,7 +545,7 @@ final class AppModel {
             intentStartStage = .microphone
             if fromIntent { CaptureDiagnostics.record(event: .microphoneStarting, detail: diagnosticAppState) }
             let automaticFinish = fromIntent ? settings.automaticActionButtonFinish : settings.stopAfterSilence
-            try capture.start(detectSpeech: automaticFinish)
+            try await capture.start(detectSpeech: automaticFinish)
             if fromIntent { CaptureDiagnostics.record(event: .microphoneStarted, detail: diagnosticAppState) }
             phase = .recording
             speechEndpoint = automaticFinish ? SpeechEndpointPolicy() : nil

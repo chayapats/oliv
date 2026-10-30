@@ -81,7 +81,9 @@ final class RealAudioBackgroundProbe {
         capture.onInterruption = { [weak self] in self?.finish(reason: "interrupted") }
     }
 
-    func start() {
+    func start() { Task { await begin() } }
+
+    private func begin() async {
         guard phase != "recording" else { return }
         // Tests must use an already-authorized device. This diagnostic never
         // requests a permission change or starts merely because its view opened.
@@ -99,7 +101,7 @@ final class RealAudioBackgroundProbe {
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
                 attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
-            try capture.start(detectSpeech: true)
+            try await capture.start(detectSpeech: true)
             phase = "recording"
         } catch {
             capture.discard()
@@ -233,6 +235,7 @@ actor FixtureOlivService: OlivServing {
 final class FixtureAudioCapture: AudioCapturing {
     let recoveryURL: URL
     var hasPermission = true
+    var permissionDenied = false
     var onInterruption: (() -> Void)?
     var startedAt: Date?
     var startCount = 0

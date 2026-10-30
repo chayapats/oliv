@@ -237,6 +237,83 @@ final class FreeTrialTests: XCTestCase {
         XCTAssertEqual(model.trialMessage, "Today's free trials are taken. Try again tomorrow.")
     }
 
+    func testReopeningContinuesSetupThatTheTrialStarted() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let credentials = MemoryCredentialStore(token: nil)
+        func open() -> AppModel {
+            let model = AppModel(directory: directory, credentials: credentials,
+                                 capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
+                                 clientFactory: { _ in PublicAPITestService() },
+                                 requestTrialKey: { _ in TrialKey(token: "oliv_trial_key", expiresAt: Date().addingTimeInterval(60)) })
+            model.trialServerURL = "https://oliv.example.com"
+            return model
+        }
+        let first = open()
+        await first.startTrial()
+        XCTAssertTrue(first.isConfigured)
+        let reopened = open()
+        XCTAssertTrue(reopened.isConfigured)
+        XCTAssertTrue(reopened.isInSetup)
+        reopened.finishSetup()
+        XCTAssertFalse(open().isInSetup)
+    }
+
+    func testRenewingAfterSetupDoesNotReopenIt() async throws {
+        let (model, directory) = makeModel({ _ in TrialKey(token: "oliv_trial_key", expiresAt: Date().addingTimeInterval(60)) })
+        defer { try? FileManager.default.removeItem(at: directory) }
+        model.finishSetup()
+        await model.startTrial()
+        XCTAssertEqual(model.settings.finishedSetup, true)
+    }
+
+    func testDeniedMicrophoneIsVisibleWithoutAnotherSignal() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let capture = FixtureAudioCapture(directory: directory)
+        capture.hasPermission = false
+        capture.permissionDenied = true
+        let model = AppModel(directory: directory, credentials: MemoryCredentialStore(token: nil), capture: capture,
+                             liveActivitiesEnabled: false, clientFactory: { _ in PublicAPITestService() })
+        XCTAssertFalse(model.microphoneDenied)
+        let granted = await model.requestMicrophone()
+        XCTAssertFalse(granted)
+        XCTAssertTrue(model.microphoneDenied)
+    }
+
+    func testEngineRetryLeavesTheMainActorFree() async throws {
+        var attempts = 0
+        var otherWorkRan = false
+        Task { @MainActor in otherWorkRan = true }
+        try await AudioCaptureService.startWithRetry(delay: .milliseconds(10), isCurrent: { true }) {
+            attempts += 1
+            if attempts == 2 { XCTAssertTrue(otherWorkRan) }
+            if attempts < 3 { throw URLError(.unknown) }
+        }
+        XCTAssertEqual(attempts, 3)
+    }
+
+    func testEngineRetryStopsWhenItsStartWasDiscarded() async throws {
+        var attempts = 0
+        do {
+            try await AudioCaptureService.startWithRetry(delay: .milliseconds(1), isCurrent: { false }) {
+                attempts += 1
+                throw URLError(.unknown)
+            }
+            XCTFail("Expected the discarded start to stop")
+        } catch { XCTAssertTrue(error is AudioStartSuperseded) }
+        XCTAssertEqual(attempts, 1)
+    }
+
+    func testEngineRetryReportsTheLastFailure() async throws {
+        do {
+            try await AudioCaptureService.startWithRetry(delay: .milliseconds(1), isCurrent: { true }) {
+                throw URLError(.unknown)
+            }
+            XCTFail("Expected the last failure")
+        } catch { XCTAssertEqual((error as? URLError)?.code, .unknown) }
+    }
+
     func testRenewalFailureIsVisibleOutsideSetup() async throws {
         let (model, directory) = makeModel({ _ in throw TrialRefusal.closed })
         defer { try? FileManager.default.removeItem(at: directory) }

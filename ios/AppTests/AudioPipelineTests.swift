@@ -15,7 +15,7 @@ final class AudioPipelineTests: XCTestCase {
         }
         defer { service.discard() }
         for _ in 0..<2 {
-            try service.start(detectSpeech: true)
+            try await service.start(detectSpeech: true)
             try await Task.sleep(for: .milliseconds(1_200))
             XCTAssertGreaterThan(service.meter().duration, 0)
             XCTAssertFalse(service.analysisFailed)

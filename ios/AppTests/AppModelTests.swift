@@ -304,6 +304,19 @@ final class AppModelTests: XCTestCase {
     }
 
     @MainActor
+    func testConnectionCheckTellsAValidKeyWithoutDictateScopeFromARejectedOne() async throws {
+        let directory = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let model = AppModel(directory: directory, credentials: MemoryCredentialStore(token: "cleanup-only"),
+                             capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
+                             clientFactory: { _ in ScopeLimitedService() })
+        model.settings.serverURL = "https://oliv.example.com"
+        model.saveSettings()
+        await model.checkConnection()
+        XCTAssertEqual(model.connectionMessage, "Connected, but this API key can't dictate. Ask the administrator to add the dictate scope.")
+    }
+
+    @MainActor
     func testSuccessfulConnectionCheckDoesNotCreateHistory() async throws {
         let h = try Harness()
         defer { h.removeDirectory() }
@@ -646,7 +659,7 @@ final class AppModelTests: XCTestCase {
             NSLog("[OlivAudioIntegration] after capture.discard")
         }
         NSLog("[OlivAudioIntegration] before capture.start")
-        try capture.start()
+        try await capture.start()
         let session = AVAudioSession.sharedInstance()
         XCTAssertEqual(session.category, .playAndRecord)
         XCTAssertEqual(session.mode, .measurement)
@@ -722,6 +735,15 @@ private struct Harness {
 
 private func temporaryDirectory() -> URL {
     FileManager.default.temporaryDirectory.appendingPathComponent("OlivAppTests-\(UUID())", isDirectory: true)
+}
+
+private actor ScopeLimitedService: OlivServing {
+    func verifyKey() async throws { throw OlivError.forbidden(reason: .missingScope) }
+    func health() async throws -> ServerHealth {
+        try JSONDecoder().decode(ServerHealth.self, from: Data(#"{"ok":true}"#.utf8))
+    }
+    func clean(text: String, options: OlivOptions) async throws -> DictationReply { throw OlivError.networkUnavailable }
+    func dictate(wav: Data, options: OlivOptions) async throws -> DictationReply { throw OlivError.networkUnavailable }
 }
 
 private actor AuthorizationProbeService: OlivServing {

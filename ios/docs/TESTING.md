@@ -26,6 +26,8 @@ Reported as unreliable since build 4. Reproduced on a physical iPhone 17 (iOS 27
 
 iOS lets a process it launched in the background start audio once. Each later start in that process fails until the process is gone, while a new process always works. A process that started audio in the background now ends itself about 1.5 s after it goes idle there, so the next press gets a fresh launch. Its result and any notice are saved first and shown once when OLIV next opens. With History off the result exists only in memory, so that process stays until the next start, which can fail once.
 
+Build 19 fixes the Greptile review of build 18: Skip is disabled during a practice recording, a declined microphone shows Open Settings at once, reopening continues setup that a trial started, and an engine retry no longer blocks the main thread. The retry keeps the audio session active, because a background process can't activate it again.
+
 Still open:
 
 - The 2026-10-29 device log also shows `2003329396` (`what`) from `AVAudioEngine.start()` on two presses, with a later press succeeding. It wasn't reproduced. `startWithRetry` now tries three times and records `audioEngineStartRetry`, so its effect is unproven until a device reports one.

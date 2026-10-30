@@ -38,6 +38,7 @@ final class OlivUITests: XCTestCase {
         let app = launch(["--first-run"])
         tap(app.buttons["startTrialButton"], in: app)
         tap(app.buttons["setupRecordButton"], in: app)
+        XCTAssertFalse(app.buttons["setupNextButton"].isEnabled, "Skipping would leave the microphone on")
         tap(app.buttons["setupRecordButton"], in: app)
         XCTAssertTrue(app.staticTexts["setupResult"].waitForExistence(timeout: 5))
         tap(app.buttons["setupNextButton"], in: app)
@@ -80,10 +81,12 @@ final class OlivUITests: XCTestCase {
         // Use a short drag so revealing this action doesn't overshoot the navigation bar.
         let connection = app.buttons["testConnectionButton"]
         let scroll = app.scrollViews.firstMatch
+        // The drag starts in the margin: starting on a field can select text instead of scrolling.
         for _ in 0..<8 where connection.frame.maxY >= app.buttons["saveSettingsButton"].frame.minY {
-            let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.6))
-            let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
+            let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.6))
+            let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.03, dy: 0.4))
             start.press(forDuration: 0.1, thenDragTo: end)
+            Thread.sleep(forTimeInterval: 0.3)
         }
         XCTAssertGreaterThan(connection.frame.minY, app.navigationBars["Settings"].frame.maxY)
         XCTAssertLessThan(connection.frame.maxY, app.buttons["saveSettingsButton"].frame.minY)
