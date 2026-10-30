@@ -1,0 +1,53 @@
+{
+  "source_size_px": [
+    1206,
+    2622
+  ],
+  "output_size_px": [
+    2448,
+    1290
+  ],
+  "coordinate_system": "display pixels after lossless EXIF orientation",
+  "scale": 3.0,
+  "caption": "iPhone 17 Simulator · iOS 27 · portrait · light",
+  "note": "Unscaled. Key rows: 4 pt higher; backdrop matches in this entry state. Thai/EN replaces Emoji.",
+  "resampled": false,
+  "panels": [
+    {
+      "title": "Apple keyboard",
+      "source": "docs/Screenshots/keyboard-apple-english-ios27.png",
+      "source_exif_orientation": 1,
+      "sha256": "c1fe9c70a7426e5b06acf1bae76999d699fc47108ae2100bae7bc3d2a8e93bd3",
+      "source_crop_px": [
+        0,
+        1500,
+        1206,
+        2622
+      ],
+      "output_panel_px": [
+        0,
+        110,
+        1206,
+        1232
+      ]
+    },
+    {
+      "title": "OLIV keyboard",
+      "source": "docs/Screenshots/keyboard-english.png",
+      "source_exif_orientation": 1,
+      "sha256": "2412589754255bf12ea32023f8739fb0b53ffc7a52db55bf3765a4c98d8aa61d",
+      "source_crop_px": [
+        0,
+        1500,
+        1206,
+        2622
+      ],
+      "output_panel_px": [
+        1242,
+        110,
+        2448,
+        1232
+      ]
+    }
+  ]
+}

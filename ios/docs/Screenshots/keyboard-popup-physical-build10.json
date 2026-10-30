@@ -1,0 +1,122 @@
+{
+  "scope": "Physical iPhone 17, iOS 27, English portrait default UITextView, build10 Debug frozen test products. Visual rendering only; no subjective haptic measurement, Thai/landscape proof, or dictation/host-deletion validation.",
+  "bundle_version": "10",
+  "bundle_short_version": "0.1.0",
+  "test": "KeyboardVisualReferenceTests/testHoldEdgeAndCenterKeysForExternalRecording",
+  "result": "light and dark passed",
+  "duration_seconds": {
+    "light": 75.998,
+    "dark": 74.589
+  },
+  "result_bundles": [
+    "TestResults/Build10PhysicalPopupRun2-light.xcresult",
+    "TestResults/Build10PhysicalPopupRun2-dark.xcresult"
+  ],
+  "capture_timing": "Raw devicectl screenshot requested 0.6 seconds after Synthesize event for each 2-second q/f/p hold; capture calls completed in 0.333\u20130.382 seconds.",
+  "primary_view_points": {
+    "light": {
+      "height": 276,
+      "width": 402,
+      "x": 0,
+      "y": 523
+    },
+    "dark": {
+      "height": 276,
+      "width": 402,
+      "x": 0,
+      "y": 523
+    }
+  },
+  "accessibility_settings": {
+    "light": {
+      "boldTextEnabled": false,
+      "darkerSystemColorsEnabled": true,
+      "hostColorScheme": "light",
+      "hostColorSchemeContrast": "increased",
+      "hostDynamicTypeSize": "large",
+      "hostKind": "textview",
+      "reduceMotionEnabled": false,
+      "reduceTransparencyEnabled": true,
+      "voiceOverRunning": false
+    },
+    "dark": {
+      "boldTextEnabled": false,
+      "darkerSystemColorsEnabled": true,
+      "hostColorScheme": "dark",
+      "hostColorSchemeContrast": "increased",
+      "hostDynamicTypeSize": "large",
+      "hostKind": "textview",
+      "reduceMotionEnabled": false,
+      "reduceTransparencyEnabled": true,
+      "voiceOverRunning": false
+    }
+  },
+  "visible_key_row_top_points": {
+    "light": [
+      594.0,
+      648.0,
+      702.0,
+      756.0
+    ],
+    "dark": [
+      594.0,
+      648.0,
+      702.0,
+      756.0
+    ]
+  },
+  "images": [
+    {
+      "file": "keyboard-popup-physical-build10-light-held-f.png",
+      "source": "/tmp/oliv-keyboard-feel/physical-build10-popups-run2/light-held-f.png",
+      "sha256": "31114ddcbc7472897709df9caf585101175b1e50ba351a03dd7b7c0277aa8608",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "altered": false
+    },
+    {
+      "file": "keyboard-popup-physical-build10-light-held-p.png",
+      "source": "/tmp/oliv-keyboard-feel/physical-build10-popups-run2/light-held-p.png",
+      "sha256": "67aeece58df09ad6668851cd555de7d3bd0e36099fc8e83f0935b49cbd759ad4",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "altered": false
+    },
+    {
+      "file": "keyboard-popup-physical-build10-dark-held-q.png",
+      "source": "/tmp/oliv-keyboard-feel/physical-build10-popups-run2/dark-held-q.png",
+      "sha256": "bdc355d4fff3ca6887e8dbc478bb4ab39d54ec3c583cb3778766a161796476c5",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "altered": false
+    },
+    {
+      "file": "keyboard-popup-physical-build10-dark-held-f.png",
+      "source": "/tmp/oliv-keyboard-feel/physical-build10-popups-run2/dark-held-f.png",
+      "sha256": "d3b7fc6cc9b955aae8754e7b98f98ddda19c5d30de9205a4a4297ee2e3550cbd",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "altered": false
+    },
+    {
+      "file": "keyboard-popup-physical-build10-dark-held-p.png",
+      "source": "/tmp/oliv-keyboard-feel/physical-build10-popups-run2/dark-held-p.png",
+      "sha256": "d4aaeef8e95f106cdff08c9fd0cc89235cd6cfa075f68bb3166585a9e988e179",
+      "pixels": [
+        1206,
+        2622
+      ],
+      "altered": false
+    }
+  ],
+  "omissions": "Light held-q was visually inspected but its full-screen source contained an unrelated notification, so it is intentionally not copied into repository evidence. Dark held-q is a clean first-row left-edge example.",
+  "prior_attempt": "First physical run did not enter its test case because XCTest UI automation required device-owner passcode authentication; Run2 succeeded after the user completed it."
+}

@@ -1,0 +1,1117 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		01490C65B0F176A8BFA93FD0 /* AppModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E3D8F75666A8E341262C2BE /* AppModelTests.swift */; };
+		036C1DEE1247B1C9C847FC52 /* KeyboardCursorNavigationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB9E80856C958140CFE416B6 /* KeyboardCursorNavigationTests.swift */; };
+		077E73E397482811F49B7553 /* KeyboardLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5BF9D3A3EF843FFEA56714D /* KeyboardLayoutTests.swift */; };
+		0965395BE1C0A48BB7FDE251 /* KeyboardRepeatPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D73D6063D3EC846D31C79724 /* KeyboardRepeatPolicyTests.swift */; };
+		115E204A5171C0E153DF30C7 /* KeyboardHostDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB25E952143FBC19BC8A707E /* KeyboardHostDocument.swift */; };
+		12036D7725704C8485AE1976 /* OlivWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 95281F1A6EE172A895D6C9B5 /* OlivWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		1347A6DFB3F77CCCA098AE88 /* KeyboardSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64EA690C2AE7CF88CCBB60B9 /* KeyboardSetupView.swift */; };
+		17B5A3F6D2D68FD1591BB6BE /* OlivIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8D486C4ADF30314255A981 /* OlivIntents.swift */; };
+		1907A94E0F63F38228F64FA4 /* OlivUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0226F5BEFDACFA7E054AEA1E /* OlivUITests.swift */; };
+		1B444BE788CFC7A0AA64D46F /* SpeechActivityDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBEE51931AFB97F6E2B4F4D7 /* SpeechActivityDetector.swift */; };
+		1CB88F36415CA5E7C1794914 /* KeyboardHostDeletionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E467696BD1D46067509A1B9C /* KeyboardHostDeletionUITests.swift */; };
+		1D383B0D346B270789F9C761 /* KeyboardFeelUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BB1D92B95952F1A8FCF8004 /* KeyboardFeelUITests.swift */; };
+		20F265869CF7DDF03E289E69 /* OlivActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD1801EE98C2BE6FDBD137B1 /* OlivActivityAttributes.swift */; };
+		2493695E4B4CF55BC84118E1 /* KeyboardTrackpadGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DB1CAC8EF280F5FA09DC4A0 /* KeyboardTrackpadGesture.swift */; };
+		2AD28262DBB3461268E1C76E /* AudioPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7575C201F577316B7ADF747 /* AudioPipelineTests.swift */; };
+		2BA5D8F2F5816B57FED188CB /* CleanTextSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10769A8D8ACDA6C507CAFF4F /* CleanTextSheet.swift */; };
+		2C2D7A3815729A6C07BA885C /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D2DF1F02515505C1F2DADE91 /* PrivacyInfo.xcprivacy */; };
+		33199C0C1E4D325BAB20EC51 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 972E90DB30930DBCB107EC1F /* ContentView.swift */; };
+		3476BA1D11CBB5042E7E9D36 /* PreviewEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50137C03431F21B6EDFFAF15 /* PreviewEnvironment.swift */; };
+		34B81DD9E71B9370AEEE4BEA /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB54216530726F683802BDCE /* HistoryView.swift */; };
+		35D1C127937885B4E5CF5BE2 /* KeyboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31F64ECAF9926C337F073159 /* KeyboardView.swift */; };
+		36890E27260FB74876026E15 /* OlivWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C63BB939305F8DACA94A4D3 /* OlivWidgets.swift */; };
+		37C28516801CDF88A2CC5814 /* KeyboardCursorNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CFB983D7AE27433889E08CA /* KeyboardCursorNavigation.swift */; };
+		39878D898CA8AAA625568D67 /* KeyboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31F64ECAF9926C337F073159 /* KeyboardView.swift */; };
+		3C19E6415C1B1BE7390B114B /* KeyboardShiftPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A351EFBD31ED40A2B75651F /* KeyboardShiftPolicy.swift */; };
+		443AD0829EBA150DB42279C2 /* OlivCore in Frameworks */ = {isa = PBXBuildFile; productRef = A6879FD0053409F96FD06278 /* OlivCore */; };
+		4A0E8BA314FB718DD9C31997 /* KeyboardRepeatPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F704B5A17C33B1570421BD15 /* KeyboardRepeatPolicy.swift */; };
+		4BF13ABA82AD4B2F3F9567BA /* PhysicalAudioUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7AF037756044F4CB6FB0E9A /* PhysicalAudioUITests.swift */; };
+		4C7E05782C43462A78A009A8 /* OlivCore in Frameworks */ = {isa = PBXBuildFile; productRef = C3483F50EF01A5B0B1E97B7D /* OlivCore */; };
+		4F8A2498749E886A27DB448B /* OlivShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 952180083CB3F4CCE169F12F /* OlivShortcuts.swift */; };
+		5074CA1A02D318076FCCBF93 /* KeyboardShiftPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29B9BE1B07B466E2215312C9 /* KeyboardShiftPolicyTests.swift */; };
+		54468201725C4910F9F4A95D /* OlivApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47A1F748DCC5D251F82C5B8A /* OlivApp.swift */; };
+		54815BF164CC5C46B71C1826 /* SileroVAD-PROVENANCE.md in Resources */ = {isa = PBXBuildFile; fileRef = F6A77E6CCA77A3E73B8FC704 /* SileroVAD-PROVENANCE.md */; };
+		5D192D49C592A39EEB84A330 /* KeyboardHostDocumentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C1821E7E67B7800CBD90C52 /* KeyboardHostDocumentTests.swift */; };
+		64B88C58766D3B89CAD52D2C /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84F06819B8F69021320C8FBB /* AppSettings.swift */; };
+		64CAB8C62B93C44F4881EF2D /* KeyboardTrackpadGestureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAFD6A4C59951399A1AE1706 /* KeyboardTrackpadGestureTests.swift */; };
+		65589B41145EA3CFB7D7BE3A /* PublicAPIMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5098B10016503F343BB24A /* PublicAPIMigrationTests.swift */; };
+		663579FE2D78BEFD45DF8DD8 /* KeyboardInteractionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70AC72988209E5C97ECF9AC0 /* KeyboardInteractionTests.swift */; };
+		699ADDC7F060CCE5D6127AB7 /* KeyboardTestHostView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3A3AB33A1E591BDC4011EAB /* KeyboardTestHostView.swift */; };
+		7004245F69D0C66A010E71DC /* OlivActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD1801EE98C2BE6FDBD137B1 /* OlivActivityAttributes.swift */; };
+		70270F9EC6525E4FDCA0D7CE /* CaptureDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38B456C0BFEB695552F20A1F /* CaptureDiagnostics.swift */; };
+		70959047215D166152E7282B /* KeyboardBridgeEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 703FC4D6C92C2FB465C326C2 /* KeyboardBridgeEnvironment.swift */; };
+		72C33E64BAA180BFC73A5D6A /* CaptureDiagnosticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88FEF5E2082462B69F498789 /* CaptureDiagnosticsTests.swift */; };
+		744175479525D27F383E7C34 /* KeyboardViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A56BF100F06F78C3B8DB0E29 /* KeyboardViewController.swift */; };
+		751597F4FA89AFE688A96F55 /* KeyboardCursorNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CFB983D7AE27433889E08CA /* KeyboardCursorNavigation.swift */; };
+		7C323553A3A878AF99CF6D27 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2D49B8C8D1D332762CC5BC7C /* PrivacyInfo.xcprivacy */; };
+		7D5A060FE07643D730C10C79 /* KeyboardVisualReferenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5469511BD317209E37201095 /* KeyboardVisualReferenceTests.swift */; };
+		8370C80D8487167696604248 /* KeyboardTouchUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F99F03D47E8B978969582EA /* KeyboardTouchUITests.swift */; };
+		85D8DD9E1E722B64A2FE81FD /* OlivIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA8D486C4ADF30314255A981 /* OlivIntents.swift */; };
+		85DF2E5BB12954E0C11AF87D /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5234FBCB3430D606B77A651B /* CaptureView.swift */; };
+		8A7D1E5226DDD9C1064CBD27 /* CaptureDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38B456C0BFEB695552F20A1F /* CaptureDiagnostics.swift */; };
+		8A93D8C45B0BBAD2A699AC57 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31F46DF1709D5957A8E9F57A /* SettingsView.swift */; };
+		8C2C60D1F59148560E64D646 /* KeyboardHostDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB25E952143FBC19BC8A707E /* KeyboardHostDocument.swift */; };
+		8E1CEAC3774D2C4783DCDA72 /* OlivCore in Frameworks */ = {isa = PBXBuildFile; productRef = 977DDC168C0B0690834D216D /* OlivCore */; };
+		949826E8AA5846D116A3CADF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 896DE094DADC73B847FBE747 /* Assets.xcassets */; };
+		A09DD3B85B4B152F311D2192 /* KeyboardDeliveryCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B888EF3DAC3A0BC951C33307 /* KeyboardDeliveryCoordinator.swift */; };
+		A165C1A1ACB2554E3D3C9357 /* KeyboardHapticFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 816736A601824A77CB34A80A /* KeyboardHapticFeedbackTests.swift */; };
+		A1DB6857D0F9E210664A407A /* KeyboardPopupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA178E78F4020B0640105C9 /* KeyboardPopupView.swift */; };
+		AC515821153373F2564AD71E /* KeyboardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3D0839F55F5245D7F1DA3CF /* KeyboardUITests.swift */; };
+		ADEC3877186B26EF3530ABB9 /* KeyboardShiftPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A351EFBD31ED40A2B75651F /* KeyboardShiftPolicy.swift */; };
+		B26E25C141DE0343971978F2 /* CredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97EFAFD97B5FD997857F409F /* CredentialStore.swift */; };
+		B85C18479687C906C66C53A7 /* KeyboardBridgeEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 703FC4D6C92C2FB465C326C2 /* KeyboardBridgeEnvironment.swift */; };
+		C73010080BE88A4B39CA4612 /* KeyboardRepeatPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = F704B5A17C33B1570421BD15 /* KeyboardRepeatPolicy.swift */; };
+		CBF67195237C521909D81D2C /* AudioCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D7F47E24B245A7411E36E8 /* AudioCaptureService.swift */; };
+		CCD4EB154B8F3E665FD08A6D /* KeyboardLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B04A3918F6D59ABDD2AAEF /* KeyboardLayout.swift */; };
+		D59DCF2AA2AEDFCA881BA440 /* KeyboardBridgeEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 703FC4D6C92C2FB465C326C2 /* KeyboardBridgeEnvironment.swift */; };
+		D914E530048A6CC40B91DE87 /* CaptureDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38B456C0BFEB695552F20A1F /* CaptureDiagnostics.swift */; };
+		DAFDDD4869FDF0158DF67F90 /* KeyboardCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE69AF7E1765C663B012B8C2 /* KeyboardCaptureTests.swift */; };
+		DB55908DE0F6D15116809400 /* QuickAccessView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 179C7926492CBF587C24A39E /* QuickAccessView.swift */; };
+		DC1B0EBC6FFB9EAD01E08DE9 /* KeyboardTrackpadGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DB1CAC8EF280F5FA09DC4A0 /* KeyboardTrackpadGesture.swift */; };
+		DE6955A08D4CAE01D4FFF8DE /* KeyboardLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8B04A3918F6D59ABDD2AAEF /* KeyboardLayout.swift */; };
+		E77DFF71F42F8FABEB738115 /* OlivStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FE035650BC0B4950B964C61 /* OlivStyle.swift */; };
+		E9DB3F0BE818CDDF4567A757 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA78A2308EC8EEFEA700BA4E /* LiveActivityManager.swift */; };
+		EC1779E2AB34C5DBF4CC7734 /* SileroVAD.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = 35B433DF055880DD0F04F7DC /* SileroVAD.mlpackage */; };
+		F1111F8BD6C0F30216EEEAF1 /* SileroVAD-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 1F216294FE859F2A4253532B /* SileroVAD-LICENSE.txt */; };
+		F1774424BA32C8740937CFD9 /* OlivKeyboard.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F923A545E3BADE443AA9C948 /* OlivKeyboard.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F4618ADA7ACD09B9E44C7144 /* KeyboardHapticFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 756DB257E8047A906147A6B4 /* KeyboardHapticFeedback.swift */; };
+		F6FE2AE7E22F5156A0A4B832 /* KeyboardPopupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA178E78F4020B0640105C9 /* KeyboardPopupView.swift */; };
+		F7008D3B9DF389E0F23444CF /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 527C6C25877D7372170DED14 /* AppModel.swift */; };
+		FCA39FF5D1AF9204FF923EBE /* KeyboardHapticFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = 756DB257E8047A906147A6B4 /* KeyboardHapticFeedback.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		321C5F91C4F1862739A5741B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 02030BFDF4427F79F50F9093 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 146A4DFA8F182112CBDED089;
+			remoteInfo = OlivKeyboard;
+		};
+		562027F73DEDC778164F9DD1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 02030BFDF4427F79F50F9093 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DF1302FD039903C9D66E8297;
+			remoteInfo = Oliv;
+		};
+		D2E4B0AC72086593753E5012 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 02030BFDF4427F79F50F9093 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 37867834CD52438CDC142882;
+			remoteInfo = OlivWidgets;
+		};
+		FBC91D9F743041A20ECDD02D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 02030BFDF4427F79F50F9093 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = DF1302FD039903C9D66E8297;
+			remoteInfo = Oliv;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		00A3590E7C34EDEDEFB945D9 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				12036D7725704C8485AE1976 /* OlivWidgets.appex in Embed Foundation Extensions */,
+				F1774424BA32C8740937CFD9 /* OlivKeyboard.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0226F5BEFDACFA7E054AEA1E /* OlivUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OlivUITests.swift; sourceTree = "<group>"; };
+		0DB1CAC8EF280F5FA09DC4A0 /* KeyboardTrackpadGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardTrackpadGesture.swift; sourceTree = "<group>"; };
+		10769A8D8ACDA6C507CAFF4F /* CleanTextSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CleanTextSheet.swift; sourceTree = "<group>"; };
+		179C7926492CBF587C24A39E /* QuickAccessView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickAccessView.swift; sourceTree = "<group>"; };
+		1B92AB28BCDC95B10BCFBEDA /* ios */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ios; path = .; sourceTree = SOURCE_ROOT; };
+		1F216294FE859F2A4253532B /* SileroVAD-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "SileroVAD-LICENSE.txt"; sourceTree = "<group>"; };
+		29B9BE1B07B466E2215312C9 /* KeyboardShiftPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShiftPolicyTests.swift; sourceTree = "<group>"; };
+		2D49B8C8D1D332762CC5BC7C /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		2F99F03D47E8B978969582EA /* KeyboardTouchUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardTouchUITests.swift; sourceTree = "<group>"; };
+		31F46DF1709D5957A8E9F57A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		31F64ECAF9926C337F073159 /* KeyboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardView.swift; sourceTree = "<group>"; };
+		34EC9C175E827BA98BBA5986 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		35B433DF055880DD0F04F7DC /* SileroVAD.mlpackage */ = {isa = PBXFileReference; path = SileroVAD.mlpackage; sourceTree = "<group>"; };
+		38B456C0BFEB695552F20A1F /* CaptureDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureDiagnostics.swift; sourceTree = "<group>"; };
+		3C63BB939305F8DACA94A4D3 /* OlivWidgets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OlivWidgets.swift; sourceTree = "<group>"; };
+		47A1F748DCC5D251F82C5B8A /* OlivApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OlivApp.swift; sourceTree = "<group>"; };
+		4A351EFBD31ED40A2B75651F /* KeyboardShiftPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardShiftPolicy.swift; sourceTree = "<group>"; };
+		4C1821E7E67B7800CBD90C52 /* KeyboardHostDocumentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardHostDocumentTests.swift; sourceTree = "<group>"; };
+		4FE035650BC0B4950B964C61 /* OlivStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OlivStyle.swift; sourceTree = "<group>"; };
+		50137C03431F21B6EDFFAF15 /* PreviewEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewEnvironment.swift; sourceTree = "<group>"; };
+		5234FBCB3430D606B77A651B /* CaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
+		527C6C25877D7372170DED14 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		5469511BD317209E37201095 /* KeyboardVisualReferenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardVisualReferenceTests.swift; sourceTree = "<group>"; };
+		5BB1D92B95952F1A8FCF8004 /* KeyboardFeelUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardFeelUITests.swift; sourceTree = "<group>"; };
+		5E3D8F75666A8E341262C2BE /* AppModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModelTests.swift; sourceTree = "<group>"; };
+		5E5098B10016503F343BB24A /* PublicAPIMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicAPIMigrationTests.swift; sourceTree = "<group>"; };
+		64EA690C2AE7CF88CCBB60B9 /* KeyboardSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardSetupView.swift; sourceTree = "<group>"; };
+		703FC4D6C92C2FB465C326C2 /* KeyboardBridgeEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardBridgeEnvironment.swift; sourceTree = "<group>"; };
+		70AC72988209E5C97ECF9AC0 /* KeyboardInteractionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardInteractionTests.swift; sourceTree = "<group>"; };
+		756DB257E8047A906147A6B4 /* KeyboardHapticFeedback.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardHapticFeedback.swift; sourceTree = "<group>"; };
+		7B86FF5957A586C137AD8962 /* OlivKeyboard.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OlivKeyboard.entitlements; sourceTree = "<group>"; };
+		7CFB983D7AE27433889E08CA /* KeyboardCursorNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardCursorNavigation.swift; sourceTree = "<group>"; };
+		816736A601824A77CB34A80A /* KeyboardHapticFeedbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardHapticFeedbackTests.swift; sourceTree = "<group>"; };
+		84F06819B8F69021320C8FBB /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		88FEF5E2082462B69F498789 /* CaptureDiagnosticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureDiagnosticsTests.swift; sourceTree = "<group>"; };
+		896DE094DADC73B847FBE747 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		93D7F47E24B245A7411E36E8 /* AudioCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCaptureService.swift; sourceTree = "<group>"; };
+		952180083CB3F4CCE169F12F /* OlivShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OlivShortcuts.swift; sourceTree = "<group>"; };
+		95281F1A6EE172A895D6C9B5 /* OlivWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = OlivWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		972E90DB30930DBCB107EC1F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		97EFAFD97B5FD997857F409F /* CredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialStore.swift; sourceTree = "<group>"; };
+		A30947A96B2CD39550905749 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		A3A3AB33A1E591BDC4011EAB /* KeyboardTestHostView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardTestHostView.swift; sourceTree = "<group>"; };
+		A56BF100F06F78C3B8DB0E29 /* KeyboardViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardViewController.swift; sourceTree = "<group>"; };
+		B370F42B1633ED26BABC8EF9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		B888EF3DAC3A0BC951C33307 /* KeyboardDeliveryCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardDeliveryCoordinator.swift; sourceTree = "<group>"; };
+		BA78A2308EC8EEFEA700BA4E /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
+		BAA178E78F4020B0640105C9 /* KeyboardPopupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardPopupView.swift; sourceTree = "<group>"; };
+		BB9E80856C958140CFE416B6 /* KeyboardCursorNavigationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardCursorNavigationTests.swift; sourceTree = "<group>"; };
+		BD1801EE98C2BE6FDBD137B1 /* OlivActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OlivActivityAttributes.swift; sourceTree = "<group>"; };
+		C220F9DDC1574E2B05D688AD /* Oliv.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Oliv.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D2DF1F02515505C1F2DADE91 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		D73D6063D3EC846D31C79724 /* KeyboardRepeatPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardRepeatPolicyTests.swift; sourceTree = "<group>"; };
+		D8B04A3918F6D59ABDD2AAEF /* KeyboardLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardLayout.swift; sourceTree = "<group>"; };
+		DAFD6A4C59951399A1AE1706 /* KeyboardTrackpadGestureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardTrackpadGestureTests.swift; sourceTree = "<group>"; };
+		DB54216530726F683802BDCE /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		DBCD5F487E7FF75FAF796FB7 /* OlivUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OlivUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E467696BD1D46067509A1B9C /* KeyboardHostDeletionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardHostDeletionUITests.swift; sourceTree = "<group>"; };
+		E54CB907AB81945F396AB54F /* Oliv.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Oliv.entitlements; sourceTree = "<group>"; };
+		E7575C201F577316B7ADF747 /* AudioPipelineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPipelineTests.swift; sourceTree = "<group>"; };
+		E7AF037756044F4CB6FB0E9A /* PhysicalAudioUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhysicalAudioUITests.swift; sourceTree = "<group>"; };
+		EB5CC37E1514B842333530A3 /* OlivTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OlivTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EE69AF7E1765C663B012B8C2 /* KeyboardCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardCaptureTests.swift; sourceTree = "<group>"; };
+		F3D0839F55F5245D7F1DA3CF /* KeyboardUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardUITests.swift; sourceTree = "<group>"; };
+		F5BF9D3A3EF843FFEA56714D /* KeyboardLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardLayoutTests.swift; sourceTree = "<group>"; };
+		F6A77E6CCA77A3E73B8FC704 /* SileroVAD-PROVENANCE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "SileroVAD-PROVENANCE.md"; sourceTree = "<group>"; };
+		F704B5A17C33B1570421BD15 /* KeyboardRepeatPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardRepeatPolicy.swift; sourceTree = "<group>"; };
+		F923A545E3BADE443AA9C948 /* OlivKeyboard.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = OlivKeyboard.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		FA8D486C4ADF30314255A981 /* OlivIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OlivIntents.swift; sourceTree = "<group>"; };
+		FB25E952143FBC19BC8A707E /* KeyboardHostDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardHostDocument.swift; sourceTree = "<group>"; };
+		FBEE51931AFB97F6E2B4F4D7 /* SpeechActivityDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechActivityDetector.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		35032E8D3BE737ED076DF309 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				443AD0829EBA150DB42279C2 /* OlivCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8C906BB405B758BC5265D388 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8E1CEAC3774D2C4783DCDA72 /* OlivCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EAFF5BD0A6BAD8DABA8BA452 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C7E05782C43462A78A009A8 /* OlivCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		06A0BCE7C03820BCEAE6993B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				1F216294FE859F2A4253532B /* SileroVAD-LICENSE.txt */,
+				F6A77E6CCA77A3E73B8FC704 /* SileroVAD-PROVENANCE.md */,
+				35B433DF055880DD0F04F7DC /* SileroVAD.mlpackage */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		13DFB612DA908F2E08D188E0 /* Keyboard */ = {
+			isa = PBXGroup;
+			children = (
+				A30947A96B2CD39550905749 /* Info.plist */,
+				7CFB983D7AE27433889E08CA /* KeyboardCursorNavigation.swift */,
+				756DB257E8047A906147A6B4 /* KeyboardHapticFeedback.swift */,
+				FB25E952143FBC19BC8A707E /* KeyboardHostDocument.swift */,
+				D8B04A3918F6D59ABDD2AAEF /* KeyboardLayout.swift */,
+				BAA178E78F4020B0640105C9 /* KeyboardPopupView.swift */,
+				F704B5A17C33B1570421BD15 /* KeyboardRepeatPolicy.swift */,
+				4A351EFBD31ED40A2B75651F /* KeyboardShiftPolicy.swift */,
+				0DB1CAC8EF280F5FA09DC4A0 /* KeyboardTrackpadGesture.swift */,
+				31F64ECAF9926C337F073159 /* KeyboardView.swift */,
+				A56BF100F06F78C3B8DB0E29 /* KeyboardViewController.swift */,
+				7B86FF5957A586C137AD8962 /* OlivKeyboard.entitlements */,
+				2D49B8C8D1D332762CC5BC7C /* PrivacyInfo.xcprivacy */,
+			);
+			path = Keyboard;
+			sourceTree = "<group>";
+		};
+		52A764DF66657DA9B3CABE2F /* App */ = {
+			isa = PBXGroup;
+			children = (
+				527C6C25877D7372170DED14 /* AppModel.swift */,
+				84F06819B8F69021320C8FBB /* AppSettings.swift */,
+				896DE094DADC73B847FBE747 /* Assets.xcassets */,
+				34EC9C175E827BA98BBA5986 /* Info.plist */,
+				E54CB907AB81945F396AB54F /* Oliv.entitlements */,
+				47A1F748DCC5D251F82C5B8A /* OlivApp.swift */,
+				D2DF1F02515505C1F2DADE91 /* PrivacyInfo.xcprivacy */,
+				AE9BDBC4C4CDFEACBD6BD505 /* Integration */,
+				06A0BCE7C03820BCEAE6993B /* Resources */,
+				6B5780413592B6E5D1D1AA11 /* Services */,
+				F378F564E91C2DB9D4817C16 /* Views */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		5496F08374B43990FB96C506 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C220F9DDC1574E2B05D688AD /* Oliv.app */,
+				F923A545E3BADE443AA9C948 /* OlivKeyboard.appex */,
+				EB5CC37E1514B842333530A3 /* OlivTests.xctest */,
+				DBCD5F487E7FF75FAF796FB7 /* OlivUITests.xctest */,
+				95281F1A6EE172A895D6C9B5 /* OlivWidgets.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		62815A00A4B041622133D21C /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				1B92AB28BCDC95B10BCFBEDA /* ios */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		6B5780413592B6E5D1D1AA11 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				93D7F47E24B245A7411E36E8 /* AudioCaptureService.swift */,
+				97EFAFD97B5FD997857F409F /* CredentialStore.swift */,
+				50137C03431F21B6EDFFAF15 /* PreviewEnvironment.swift */,
+				FBEE51931AFB97F6E2B4F4D7 /* SpeechActivityDetector.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		6BA889CBFD70AE31B85493BD /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				38B456C0BFEB695552F20A1F /* CaptureDiagnostics.swift */,
+				703FC4D6C92C2FB465C326C2 /* KeyboardBridgeEnvironment.swift */,
+				BD1801EE98C2BE6FDBD137B1 /* OlivActivityAttributes.swift */,
+				FA8D486C4ADF30314255A981 /* OlivIntents.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		71A31D1ECA5BC963ECEB47E2 /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				5BB1D92B95952F1A8FCF8004 /* KeyboardFeelUITests.swift */,
+				E467696BD1D46067509A1B9C /* KeyboardHostDeletionUITests.swift */,
+				2F99F03D47E8B978969582EA /* KeyboardTouchUITests.swift */,
+				F3D0839F55F5245D7F1DA3CF /* KeyboardUITests.swift */,
+				5469511BD317209E37201095 /* KeyboardVisualReferenceTests.swift */,
+				0226F5BEFDACFA7E054AEA1E /* OlivUITests.swift */,
+				E7AF037756044F4CB6FB0E9A /* PhysicalAudioUITests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		8A33CA88C355DFCE8344FBA2 = {
+			isa = PBXGroup;
+			children = (
+				52A764DF66657DA9B3CABE2F /* App */,
+				AE5BA6A60DE0DB6A839BE57B /* AppTests */,
+				13DFB612DA908F2E08D188E0 /* Keyboard */,
+				62815A00A4B041622133D21C /* Packages */,
+				6BA889CBFD70AE31B85493BD /* Shared */,
+				71A31D1ECA5BC963ECEB47E2 /* UITests */,
+				A150B78A69AFAFAEDE8ED735 /* Widget */,
+				5496F08374B43990FB96C506 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A150B78A69AFAFAEDE8ED735 /* Widget */ = {
+			isa = PBXGroup;
+			children = (
+				B370F42B1633ED26BABC8EF9 /* Info.plist */,
+				3C63BB939305F8DACA94A4D3 /* OlivWidgets.swift */,
+			);
+			path = Widget;
+			sourceTree = "<group>";
+		};
+		AE5BA6A60DE0DB6A839BE57B /* AppTests */ = {
+			isa = PBXGroup;
+			children = (
+				5E3D8F75666A8E341262C2BE /* AppModelTests.swift */,
+				E7575C201F577316B7ADF747 /* AudioPipelineTests.swift */,
+				88FEF5E2082462B69F498789 /* CaptureDiagnosticsTests.swift */,
+				EE69AF7E1765C663B012B8C2 /* KeyboardCaptureTests.swift */,
+				BB9E80856C958140CFE416B6 /* KeyboardCursorNavigationTests.swift */,
+				816736A601824A77CB34A80A /* KeyboardHapticFeedbackTests.swift */,
+				4C1821E7E67B7800CBD90C52 /* KeyboardHostDocumentTests.swift */,
+				70AC72988209E5C97ECF9AC0 /* KeyboardInteractionTests.swift */,
+				F5BF9D3A3EF843FFEA56714D /* KeyboardLayoutTests.swift */,
+				D73D6063D3EC846D31C79724 /* KeyboardRepeatPolicyTests.swift */,
+				29B9BE1B07B466E2215312C9 /* KeyboardShiftPolicyTests.swift */,
+				DAFD6A4C59951399A1AE1706 /* KeyboardTrackpadGestureTests.swift */,
+				5E5098B10016503F343BB24A /* PublicAPIMigrationTests.swift */,
+			);
+			path = AppTests;
+			sourceTree = "<group>";
+		};
+		AE9BDBC4C4CDFEACBD6BD505 /* Integration */ = {
+			isa = PBXGroup;
+			children = (
+				B888EF3DAC3A0BC951C33307 /* KeyboardDeliveryCoordinator.swift */,
+				A3A3AB33A1E591BDC4011EAB /* KeyboardTestHostView.swift */,
+				BA78A2308EC8EEFEA700BA4E /* LiveActivityManager.swift */,
+				952180083CB3F4CCE169F12F /* OlivShortcuts.swift */,
+			);
+			path = Integration;
+			sourceTree = "<group>";
+		};
+		F378F564E91C2DB9D4817C16 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				5234FBCB3430D606B77A651B /* CaptureView.swift */,
+				10769A8D8ACDA6C507CAFF4F /* CleanTextSheet.swift */,
+				972E90DB30930DBCB107EC1F /* ContentView.swift */,
+				DB54216530726F683802BDCE /* HistoryView.swift */,
+				64EA690C2AE7CF88CCBB60B9 /* KeyboardSetupView.swift */,
+				4FE035650BC0B4950B964C61 /* OlivStyle.swift */,
+				179C7926492CBF587C24A39E /* QuickAccessView.swift */,
+				31F46DF1709D5957A8E9F57A /* SettingsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0ECB041B5E16B30E63ED5432 /* OlivTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 449D6A772CE559A93D13D7E6 /* Build configuration list for PBXNativeTarget "OlivTests" */;
+			buildPhases = (
+				D1D962C7667E7BF7AD89DF77 /* Sources */,
+				35032E8D3BE737ED076DF309 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1D5FE87835705A13987E4ED2 /* PBXTargetDependency */,
+			);
+			name = OlivTests;
+			packageProductDependencies = (
+				A6879FD0053409F96FD06278 /* OlivCore */,
+			);
+			productName = OlivTests;
+			productReference = EB5CC37E1514B842333530A3 /* OlivTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		146A4DFA8F182112CBDED089 /* OlivKeyboard */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FFAA45EE8BA8439496A9060C /* Build configuration list for PBXNativeTarget "OlivKeyboard" */;
+			buildPhases = (
+				6E14960A2520200823BB52A7 /* Sources */,
+				50CBD1AB9364CAA18766C634 /* Resources */,
+				EAFF5BD0A6BAD8DABA8BA452 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OlivKeyboard;
+			packageProductDependencies = (
+				C3483F50EF01A5B0B1E97B7D /* OlivCore */,
+			);
+			productName = OlivKeyboard;
+			productReference = F923A545E3BADE443AA9C948 /* OlivKeyboard.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		37867834CD52438CDC142882 /* OlivWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C5A25692EF0B8651EFE6AF45 /* Build configuration list for PBXNativeTarget "OlivWidgets" */;
+			buildPhases = (
+				36F1D269C918D021E158AE16 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OlivWidgets;
+			packageProductDependencies = (
+			);
+			productName = OlivWidgets;
+			productReference = 95281F1A6EE172A895D6C9B5 /* OlivWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		85DB05078842CBE47E72AB27 /* OlivUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 63921DF3CE7A66C84EE2531B /* Build configuration list for PBXNativeTarget "OlivUITests" */;
+			buildPhases = (
+				EE0A3D99A27800B0677EBE45 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				36F5E653D4FB919EF9C3C648 /* PBXTargetDependency */,
+			);
+			name = OlivUITests;
+			packageProductDependencies = (
+			);
+			productName = OlivUITests;
+			productReference = DBCD5F487E7FF75FAF796FB7 /* OlivUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		DF1302FD039903C9D66E8297 /* Oliv */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B7F00B15C833A687B9F660F9 /* Build configuration list for PBXNativeTarget "Oliv" */;
+			buildPhases = (
+				299F94744D65C3FA0F6A7CB8 /* Sources */,
+				9C0A890B63012EC4C6D94DA0 /* Resources */,
+				8C906BB405B758BC5265D388 /* Frameworks */,
+				00A3590E7C34EDEDEFB945D9 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B01F5F6878B1270E6E503930 /* PBXTargetDependency */,
+				540324486121006F8CD251D5 /* PBXTargetDependency */,
+			);
+			name = Oliv;
+			packageProductDependencies = (
+				977DDC168C0B0690834D216D /* OlivCore */,
+			);
+			productName = Oliv;
+			productReference = C220F9DDC1574E2B05D688AD /* Oliv.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		02030BFDF4427F79F50F9093 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2600;
+				TargetAttributes = {
+					0ECB041B5E16B30E63ED5432 = {
+						DevelopmentTeam = SRAQ34JPLS;
+						ProvisioningStyle = Automatic;
+					};
+					146A4DFA8F182112CBDED089 = {
+						DevelopmentTeam = SRAQ34JPLS;
+						ProvisioningStyle = Automatic;
+					};
+					37867834CD52438CDC142882 = {
+						DevelopmentTeam = SRAQ34JPLS;
+						ProvisioningStyle = Automatic;
+					};
+					85DB05078842CBE47E72AB27 = {
+						DevelopmentTeam = SRAQ34JPLS;
+						ProvisioningStyle = Automatic;
+						TestTargetID = DF1302FD039903C9D66E8297;
+					};
+					DF1302FD039903C9D66E8297 = {
+						DevelopmentTeam = SRAQ34JPLS;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 4DE68077984F81D21ABB8452 /* Build configuration list for PBXProject "Oliv" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 8A33CA88C355DFCE8344FBA2;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				94501C6D42C6C5437A479BE7 /* XCLocalSwiftPackageReference "." */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 5496F08374B43990FB96C506 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				DF1302FD039903C9D66E8297 /* Oliv */,
+				146A4DFA8F182112CBDED089 /* OlivKeyboard */,
+				0ECB041B5E16B30E63ED5432 /* OlivTests */,
+				85DB05078842CBE47E72AB27 /* OlivUITests */,
+				37867834CD52438CDC142882 /* OlivWidgets */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		50CBD1AB9364CAA18766C634 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7C323553A3A878AF99CF6D27 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9C0A890B63012EC4C6D94DA0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				949826E8AA5846D116A3CADF /* Assets.xcassets in Resources */,
+				2C2D7A3815729A6C07BA885C /* PrivacyInfo.xcprivacy in Resources */,
+				F1111F8BD6C0F30216EEEAF1 /* SileroVAD-LICENSE.txt in Resources */,
+				54815BF164CC5C46B71C1826 /* SileroVAD-PROVENANCE.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		299F94744D65C3FA0F6A7CB8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F7008D3B9DF389E0F23444CF /* AppModel.swift in Sources */,
+				64B88C58766D3B89CAD52D2C /* AppSettings.swift in Sources */,
+				CBF67195237C521909D81D2C /* AudioCaptureService.swift in Sources */,
+				8A7D1E5226DDD9C1064CBD27 /* CaptureDiagnostics.swift in Sources */,
+				85DF2E5BB12954E0C11AF87D /* CaptureView.swift in Sources */,
+				2BA5D8F2F5816B57FED188CB /* CleanTextSheet.swift in Sources */,
+				33199C0C1E4D325BAB20EC51 /* ContentView.swift in Sources */,
+				B26E25C141DE0343971978F2 /* CredentialStore.swift in Sources */,
+				34B81DD9E71B9370AEEE4BEA /* HistoryView.swift in Sources */,
+				70959047215D166152E7282B /* KeyboardBridgeEnvironment.swift in Sources */,
+				A09DD3B85B4B152F311D2192 /* KeyboardDeliveryCoordinator.swift in Sources */,
+				1347A6DFB3F77CCCA098AE88 /* KeyboardSetupView.swift in Sources */,
+				699ADDC7F060CCE5D6127AB7 /* KeyboardTestHostView.swift in Sources */,
+				E9DB3F0BE818CDDF4567A757 /* LiveActivityManager.swift in Sources */,
+				20F265869CF7DDF03E289E69 /* OlivActivityAttributes.swift in Sources */,
+				54468201725C4910F9F4A95D /* OlivApp.swift in Sources */,
+				85D8DD9E1E722B64A2FE81FD /* OlivIntents.swift in Sources */,
+				4F8A2498749E886A27DB448B /* OlivShortcuts.swift in Sources */,
+				E77DFF71F42F8FABEB738115 /* OlivStyle.swift in Sources */,
+				3476BA1D11CBB5042E7E9D36 /* PreviewEnvironment.swift in Sources */,
+				DB55908DE0F6D15116809400 /* QuickAccessView.swift in Sources */,
+				8A93D8C45B0BBAD2A699AC57 /* SettingsView.swift in Sources */,
+				EC1779E2AB34C5DBF4CC7734 /* SileroVAD.mlpackage in Sources */,
+				1B444BE788CFC7A0AA64D46F /* SpeechActivityDetector.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		36F1D269C918D021E158AE16 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				70270F9EC6525E4FDCA0D7CE /* CaptureDiagnostics.swift in Sources */,
+				B85C18479687C906C66C53A7 /* KeyboardBridgeEnvironment.swift in Sources */,
+				7004245F69D0C66A010E71DC /* OlivActivityAttributes.swift in Sources */,
+				17B5A3F6D2D68FD1591BB6BE /* OlivIntents.swift in Sources */,
+				36890E27260FB74876026E15 /* OlivWidgets.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6E14960A2520200823BB52A7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D914E530048A6CC40B91DE87 /* CaptureDiagnostics.swift in Sources */,
+				D59DCF2AA2AEDFCA881BA440 /* KeyboardBridgeEnvironment.swift in Sources */,
+				751597F4FA89AFE688A96F55 /* KeyboardCursorNavigation.swift in Sources */,
+				F4618ADA7ACD09B9E44C7144 /* KeyboardHapticFeedback.swift in Sources */,
+				8C2C60D1F59148560E64D646 /* KeyboardHostDocument.swift in Sources */,
+				CCD4EB154B8F3E665FD08A6D /* KeyboardLayout.swift in Sources */,
+				F6FE2AE7E22F5156A0A4B832 /* KeyboardPopupView.swift in Sources */,
+				C73010080BE88A4B39CA4612 /* KeyboardRepeatPolicy.swift in Sources */,
+				ADEC3877186B26EF3530ABB9 /* KeyboardShiftPolicy.swift in Sources */,
+				2493695E4B4CF55BC84118E1 /* KeyboardTrackpadGesture.swift in Sources */,
+				39878D898CA8AAA625568D67 /* KeyboardView.swift in Sources */,
+				744175479525D27F383E7C34 /* KeyboardViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D1D962C7667E7BF7AD89DF77 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				01490C65B0F176A8BFA93FD0 /* AppModelTests.swift in Sources */,
+				2AD28262DBB3461268E1C76E /* AudioPipelineTests.swift in Sources */,
+				72C33E64BAA180BFC73A5D6A /* CaptureDiagnosticsTests.swift in Sources */,
+				DAFDDD4869FDF0158DF67F90 /* KeyboardCaptureTests.swift in Sources */,
+				37C28516801CDF88A2CC5814 /* KeyboardCursorNavigation.swift in Sources */,
+				036C1DEE1247B1C9C847FC52 /* KeyboardCursorNavigationTests.swift in Sources */,
+				FCA39FF5D1AF9204FF923EBE /* KeyboardHapticFeedback.swift in Sources */,
+				A165C1A1ACB2554E3D3C9357 /* KeyboardHapticFeedbackTests.swift in Sources */,
+				115E204A5171C0E153DF30C7 /* KeyboardHostDocument.swift in Sources */,
+				5D192D49C592A39EEB84A330 /* KeyboardHostDocumentTests.swift in Sources */,
+				663579FE2D78BEFD45DF8DD8 /* KeyboardInteractionTests.swift in Sources */,
+				DE6955A08D4CAE01D4FFF8DE /* KeyboardLayout.swift in Sources */,
+				077E73E397482811F49B7553 /* KeyboardLayoutTests.swift in Sources */,
+				A1DB6857D0F9E210664A407A /* KeyboardPopupView.swift in Sources */,
+				4A0E8BA314FB718DD9C31997 /* KeyboardRepeatPolicy.swift in Sources */,
+				0965395BE1C0A48BB7FDE251 /* KeyboardRepeatPolicyTests.swift in Sources */,
+				3C19E6415C1B1BE7390B114B /* KeyboardShiftPolicy.swift in Sources */,
+				5074CA1A02D318076FCCBF93 /* KeyboardShiftPolicyTests.swift in Sources */,
+				DC1B0EBC6FFB9EAD01E08DE9 /* KeyboardTrackpadGesture.swift in Sources */,
+				64CAB8C62B93C44F4881EF2D /* KeyboardTrackpadGestureTests.swift in Sources */,
+				35D1C127937885B4E5CF5BE2 /* KeyboardView.swift in Sources */,
+				65589B41145EA3CFB7D7BE3A /* PublicAPIMigrationTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE0A3D99A27800B0677EBE45 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1D383B0D346B270789F9C761 /* KeyboardFeelUITests.swift in Sources */,
+				1CB88F36415CA5E7C1794914 /* KeyboardHostDeletionUITests.swift in Sources */,
+				8370C80D8487167696604248 /* KeyboardTouchUITests.swift in Sources */,
+				AC515821153373F2564AD71E /* KeyboardUITests.swift in Sources */,
+				7D5A060FE07643D730C10C79 /* KeyboardVisualReferenceTests.swift in Sources */,
+				1907A94E0F63F38228F64FA4 /* OlivUITests.swift in Sources */,
+				4BF13ABA82AD4B2F3F9567BA /* PhysicalAudioUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1D5FE87835705A13987E4ED2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DF1302FD039903C9D66E8297 /* Oliv */;
+			targetProxy = FBC91D9F743041A20ECDD02D /* PBXContainerItemProxy */;
+		};
+		36F5E653D4FB919EF9C3C648 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = DF1302FD039903C9D66E8297 /* Oliv */;
+			targetProxy = 562027F73DEDC778164F9DD1 /* PBXContainerItemProxy */;
+		};
+		540324486121006F8CD251D5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 146A4DFA8F182112CBDED089 /* OlivKeyboard */;
+			targetProxy = 321C5F91C4F1862739A5741B /* PBXContainerItemProxy */;
+		};
+		B01F5F6878B1270E6E503930 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 37867834CD52438CDC142882 /* OlivWidgets */;
+			targetProxy = D2E4B0AC72086593753E5012 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		477FA47390D496639F54D503 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chayapat.oliv.ios.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Oliv;
+			};
+			name = Release;
+		};
+		51500E593874C0E7C08433B1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				INFOPLIST_FILE = Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chayapat.oliv.ios.widgets;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		52FAD5BD4E079744907F6A8F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Keyboard/OlivKeyboard.entitlements;
+				INFOPLIST_FILE = Keyboard/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chayapat.oliv.ios.keyboard;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		88C37594ADB064A751D00B72 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chayapat.oliv.ios.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Oliv.app/Oliv";
+			};
+			name = Debug;
+		};
+		8F8AD4F24FD3D1AA348EE0D1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chayapat.oliv.ios.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Oliv.app/Oliv";
+			};
+			name = Release;
+		};
+		8F9A080B0A4C835BCB829BDD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/Oliv.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OLIV_DEFAULT_API_URL = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.chayapat.oliv.ios;
+				PRODUCT_NAME = Oliv;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) OLIV_APP";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B6DDCF1C9A119B779FAC4BAF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 17;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = SRAQ34JPLS;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		C11BFB047EA815B13934F41B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/Oliv.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OLIV_DEFAULT_API_URL = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.chayapat.oliv.ios;
+				PRODUCT_NAME = Oliv;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) OLIV_APP";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		C4A809041B83C7721971DD56 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				INFOPLIST_FILE = Widget/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chayapat.oliv.ios.widgets;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E25E5A0F7BEEF856C5EC0CAB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chayapat.oliv.ios.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Oliv;
+			};
+			name = Debug;
+		};
+		E2A29A40D04CCF9681BBCA6C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 17;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = SRAQ34JPLS;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		E948C45FB52F8820A157C16F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = Keyboard/OlivKeyboard.entitlements;
+				INFOPLIST_FILE = Keyboard/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.chayapat.oliv.ios.keyboard;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		449D6A772CE559A93D13D7E6 /* Build configuration list for PBXNativeTarget "OlivTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				88C37594ADB064A751D00B72 /* Debug */,
+				8F8AD4F24FD3D1AA348EE0D1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		4DE68077984F81D21ABB8452 /* Build configuration list for PBXProject "Oliv" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E2A29A40D04CCF9681BBCA6C /* Debug */,
+				B6DDCF1C9A119B779FAC4BAF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		63921DF3CE7A66C84EE2531B /* Build configuration list for PBXNativeTarget "OlivUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E25E5A0F7BEEF856C5EC0CAB /* Debug */,
+				477FA47390D496639F54D503 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B7F00B15C833A687B9F660F9 /* Build configuration list for PBXNativeTarget "Oliv" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8F9A080B0A4C835BCB829BDD /* Debug */,
+				C11BFB047EA815B13934F41B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C5A25692EF0B8651EFE6AF45 /* Build configuration list for PBXNativeTarget "OlivWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C4A809041B83C7721971DD56 /* Debug */,
+				51500E593874C0E7C08433B1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FFAA45EE8BA8439496A9060C /* Build configuration list for PBXNativeTarget "OlivKeyboard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				52FAD5BD4E079744907F6A8F /* Debug */,
+				E948C45FB52F8820A157C16F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		94501C6D42C6C5437A479BE7 /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		977DDC168C0B0690834D216D /* OlivCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OlivCore;
+		};
+		A6879FD0053409F96FD06278 /* OlivCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OlivCore;
+		};
+		C3483F50EF01A5B0B1E97B7D /* OlivCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OlivCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 02030BFDF4427F79F50F9093 /* Project object */;
+}

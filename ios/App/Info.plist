@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleDisplayName</key><string>OLIV</string>
+  <key>CFBundleName</key><string>$(PRODUCT_NAME)</string>
+  <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+  <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+  <key>LSRequiresIPhoneOS</key><true/>
+  <key>ITSAppUsesNonExemptEncryption</key><false/>
+  <key>OLIVDefaultAPIURL</key><string>$(OLIV_DEFAULT_API_URL)</string>
+  <key>UIRequiresFullScreen</key><true/>
+  <key>UILaunchScreen</key><dict/>
+  <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>
+  <key>NSMicrophoneUsageDescription</key><string>OLIV records only when you start dictation, then sends that recording to your configured OLIV server.</string>
+  <key>NSLocalNetworkUsageDescription</key><string>OLIV uses local network access only when you configure a local dictation server.</string>
+  <key>UIBackgroundModes</key><array><string>audio</string></array>
+  <key>NSSupportsLiveActivities</key><true/>
+  <key>NSAppTransportSecurity</key><dict>
+    <key>NSAllowsLocalNetworking</key><true/>
+  </dict>
+  <key>CFBundleURLTypes</key><array><dict>
+    <key>CFBundleURLName</key><string>com.chayapat.oliv</string>
+    <key>CFBundleURLSchemes</key><array><string>oliv</string></array>
+  </dict></array>
+</dict></plist>

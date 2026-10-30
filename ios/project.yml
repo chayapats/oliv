@@ -1,0 +1,188 @@
+name: Oliv
+options:
+  bundleIdPrefix: com.chayapat
+  deploymentTarget:
+    iOS: '18.0'
+  xcodeVersion: '26.0'
+  createIntermediateGroups: true
+packages:
+  OlivCore:
+    path: .
+settings:
+  base:
+    SWIFT_VERSION: '6.0'
+    DEVELOPMENT_TEAM: SRAQ34JPLS
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: '0.1.0'
+    CURRENT_PROJECT_VERSION: '17'
+    IPHONEOS_DEPLOYMENT_TARGET: '18.0'
+    TARGETED_DEVICE_FAMILY: '1'
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  Oliv:
+    type: application
+    platform: iOS
+    sources:
+      - App
+      - Shared
+    dependencies:
+      - package: OlivCore
+      - target: OlivWidgets
+      - target: OlivKeyboard
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chayapat.oliv.ios
+        PRODUCT_NAME: Oliv
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: '$(inherited) OLIV_APP'
+        INFOPLIST_FILE: App/Info.plist
+        # Server URL prefilled in Settings. Empty in source builds; an operator
+        # who hosts a server for their users sets OLIV_DEFAULT_API_URL (see
+        # Scripts/testflight.sh) and the hostname stays out of the repository.
+        OLIV_DEFAULT_API_URL: ''
+        CODE_SIGN_ENTITLEMENTS: App/Oliv.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  OlivWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Widget
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chayapat.oliv.ios.widgets
+        INFOPLIST_FILE: Widget/Info.plist
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+  OlivKeyboard:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Keyboard
+      - Shared/KeyboardBridgeEnvironment.swift
+      - Shared/CaptureDiagnostics.swift
+    dependencies:
+      - package: OlivCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chayapat.oliv.ios.keyboard
+        INFOPLIST_FILE: Keyboard/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Keyboard/OlivKeyboard.entitlements
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+  OlivTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - AppTests
+      - Keyboard/KeyboardLayout.swift
+      - Keyboard/KeyboardView.swift
+      - Keyboard/KeyboardPopupView.swift
+      - Keyboard/KeyboardRepeatPolicy.swift
+      - Keyboard/KeyboardShiftPolicy.swift
+      - Keyboard/KeyboardHapticFeedback.swift
+      - Keyboard/KeyboardCursorNavigation.swift
+      - Keyboard/KeyboardTrackpadGesture.swift
+      - Keyboard/KeyboardHostDocument.swift
+    dependencies:
+      - target: Oliv
+      - package: OlivCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chayapat.oliv.ios.tests
+        GENERATE_INFOPLIST_FILE: YES
+  OlivUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: Oliv
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chayapat.oliv.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Oliv:
+    build:
+      targets:
+        Oliv: all
+        OlivWidgets: all
+        OlivKeyboard: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - OlivTests
+        - OlivUITests
+  OlivLiveValidation:
+    build:
+      targets:
+        Oliv: all
+        OlivWidgets: all
+    test:
+      config: Debug
+      environmentVariables:
+        OLIV_LIVE_TESTS: '1'
+      targets:
+        - OlivTests
+  OlivKeyboardValidation:
+    build:
+      targets:
+        Oliv: all
+        OlivWidgets: all
+        OlivKeyboard: all
+    test:
+      config: Debug
+      environmentVariables:
+        OLIV_KEYBOARD_TESTS: '1'
+      targets:
+        - name: OlivUITests
+          parallelizable: false
+          selectedTests:
+            - KeyboardUITests
+            - KeyboardTouchUITests
+            - KeyboardFeelUITests
+            - KeyboardHostDeletionUITests
+  OlivKeyboardAppearance:
+    build:
+      targets:
+        Oliv: all
+        OlivKeyboard: all
+    test:
+      config: Debug
+      environmentVariables:
+        OLIV_VISUAL_REFERENCE_TESTS: '1'
+        OLIV_KEYBOARD_TESTS: '1'
+      targets:
+        - name: OlivTests
+          selectedTests:
+            - KeyboardLayoutTests
+            - KeyboardInteractionTests
+            - KeyboardRepeatPolicyTests
+            - KeyboardShiftPolicyTests
+            - KeyboardCursorNavigationTests
+            - KeyboardTrackpadGestureTests
+            - KeyboardHapticFeedbackTests
+        - name: OlivUITests
+          parallelizable: false
+          selectedTests:
+            - KeyboardTouchUITests
+            - KeyboardVisualReferenceTests/testCaptureAppleEnglishLayers
+            - KeyboardVisualReferenceTests/testCaptureAppleThaiLayers
+            - KeyboardVisualReferenceTests/testCaptureOLIVEnglishAndThaiLayers
+  OlivPhysicalAudioValidation:
+    build:
+      targets:
+        Oliv: all
+        OlivWidgets: all
+        OlivKeyboard: all
+    test:
+      config: Debug
+      environmentVariables:
+        OLIV_PHYSICAL_AUDIO_TESTS: '1'
+      targets:
+        - name: OlivUITests
+          parallelizable: false
+          selectedTests:
+            - PhysicalAudioUITests

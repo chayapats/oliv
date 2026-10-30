@@ -1,0 +1,603 @@
+{
+  "bundle_version": "11",
+  "bundle_short_version": "0.1.0",
+  "scope": "Compact popup geometry only. Actual Debug extension UI captures; signed Release installed independently. No animation-duration or perceived-haptic equivalence claim.",
+  "test": "KeyboardVisualReferenceTests/testHoldEdgeAndCenterKeysForExternalRecording",
+  "cases": [
+    {
+      "case": "english-portrait-light",
+      "exitCode": 0,
+      "result": "TestResults/Build11Popup-device-english-portrait-light.xcresult",
+      "log": "/tmp/oliv-keyboard-feel/build11-device/english-portrait-light.log",
+      "platform": "device",
+      "primary_view": {
+        "height": 256,
+        "width": 402,
+        "x": 0,
+        "y": 543
+      },
+      "first_key": {
+        "height": 43,
+        "width": 33.333333333333336,
+        "x": 6.666666666666667,
+        "y": 594
+      },
+      "host_accessibility": {
+        "boldTextEnabled": false,
+        "darkerSystemColorsEnabled": true,
+        "hostColorScheme": "light",
+        "hostColorSchemeContrast": "increased",
+        "hostDynamicTypeSize": "large",
+        "hostKind": "textview",
+        "reduceMotionEnabled": false,
+        "reduceTransparencyEnabled": true,
+        "voiceOverRunning": false
+      }
+    },
+    {
+      "case": "thai-portrait-dark",
+      "exitCode": 0,
+      "result": "TestResults/Build11Popup-device-thai-portrait-dark.xcresult",
+      "log": "/tmp/oliv-keyboard-feel/build11-device/thai-portrait-dark.log",
+      "platform": "device",
+      "primary_view": {
+        "height": 261,
+        "width": 402,
+        "x": 0,
+        "y": 538
+      },
+      "first_key": {
+        "height": 37.33333333333337,
+        "width": 26.666666666666668,
+        "x": 6.666666666666667,
+        "y": 589
+      },
+      "host_accessibility": {
+        "boldTextEnabled": false,
+        "darkerSystemColorsEnabled": true,
+        "hostColorScheme": "dark",
+        "hostColorSchemeContrast": "increased",
+        "hostDynamicTypeSize": "large",
+        "hostKind": "textview",
+        "reduceMotionEnabled": false,
+        "reduceTransparencyEnabled": true,
+        "voiceOverRunning": false
+      }
+    },
+    {
+      "case": "english-portrait-light",
+      "exitCode": 0,
+      "result": "TestResults/Build11Popup-simulator-english-portrait-light.xcresult",
+      "log": "/tmp/oliv-keyboard-feel/build11-simulator/english-portrait-light.log",
+      "platform": "simulator",
+      "primary_view": {
+        "height": 256,
+        "width": 402,
+        "x": 0,
+        "y": 543
+      },
+      "first_key": {
+        "height": 43,
+        "width": 33.333333333333336,
+        "x": 6.666666666666667,
+        "y": 594
+      },
+      "host_accessibility": {
+        "boldTextEnabled": false,
+        "darkerSystemColorsEnabled": false,
+        "hostColorScheme": "light",
+        "hostColorSchemeContrast": "standard",
+        "hostDynamicTypeSize": "large",
+        "hostKind": "textview",
+        "reduceMotionEnabled": false,
+        "reduceTransparencyEnabled": false,
+        "voiceOverRunning": false
+      }
+    },
+    {
+      "case": "thai-portrait-light",
+      "exitCode": 0,
+      "result": "TestResults/Build11Popup-simulator-thai-portrait-light.xcresult",
+      "log": "/tmp/oliv-keyboard-feel/build11-simulator/thai-portrait-light.log",
+      "platform": "simulator",
+      "primary_view": {
+        "height": 261,
+        "width": 402,
+        "x": 0,
+        "y": 538
+      },
+      "first_key": {
+        "height": 37.33333333333337,
+        "width": 26.666666666666668,
+        "x": 6.666666666666667,
+        "y": 589
+      },
+      "host_accessibility": {
+        "boldTextEnabled": false,
+        "darkerSystemColorsEnabled": false,
+        "hostColorScheme": "light",
+        "hostColorSchemeContrast": "standard",
+        "hostDynamicTypeSize": "large",
+        "hostKind": "textview",
+        "reduceMotionEnabled": false,
+        "reduceTransparencyEnabled": false,
+        "voiceOverRunning": false
+      }
+    },
+    {
+      "case": "english-landscape-dark",
+      "exitCode": 0,
+      "result": "TestResults/Build11Popup-simulator-english-landscape-dark.xcresult",
+      "log": "/tmp/oliv-keyboard-feel/build11-simulator/english-landscape-dark.log",
+      "platform": "simulator",
+      "primary_view": {
+        "height": 205,
+        "width": 724,
+        "x": 75,
+        "y": 177
+      },
+      "first_key": {
+        "height": 32,
+        "width": 66.33333333333334,
+        "x": 79,
+        "y": 228
+      },
+      "host_accessibility": {
+        "boldTextEnabled": false,
+        "darkerSystemColorsEnabled": false,
+        "hostColorScheme": "dark",
+        "hostColorSchemeContrast": "standard",
+        "hostDynamicTypeSize": "large",
+        "hostKind": "textview",
+        "reduceMotionEnabled": false,
+        "reduceTransparencyEnabled": false,
+        "voiceOverRunning": false
+      }
+    },
+    {
+      "case": "thai-landscape-dark",
+      "exitCode": 0,
+      "result": "TestResults/Build11Popup-simulator-thai-landscape-dark.xcresult",
+      "log": "/tmp/oliv-keyboard-feel/build11-simulator/thai-landscape-dark.log",
+      "platform": "simulator",
+      "primary_view": {
+        "height": 208,
+        "width": 724,
+        "x": 75,
+        "y": 174
+      },
+      "first_key": {
+        "height": 27,
+        "width": 55.33333333333334,
+        "x": 78,
+        "y": 225
+      },
+      "host_accessibility": {
+        "boldTextEnabled": false,
+        "darkerSystemColorsEnabled": false,
+        "hostColorScheme": "dark",
+        "hostColorSchemeContrast": "standard",
+        "hostDynamicTypeSize": "large",
+        "hostKind": "textview",
+        "reduceMotionEnabled": false,
+        "reduceTransparencyEnabled": false,
+        "voiceOverRunning": false
+      }
+    }
+  ],
+  "images": [
+    {
+      "file": "keyboard-compact-build11-physical-english-q.png",
+      "sha256": "5d161457c03e5f5582eb72fbb082917e7f0c9730c871cfc99ea86e34bd45b34c",
+      "transformation": "None; raw screenshot captured 0.6 s after XCUI Synthesize event during a 2 s hold."
+    },
+    {
+      "file": "keyboard-compact-build11-physical-thai-mark.png",
+      "sha256": "f0ad6ac3fead752f134484f01eadfa801b5d9c261674fad4bd0d3837a628482e",
+      "transformation": "None; raw screenshot captured 0.6 s after XCUI Synthesize event during a 2 s hold."
+    },
+    {
+      "file": "keyboard-compact-build11-physical-thai-top.png",
+      "sha256": "7b8dcc3e3eee660c1f680aeec08f9630ab579e238663cab5821fbb1a0699ccb8",
+      "transformation": "None; raw screenshot captured 0.6 s after XCUI Synthesize event during a 2 s hold."
+    },
+    {
+      "file": "keyboard-compact-build11-simulator-thai-landscape.png",
+      "sha256": "4e27bfc64d287fdd42ae91b752966de1138a2c33f72e5ec8c387c9eada0b03bd",
+      "transformation": "None; raw screenshot captured 0.6 s after XCUI Synthesize event during a 2 s hold."
+    }
+  ],
+  "physical_p_comparison": {
+    "scale": 3.0,
+    "ink": "dark",
+    "before": {
+      "source": "docs/Screenshots/keyboard-popup-physical-build10-light-held-p.png",
+      "sha256": "67aeece58df09ad6668851cd555de7d3bd0e36099fc8e83f0935b49cbd759ad4",
+      "display_dimensions_px": [
+        1206,
+        2622
+      ],
+      "source_exif_orientation": 1,
+      "key_frame_pt": [
+        343.667,
+        525.333,
+        58.333,
+        65.667
+      ],
+      "key_frame_px": [
+        1031,
+        1576,
+        1206,
+        1773
+      ],
+      "glyph_bounds_relative_key_pt": [
+        21.0,
+        27.0,
+        37.6667,
+        51.6667
+      ],
+      "vertical_fill_profile": [
+        {
+          "height_fraction": 0.06,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.1,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.16,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.25,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.35,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.5,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.65,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.8,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.9,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.95,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        }
+      ],
+      "top_edge_profile": [
+        {
+          "depth_px": -2,
+          "rgb": [
+            200.0,
+            202.0,
+            207.0
+          ]
+        },
+        {
+          "depth_px": -1,
+          "rgb": [
+            200.0,
+            202.0,
+            207.0
+          ]
+        },
+        {
+          "depth_px": 0,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "depth_px": 1,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "depth_px": 2,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "depth_px": 3,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "depth_px": 4,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "depth_px": 6,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "depth_px": 9,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        }
+      ]
+    },
+    "pressed": {
+      "source": "/private/tmp/oliv-keyboard-feel/build11-device/english-portrait-light-held-p.png",
+      "sha256": "fb49c4ac1473e4d5886928a834d9f304f815292e49ba8d9d0635b8999ed768cb",
+      "display_dimensions_px": [
+        1206,
+        2622
+      ],
+      "source_exif_orientation": 1,
+      "key_frame_pt": [
+        343.667,
+        545.333,
+        58.333,
+        45.667
+      ],
+      "key_frame_px": [
+        1031,
+        1636,
+        1206,
+        1773
+      ],
+      "glyph_bounds_relative_key_pt": [
+        21.0,
+        17.0,
+        37.6667,
+        41.6667
+      ],
+      "vertical_fill_profile": [
+        {
+          "height_fraction": 0.06,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.1,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.16,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.25,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.35,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.5,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.65,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.8,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.9,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "height_fraction": 0.95,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        }
+      ],
+      "top_edge_profile": [
+        {
+          "depth_px": -2,
+          "rgb": [
+            199.0,
+            202.0,
+            207.0
+          ]
+        },
+        {
+          "depth_px": -1,
+          "rgb": [
+            199.0,
+            202.0,
+            207.0
+          ]
+        },
+        {
+          "depth_px": 0,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "depth_px": 1,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "depth_px": 2,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "depth_px": 3,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "depth_px": 4,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "depth_px": 6,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        },
+        {
+          "depth_px": 9,
+          "rgb": [
+            255.0,
+            255.0,
+            255.0
+          ]
+        }
+      ]
+    },
+    "glyph_bounds_delta_pt": [
+      0.0,
+      -10.0,
+      0.0,
+      -10.0
+    ],
+    "caveats": [
+      "RGB values are encoded screenshot/frame values, not inferred UIKit source colors.",
+      "Video compression can alter RGB values, edge positions and antialiasing.",
+      "This comparison establishes no touch-down, release or animation duration."
+    ]
+  },
+  "regression": {
+    "result": "TestResults/Build11Regression.xcresult",
+    "unit_tests_passed": 68,
+    "touch_ui_tests_passed": 4
+  },
+  "release_verification": {
+    "strict_codesign": "passed",
+    "app_group": "group.com.chayapat.oliv.ios",
+    "intent_count": 5,
+    "installed_bundle_version": "11",
+    "normal_launch": "passed"
+  }
+}
