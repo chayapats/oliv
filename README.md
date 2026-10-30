@@ -160,7 +160,7 @@ For developers and teams. Run speech-to-text and cleanup on a Linux machine with
 4. Click **Check connection**.
 5. In **Dictation engine**, choose **OLIV API**.
 
-The Mac downloads no models in this mode. Audio goes only to your server and to whatever terminates TLS in front of it, and your Dictionary syncs across your devices. On Linux and Windows, use the [OLIV desktop client](desktop/README.md).
+The Mac downloads no models in this mode. Audio goes only to your server and to whatever terminates TLS in front of it, and your Dictionary syncs across the devices whose keys you link with `oliv-keys profile link` (each key has its own Dictionary until linked; see [server/docs/DICTIONARY.md](server/docs/DICTIONARY.md)). On Linux and Windows, use the [OLIV desktop client](desktop/README.md).
 
 ### 3. Groq for speech-to-text
 

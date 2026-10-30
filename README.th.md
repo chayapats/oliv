@@ -160,7 +160,7 @@ OLIV 0.2.0 เอา Python ออกจากแอปทั้งหมด ก
 4. กด **Check connection**
 5. ในหน้า **Dictation engine** เลือก **OLIV API**
 
-แบบนี้ Mac ไม่ต้องโหลดโมเดลเลย เสียงไปแค่ server ของคุณ และผู้ให้บริการที่ถือ TLS หน้า server (ถ้ามี) และ Dictionary จะ sync ข้ามเครื่องให้ บน Linux และ Windows ใช้ [OLIV desktop client](desktop/README.md)
+แบบนี้ Mac ไม่ต้องโหลดโมเดลเลย เสียงไปแค่ server ของคุณ และผู้ให้บริการที่ถือ TLS หน้า server (ถ้ามี) และ Dictionary จะ sync ข้ามเครื่องที่ key ถูก link กันด้วย `oliv-keys profile link` (key ที่ยังไม่ link จะมี Dictionary แยกของตัวเอง ดู [server/docs/DICTIONARY.md](server/docs/DICTIONARY.md)) บน Linux และ Windows ใช้ [OLIV desktop client](desktop/README.md)
 
 ### 3. ใช้ Groq ถอดเสียง
 
