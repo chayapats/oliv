@@ -309,8 +309,12 @@ final class ClientTests: XCTestCase, @unchecked Sendable {
         defer { session.invalidateAndCancel() }
         do { _ = try await client.clean(text: "x"); XCTFail("Expected oversized response") }
         catch let error as OlivError { XCTAssertEqual(error, .responseTooLarge) }
+        // The server's 8,192-byte text limit refuses this long before the
+        // 8 MiB transport guard (kept as defense in depth) could.
         do { _ = try await client.clean(text: String(repeating: "x", count: OlivClient.maximumRequestBytes)); XCTFail("Expected oversized request") }
-        catch let error as OlivError { XCTAssertEqual(error, .requestTooLarge) }
+        catch let error as OlivError {
+            guard case .invalidOptions = error else { return XCTFail("Expected the cleanup text limit, got \(error)") }
+        }
         do { _ = try await client.dictate(wav: WAVEncoder.encode(samples: [0], sampleRate: 44_100)); XCTFail("Expected wrong sample rate") }
         catch let error as OlivError {
             guard case .invalidAudio = error else { return XCTFail("Expected invalid audio") }
@@ -339,6 +343,26 @@ final class ClientTests: XCTestCase, @unchecked Sendable {
             data.append(contentsOf: buffer.prefix(count))
         }
         return data
+    }
+
+    func testCleanupOverTheServerTextLimitIsRefusedBeforeSending() async throws {
+        let counter = RequestCounter()
+        let (client, session) = try makeClient { _ in
+            counter.increment()
+            return .response(200, Data(#"{"ok":true,"raw":"x","final":"x","no_speech":false}"#.utf8))
+        }
+        defer { session.invalidateAndCancel() }
+        let atLimit = String(repeating: "a", count: OlivOptions.maximumCleanupTextBytes)
+        _ = try await client.clean(text: atLimit)
+        XCTAssertEqual(counter.count, 1)
+        // Thai is three UTF-8 bytes per scalar: 2,731 characters exceed 8,192 bytes.
+        let over = String(repeating: "ก", count: 2_731)
+        do { _ = try await client.clean(text: over); XCTFail("Expected a local refusal") }
+        catch let error as OlivError {
+            guard case .invalidOptions(let message) = error else { return XCTFail("\(error)") }
+            XCTAssertTrue(message.contains("8,192") || message.contains("8192"), message)
+        }
+        XCTAssertEqual(counter.count, 1, "An over-limit draft must never reach the server")
     }
 }
 

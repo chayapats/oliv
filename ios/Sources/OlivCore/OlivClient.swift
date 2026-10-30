@@ -96,6 +96,9 @@ public struct OlivClient: Sendable {
     /// Re-run the original OLIV cleanup pipeline on existing text. This is
     /// faithful cleanup, not a separate creative rewrite or translation mode.
     public func clean(text: String, options: OlivOptions = OlivOptions()) async throws -> DictationReply {
+        guard text.utf8.count <= OlivOptions.maximumCleanupTextBytes else {
+            throw OlivError.invalidOptions("Cleanup accepts up to \(OlivOptions.maximumCleanupTextBytes.formatted()) UTF-8 bytes of text; shorten it and try again.")
+        }
         let body = try RequestBody.encode(audio: nil, text: text, options: options)
         return try await reply(path: "v1/clean", body: body)
     }
@@ -238,6 +241,7 @@ private final class RejectRedirects: NSObject, URLSessionTaskDelegate, Sendable 
 enum RequestBody {
     static func encode(audio: Data?, text: String?, options: OlivOptions) throws -> Data {
         try options.validate()
+        try options.validateServerLimits()
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         func json<T: Encodable>(_ value: T) throws -> String {

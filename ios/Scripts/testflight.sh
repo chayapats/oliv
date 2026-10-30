@@ -24,11 +24,14 @@ if [ -f ../release.local.env ]; then
   set -a; . ../release.local.env; set +a
 fi
 # A baked-in default reaches every new install, so it must be one the app
-# accepts from anywhere: an https URL with a host and no credentials.
-if [ -n "${OLIV_DEFAULT_API_URL:-}" ] &&
-   ! [[ "$OLIV_DEFAULT_API_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[^[:space:]@]*)?$ ]]; then
-  echo "OLIV_DEFAULT_API_URL must be an https:// URL with a host, got '$OLIV_DEFAULT_API_URL'" >&2
-  exit 2
+# accepts from anywhere (OlivConfiguration): https, a host, no credentials,
+# query or fragment, and a port in 1...65535.
+if [ -n "${OLIV_DEFAULT_API_URL:-}" ]; then
+  if ! [[ "$OLIV_DEFAULT_API_URL" =~ ^https://[A-Za-z0-9.-]+(:([0-9]{1,5}))?(/[^[:space:]@?#]*)?$ ]] ||
+     { [ -n "${BASH_REMATCH[2]}" ] && { [ "${BASH_REMATCH[2]}" -lt 1 ] || [ "${BASH_REMATCH[2]}" -gt 65535 ]; }; }; then
+    echo "OLIV_DEFAULT_API_URL must be an https:// URL with a host, no query or fragment, and a port in 1-65535; got '$OLIV_DEFAULT_API_URL'" >&2
+    exit 2
+  fi
 fi
 output="$PWD/build/TestFlight"
 archive="$output/Oliv-build-$build_number.xcarchive"
