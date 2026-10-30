@@ -244,9 +244,52 @@ final class KeyboardCaptureTests: XCTestCase {
         XCTAssertEqual(relaunched.latest?.id, model.latest?.id)
         XCTAssertEqual(relaunched.phase, .result)
         XCTAssertEqual(relaunched.message, "Your text is ready here.")
+        let backgroundLaunch = AppModel(directory: directory, credentials: credentials, capture: capture,
+                                        liveActivitiesEnabled: false)
+        XCTAssertEqual(backgroundLaunch.message, "Your text is ready here.", "Unseen until the app is on screen")
+        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
         let again = AppModel(directory: directory, credentials: credentials, capture: capture,
                              liveActivitiesEnabled: false)
         XCTAssertNil(again.latest, "Shown once")
+    }
+
+    @MainActor
+    func testRecordingThatGoesToTheBackgroundReleasesWhenItEnds() async throws {
+        let directory = keyboardTestDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var releases = 0
+        var background = false
+        let capture = KeyboardTestCapture(directory: directory)
+        let service = KeyboardTestService(mode: .success, microphoneActive: { capture.microphoneActive })
+        let model = AppModel(directory: directory, credentials: MemoryCredentialStore(token: "test-token"),
+                             capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service },
+                             isInBackground: { background }, releaseProcess: { releases += 1 })
+        model.settings.serverURL = "https://oliv.example"
+        model.saveSettings()
+        await model.startInForeground()
+        background = true
+        NotificationCenter.default.post(name: UIApplication.didEnterBackgroundNotification, object: nil)
+        await model.stopFromIntent()
+        try await waitForKeyboardTest(timeout: 3) { releases == 1 }
+    }
+
+    @MainActor
+    func testUnsavedSettingsKeepTheProcess() async throws {
+        let directory = keyboardTestDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var releases = 0
+        let capture = KeyboardTestCapture(directory: directory)
+        let service = KeyboardTestService(mode: .success, microphoneActive: { capture.microphoneActive })
+        let model = AppModel(directory: directory, credentials: MemoryCredentialStore(token: "test-token"),
+                             capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service },
+                             isInBackground: { true }, releaseProcess: { releases += 1 })
+        model.settings.serverURL = "https://oliv.example"
+        model.saveSettings()
+        try await model.startFromIntent(allowKeyboardDelivery: false)
+        await model.stopFromIntent()
+        model.settings.vocabularyText = "unsaved"
+        try await Task.sleep(for: .seconds(1.8))
+        XCTAssertEqual(releases, 0)
     }
 
     @MainActor

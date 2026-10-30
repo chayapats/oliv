@@ -75,6 +75,8 @@ struct SetupView: View {
             }
             Button { leaveForSettings() } label: { wide("I have an API key") }
                 .buttonStyle(OlivSecondaryButtonStyle())
+                .disabled(model.isStartingTrial)
+                .disabled(model.isStartingTrial)
                 .accessibilityIdentifier("useOwnKeyButton")
         }
     }

@@ -90,7 +90,9 @@ final class AppModel {
     @ObservationIgnored private var capturedInBackground = false
     @ObservationIgnored private var releaseTask: Task<Void, Never>?
     @ObservationIgnored private var liveActivityTeardowns = 0
-    @ObservationIgnored private var didEnterBackgroundObserver: NSObjectProtocol?
+    @ObservationIgnored private var lifecycleObservers: [NSObjectProtocol] = []
+    @ObservationIgnored private var persistedSettings = AppSettings()
+    @ObservationIgnored private var connectionGeneration = 0
 
     init(directory: URL? = nil,
          credentials: any CredentialStoring = KeychainCredentialStore(),
@@ -164,12 +166,25 @@ final class AppModel {
         }
         // Decided once: editing the address in Settings must never reopen setup.
         isInSetup = settings.finishedSetup != true && !isConfigured
+        persistedSettings = settings
         restoreCompletion()
-        didEnterBackgroundObserver = NotificationCenter.default.addObserver(
-            forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.scheduleProcessRelease() }
-        }
+        lifecycleObservers = [
+            NotificationCenter.default.addObserver(
+                forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    if self.isBusy { self.capturedInBackground = true }
+                    self.scheduleProcessRelease()
+                }
+            },
+            NotificationCenter.default.addObserver(
+                forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                // Only now has the person had the chance to see it.
+                MainActor.assumeIsolated { self?.clearCompletion() }
+            }
+        ]
     }
 
     private static func makeDefault() -> AppModel {
@@ -223,6 +238,8 @@ final class AppModel {
             savedServerURL = settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
             savedCredentialBinding = approved.credentialBinding
             settings = approved
+            persistedSettings = approved
+            connectionGeneration += 1
             tokenInput = ""
             hasToken = true
             connectionMessage = String(localized: "Settings saved.")
@@ -236,10 +253,17 @@ final class AppModel {
         guard !isBusy, !isStartingTrial, let url = URL(string: trialServerURL) else { return }
         isStartingTrial = true
         trialMessage = nil
-        defer { isStartingTrial = false }
+        defer {
+            isStartingTrial = false
+            scheduleProcessRelease()
+        }
+        let generation = connectionGeneration
+        let address = settings.serverURL
         do {
             let key = try await requestTrialKey(url)
             guard !isBusy else { throw OlivError.invalidConfiguration(String(localized: "Finish this dictation before changing settings.")) }
+            // Someone who connected another way while this waited keeps that.
+            guard generation == connectionGeneration, address == settings.serverURL else { return }
             try commitTrial(key)
             connectionMessage = nil
         } catch TrialRefusal.closed {
@@ -274,6 +298,8 @@ final class AppModel {
             throw error
         }
         settings = approved
+        persistedSettings = approved
+        connectionGeneration += 1
         savedServerURL = trialServerURL
         savedCredentialBinding = approved.credentialBinding
         hasToken = true
@@ -294,6 +320,7 @@ final class AppModel {
     private func persistSettings() {
         guard let data = try? JSONEncoder().encode(settings) else { return }
         try? data.write(to: directory.appendingPathComponent("settings.json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        persistedSettings = settings
     }
 
     func checkConnection() async {
@@ -391,10 +418,11 @@ final class AppModel {
     }
 
     private var canReleaseProcess: Bool {
-        guard !isBusy, liveActivityTeardowns == 0, isInBackground(),
-              cleanupDraft.isEmpty, tokenInput.isEmpty else { return false }
-        // With history off, the result exists only in this process.
-        return settings.keepHistory || latest == nil
+        guard !isBusy, !isStartingTrial, liveActivityTeardowns == 0, isInBackground(),
+              cleanupDraft.isEmpty, tokenInput.isEmpty, settings == persistedSettings else { return false }
+        // History may be off, or may have dropped this entry: then the result
+        // exists only in this process.
+        return latest.map { entry in history.contains { $0.id == entry.id } } ?? true
     }
 
     private struct Completion: Codable {
@@ -410,11 +438,13 @@ final class AppModel {
             .atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
 
-    /// Shows what a released process left behind, once.
+    private func clearCompletion() { try? FileManager.default.removeItem(at: completionURL) }
+
+    /// Shows what a released process left behind. A background launch can read
+    /// it too, so the file stays until the app is actually on screen.
     private func restoreCompletion() {
-        guard let data = try? Data(contentsOf: completionURL) else { return }
-        try? FileManager.default.removeItem(at: completionURL)
-        guard let completion = try? JSONDecoder().decode(Completion.self, from: data) else { return }
+        guard let data = try? Data(contentsOf: completionURL),
+              let completion = try? JSONDecoder().decode(Completion.self, from: data) else { return }
         if let id = completion.entryID, let entry = history.first(where: { $0.id == id }) {
             latest = entry
             phase = .result

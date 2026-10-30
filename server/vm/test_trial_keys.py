@@ -11,6 +11,7 @@ import time
 import unittest
 from http.server import ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 
 import test_dashboard_keys
 import trial_keys
@@ -122,6 +123,37 @@ class IssueTests(Fixture):
             self.issuer.issue("192.0.2.1")
         self.assertEqual(self.issuer.ledger.state["total"], 0)
 
+    def test_failure_across_midnight_refunds_nothing_from_the_new_day(self):
+        def fail(*_, **__):
+            self.now += 86_400
+            raise KeyAdminError(503, "x", "x")
+        self.issuer.issue("192.0.2.1")
+        self.manager.create = fail
+        with self.assertRaises(KeyAdminError):
+            self.issuer.issue("192.0.2.2")
+        self.assertEqual(self.issuer.ledger.state["total"], 0)
+        self.assertEqual(self.issuer.ledger.state["clients"], {})
+
+    def test_uncertain_creation_keeps_its_count(self):
+        def fail(*_, **__):
+            raise KeyAdminError(503, "key_creation_incomplete", "x")
+        self.manager.create = fail
+        with self.assertRaises(KeyAdminError):
+            self.issuer.issue("192.0.2.1")
+        self.assertEqual(self.issuer.ledger.state["total"], 1)
+
+    def test_refund_that_cannot_be_saved_keeps_the_original_error(self):
+        def fail(*_, **__):
+            self.issuer.ledger._write = refuse
+            raise KeyAdminError(503, "x", "x")
+
+        def refuse(_):
+            raise OSError("disk full")
+        self.manager.create = fail
+        with self.assertRaises(KeyAdminError):
+            self.issuer.issue("192.0.2.1")
+        self.assertEqual(self.issuer.ledger.state["total"], 1)
+
     def test_operator_keys_named_like_trials_do_not_count(self):
         self.manager.existing = [{"name": f"trial-{n}", "status": "active", "trial": False} for n in range(5)]
         self.issuer.issue("192.0.2.1")
@@ -229,6 +261,41 @@ class OverloadTests(Fixture):
         self.addCleanup(refused.close)
         refused.request("GET", "/try/health")
         self.assertEqual(refused.getresponse().status, 503)
+
+
+class OverloadRecoveryTests(Fixture):
+    def _server(self):
+        class Bound(trial_keys.Handler):
+            issuer = self.issuer
+        server = trial_keys.BoundedServer(("127.0.0.1", 0), Bound)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return server
+
+    def test_client_trickling_headers_loses_its_worker_at_the_deadline(self):
+        server = self._server()
+        with patch.object(trial_keys, "REQUEST_DEADLINE", 0.3), patch.object(trial_keys.Handler, "timeout", 5):
+            connection = socket.create_connection(("127.0.0.1", server.server_port), timeout=3)
+            self.addCleanup(connection.close)
+            connection.sendall(b"GET /try/health HTTP/1.0\r\n")
+            deadline = time.monotonic() + 2
+            while time.monotonic() < deadline:
+                try:
+                    connection.sendall(b"X-Slow: 1\r\n")
+                except OSError:
+                    break
+                if server.workers._value == trial_keys.MAX_WORKERS:
+                    break
+                time.sleep(0.05)
+        self.assertEqual(server.workers._value, trial_keys.MAX_WORKERS)
+
+    def test_thread_start_failure_returns_the_worker(self):
+        server = self._server()
+        with patch.object(trial_keys.ThreadingHTTPServer, "process_request", side_effect=RuntimeError):
+            with self.assertRaises(RuntimeError):
+                server.process_request(*socket.socketpair()[:1], ("127.0.0.1", 1))
+        self.assertEqual(server.workers._value, trial_keys.MAX_WORKERS)
 
 
 class HTTPTests(Fixture):

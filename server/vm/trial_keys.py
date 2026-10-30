@@ -17,6 +17,7 @@ import json
 import os
 import re
 import secrets
+import socket
 import stat
 import tempfile
 import threading
@@ -39,6 +40,7 @@ MAX_BODY_BYTES = 1024
 MAX_CLIENTS_PER_DAY = 50_000
 MAX_WORKERS = 8
 SOCKET_TIMEOUT = 5
+REQUEST_DEADLINE = 20
 CLIENT_HASH = re.compile(r"[0-9a-f]{32}\Z")
 DEFAULTS = {"enabled": True, "expires_in_days": 7, "requests_per_minute": 6,
             "daily_requests": 60, "keys_per_client_per_day": 2, "keys_per_day": 30,
@@ -132,13 +134,20 @@ class Ledger:
 
     def charge(self, address):
         """Saved before the key exists: a crash afterwards over-counts by one,
-        which is safe, while the reverse order could issue uncounted keys."""
+        which is safe, while the reverse order could issue uncounted keys.
+        Returns the receipt `refund` needs."""
         self._roll()
-        self._adjust(self._client(address), 1)
+        client = self._client(address)
+        self._adjust(client, 1)
+        return self.state["day"], client
 
-    def refund(self, address):
+    def refund(self, receipt):
+        """A count from an earlier day is already gone, and refunding it would
+        hand today an extra key."""
+        day, client = receipt
         self._roll()
-        self._adjust(self._client(address), -1)
+        if self.state["day"] == day:
+            self._adjust(client, -1)
 
     def _adjust(self, client, change):
         state = {**self.state, "total": self.state["total"] + change,
@@ -193,15 +202,20 @@ class TrialIssuer:
             active = sum(key["status"] == "active" and key["trial"] for key in keys)
             if active >= settings["max_active"] or len(keys) >= STORE_CEILING:
                 raise Closed("full")
-            self.ledger.charge(address)
+            receipt = self.ledger.charge(address)
             try:
                 created = self.manager.create({
                     "name": NAME_PREFIX + secrets.token_hex(6),
                     "expires_in_days": settings["expires_in_days"], "scopes": SCOPES,
                     "requests_per_minute": settings["requests_per_minute"],
                     "daily_requests": settings["daily_requests"]}, trial=True)
-            except BaseException:
-                self.ledger.refund(address)
+            except KeyAdminError as error:
+                # "incomplete" means a key may exist, so its count must stand.
+                if error.code != "key_creation_incomplete":
+                    try:
+                        self.ledger.refund(receipt)
+                    except OSError:
+                        pass  # Over-counting by one is the safe direction.
                 raise
         return {"ok": True, "token": created["token"], "expires_at": created["key"]["expires_at"],
                 "requests_per_minute": settings["requests_per_minute"],
@@ -299,13 +313,30 @@ class BoundedServer(ThreadingHTTPServer):
                 pass
             self.shutdown_request(request)
             return
-        super().process_request(request, client_address)
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self.workers.release()
+            raise
 
     def process_request_thread(self, request, client_address):
+        # SOCKET_TIMEOUT applies per read, so a client trickling headers would
+        # otherwise hold a worker for as long as it likes.
+        deadline = threading.Timer(REQUEST_DEADLINE, self._drop, (request,))
+        deadline.daemon = True
+        deadline.start()
         try:
             super().process_request_thread(request, client_address)
         finally:
+            deadline.cancel()
             self.workers.release()
+
+    @staticmethod
+    def _drop(request):
+        try:
+            request.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
 
 
 def main():

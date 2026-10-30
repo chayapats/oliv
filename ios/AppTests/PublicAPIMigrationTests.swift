@@ -287,6 +287,23 @@ final class FreeTrialTests: XCTestCase {
         XCTAssertFalse(upgraded.isInSetup)
     }
 
+    func testConnectingAnotherWayWhileATrialIsPendingWins() async throws {
+        let gate = TrialGate()
+        let credentials = MemoryCredentialStore()
+        let (model, directory) = makeModel({ _ in await gate.wait() }, credentials: credentials)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let trial = Task { await model.startTrial() }
+        await gate.waitUntilRequested()
+        model.settings.serverURL = "https://own.example.com"
+        model.tokenInput = "my-own-key"
+        model.saveSettings()
+        await gate.finish(TrialKey(token: "oliv_trial_key", expiresAt: Date().addingTimeInterval(60)))
+        await trial.value
+        XCTAssertEqual(try credentials.read(), "my-own-key")
+        XCTAssertEqual(model.settings.serverURL, "https://own.example.com")
+        XCTAssertNil(model.settings.trialExpiresAt)
+    }
+
     func testTypingAnOwnKeyEndsTrialMode() async throws {
         let (model, directory) = makeModel({ _ in TrialKey(token: "oliv_trial_key", expiresAt: Date().addingTimeInterval(60)) })
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -305,6 +322,23 @@ final class FreeTrialTests: XCTestCase {
         model.finishSetup()
         XCTAssertFalse(model.isInSetup)
     }
+}
+
+private actor TrialGate {
+    private var waiter: CheckedContinuation<TrialKey, Never>?
+    private var requested: CheckedContinuation<Void, Never>?
+    func wait() async -> TrialKey {
+        await withCheckedContinuation { continuation in
+            waiter = continuation
+            requested?.resume()
+            requested = nil
+        }
+    }
+    func waitUntilRequested() async {
+        guard waiter == nil else { return }
+        await withCheckedContinuation { requested = $0 }
+    }
+    func finish(_ key: TrialKey) { waiter?.resume(returning: key) }
 }
 
 private actor PublicAPITestService: OlivServing {
