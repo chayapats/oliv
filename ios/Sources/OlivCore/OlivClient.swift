@@ -103,9 +103,25 @@ public struct OlivClient: Sendable {
         return try await reply(path: "v1/clean", body: body)
     }
 
+    /// The personal dictionary on the server (server/docs/DICTIONARY.md):
+    /// `ops == nil` fetches it, otherwise the operations are applied first.
+    /// Throws `dictionaryUnsupported` when the server predates it (404).
+    public func dictionary(ops: [DictionaryOp]?) async throws -> DictionarySnapshot {
+        let body = try ops.map(RequestBody.dictionary)
+        let data: Data
+        do { data = try await performOnce(path: "v1/dictionary", body: body, authorized: true) }
+        catch OlivError.server(statusCode: 404) { throw OlivError.dictionaryUnsupported }
+        struct Envelope: Decodable { let ok: Bool }
+        guard (try? JSONDecoder().decode(Envelope.self, from: data))?.ok == true,
+              let snapshot = try? JSONDecoder().decode(DictionarySnapshot.self, from: data) else {
+            throw OlivError.invalidResponse
+        }
+        return snapshot
+    }
+
     /// /health is deliberately unauthenticated on the OLIV server.
     public func health() async throws -> ServerHealth {
-        let data = try await perform(path: "health", body: nil)
+        let data = try await performOnce(path: "health", body: nil, authorized: false)
         do { return try JSONDecoder().decode(ServerHealth.self, from: data) }
         catch { throw OlivError.invalidResponse }
     }
@@ -114,11 +130,11 @@ public struct OlivClient: Sendable {
     /// route accepts every key with scope dictate and is not charged per request.
     /// A valid key without that scope throws `.forbidden(reason: .missingScope)`.
     public func verifyKey() async throws {
-        _ = try await perform(path: "v1/dictionary", body: nil, authenticated: true)
+        _ = try await performOnce(path: "v1/dictionary", body: nil, authorized: true)
     }
 
     private func reply(path: String, body: Data) async throws -> DictationReply {
-        let data = try await perform(path: path, body: body)
+        let data = try await performOnce(path: path, body: body, authorized: true)
         let reply: DictationReply
         do { reply = try JSONDecoder().decode(DictationReply.self, from: data) }
         catch { throw OlivError.invalidResponse }
@@ -126,7 +142,27 @@ public struct OlivClient: Sendable {
         return reply
     }
 
-    private func perform(path: String, body: Data?, authenticated: Bool? = nil) async throws -> Data {
+    /// A request that provably never reached oliv-api (connection refused, or
+    /// an edge/tunnel 502/530 that is not oliv-api's JSON error, e.g. during a
+    /// server restart).
+    private struct Unreached: Error { let underlying: OlivError }
+
+    /// Wait before the single retry of an unreached request: long enough to
+    /// ride out a server restart, short enough to stay unnoticed.
+    static let unreachedRetryDelay: Duration = .milliseconds(500)
+
+    /// `perform`, retried once if the first attempt never reached oliv-api. A
+    /// request the server may have processed is never replayed.
+    private func performOnce(path: String, body: Data?, authorized: Bool) async throws -> Data {
+        do { return try await perform(path: path, body: body, authorized: authorized) }
+        catch is Unreached {
+            try await Task.sleep(for: Self.unreachedRetryDelay)
+            do { return try await perform(path: path, body: body, authorized: authorized) }
+            catch let again as Unreached { throw again.underlying }
+        }
+    }
+
+    private func perform(path: String, body: Data?, authorized: Bool) async throws -> Data {
         try Task.checkCancellation()
         if let body, body.count > Self.maximumRequestBytes { throw OlivError.requestTooLarge }
         var request = URLRequest(url: configuration.url(for: path),
@@ -135,12 +171,12 @@ public struct OlivClient: Sendable {
         request.httpMethod = body == nil ? "GET" : "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
+        if authorized {
+            request.setValue("Bearer \(configuration.token)", forHTTPHeaderField: "Authorization")
+        }
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        }
-        if authenticated ?? (body != nil) {
-            request.setValue("Bearer \(configuration.token)", forHTTPHeaderField: "Authorization")
         }
         do {
             let (bytes, response) = try await session.bytes(for: request, delegate: RejectRedirects.shared)
@@ -152,6 +188,12 @@ public struct OlivClient: Sendable {
                 if http.statusCode == 429 {
                     throw OlivError.rateLimited(retryAfter: Self.retryDate(header: retryHeader, now: now))
                 }
+                if http.statusCode == 502 || http.statusCode == 530 {
+                    let prefix = try await Self.prefix(of: bytes)
+                    let error = OlivError.serviceUnavailable(statusCode: http.statusCode,
+                        retryAfter: retryHeader.map { Self.retryDate(header: $0, now: now) })
+                    throw Self.isOlivAPIError(prefix) ? error : Unreached(underlying: error)
+                }
                 if (500...599).contains(http.statusCode) {
                     throw OlivError.serviceUnavailable(statusCode: http.statusCode,
                         retryAfter: retryHeader.map { Self.retryDate(header: $0, now: now) })
@@ -159,19 +201,7 @@ public struct OlivClient: Sendable {
                 if http.statusCode == 403 {
                     // Inspect only a bounded prefix to classify known denial
                     // responses. Never return its contents in a diagnostic.
-                    var prefix = Data()
-                    do {
-                        for try await byte in bytes {
-                            guard prefix.count < 16 * 1_024 else { break }
-                            prefix.append(byte)
-                        }
-                    } catch {
-                        if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
-                            throw CancellationError()
-                        }
-                    }
-                    try Task.checkCancellation()
-                    throw OlivError.forbidden(reason: Self.forbiddenReason(body: prefix))
+                    throw OlivError.forbidden(reason: Self.forbiddenReason(body: try await Self.prefix(of: bytes)))
                 }
                 throw OlivError.server(statusCode: http.statusCode)
             }
@@ -191,9 +221,12 @@ public struct OlivClient: Sendable {
             throw CancellationError()
         } catch let error as OlivError {
             throw error
+        } catch let error as Unreached {
+            throw error
         } catch let error as URLError {
             if Task.isCancelled || error.code == .cancelled { throw CancellationError() }
             switch error.code {
+            case .cannotConnectToHost: throw Unreached(underlying: .networkUnavailable)
             case .timedOut: throw OlivError.timedOut
             case .notConnectedToInternet, .cannotFindHost, .cannotConnectToHost, .networkConnectionLost, .dnsLookupFailed:
                 throw OlivError.networkUnavailable
@@ -202,6 +235,28 @@ public struct OlivClient: Sendable {
         } catch {
             throw OlivError.transport
         }
+    }
+
+    /// Up to 16 KiB of an error body, for classification only.
+    private static func prefix(of bytes: URLSession.AsyncBytes) async throws -> Data {
+        var prefix = Data()
+        do {
+            for try await byte in bytes {
+                guard prefix.count < 16 * 1_024 else { break }
+                prefix.append(byte)
+            }
+        } catch {
+            if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
+                throw CancellationError()
+            }
+        }
+        try Task.checkCancellation()
+        return prefix
+    }
+
+    /// oliv-api's own errors are JSON with a `code`.
+    static func isOlivAPIError(_ body: Data) -> Bool {
+        (try? JSONSerialization.jsonObject(with: body) as? [String: Any])?["code"] is String
     }
 
     static func forbiddenReason(body: Data) -> OlivForbiddenReason {
@@ -335,6 +390,24 @@ enum RequestBody {
         pairs.append("\"replacements\":{\(rules)}")
         // Omit prompt so upgrades preserve the deployment's chosen prompt.
         let result = Data(("{" + pairs.joined(separator: ",") + "}").utf8)
+        guard result.count <= OlivClient.maximumRequestBytes else { throw OlivError.requestTooLarge }
+        return result
+    }
+
+    /// `{"ops": [...]}` for POST /v1/dictionary.
+    static func dictionary(_ ops: [DictionaryOp]) throws -> Data {
+        let wire: [[String: Any]] = ops.map { op in
+            switch op {
+            case .delete(let id):
+                return ["op": "delete", "id": id]
+            case .upsert(let e):
+                return ["op": "upsert", "entry": [
+                    "id": e.id, "word": e.word, "correction": e.correction as Any? ?? NSNull(),
+                    "enabled": e.enabled, "starred": e.starred, "source": e.source.rawValue,
+                ] as [String: Any]]
+            }
+        }
+        let result = try JSONSerialization.data(withJSONObject: ["ops": wire])
         guard result.count <= OlivClient.maximumRequestBytes else { throw OlivError.requestTooLarge }
         return result
     }

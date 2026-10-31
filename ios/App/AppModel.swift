@@ -10,6 +10,7 @@ protocol OlivServing: Sendable {
     func clean(text: String, options: OlivOptions) async throws -> DictationReply
     func health() async throws -> ServerHealth
     func verifyKey() async throws
+    func dictionary(ops: [DictionaryOp]?) async throws -> DictionarySnapshot
 }
 extension OlivClient: OlivServing {}
 
@@ -40,6 +41,11 @@ final class AppModel {
     var hasToken = false
     var selectedTab = 0
     var isDemo = false
+    /// The personal Dictionary, synced with the server and other devices.
+    private(set) var dictionary = DictionaryBook()
+    private(set) var dictionarySyncStatus: DictionarySyncStatus = .localOnly
+    /// Words the server refused on the last sync (duplicate or full).
+    private(set) var dictionaryRejectedWords: [String] = []
 
     var isConfigured: Bool {
         guard hasToken, settings.requiresNewAPIKey != true, savedCredentialBinding != nil,
@@ -78,6 +84,11 @@ final class AppModel {
     @ObservationIgnored private var intentStartStage: IntentStartStage = .setup
     @ObservationIgnored private var savedServerURL = ""
     @ObservationIgnored private var savedCredentialBinding: String?
+    @ObservationIgnored private var dictionaryStore: DictionaryBookStore?
+    @ObservationIgnored private var dictionarySyncTask: Task<Void, Never>?
+    /// The exchange in progress; later callers wait for it instead of racing.
+    @ObservationIgnored private var dictionarySyncRun: Task<Void, Never>?
+    @ObservationIgnored private var dictionarySyncAgain = false
     @ObservationIgnored private var historyStore: HistoryStore?
     @ObservationIgnored private var pendingStore: PendingRecordingStore?
     @ObservationIgnored private var retryCooldown: RetryCooldownStore?
@@ -123,9 +134,13 @@ final class AppModel {
             values.isExcludedFromBackup = true
             try folder.setResourceValues(values)
             let settingsURL = self.directory.appendingPathComponent("settings.json")
+            // Read before any settings migration rewrites the file.
+            var legacyDictionary: LegacyDictionarySettings?
             if FileManager.default.fileExists(atPath: settingsURL.path) {
                 do {
-                    settings = try JSONDecoder().decode(AppSettings.self, from: Data(contentsOf: settingsURL))
+                    let data = try Data(contentsOf: settingsURL)
+                    settings = try JSONDecoder().decode(AppSettings.self, from: data)
+                    legacyDictionary = try? JSONDecoder().decode(LegacyDictionarySettings.self, from: data)
                     if settings.requiresNewAPIKey == true {
                         message = String(localized: "OLIV now uses a public HTTPS API. Enter your new individual API key in Settings; your writing preferences and recordings were kept.")
                     }
@@ -139,6 +154,7 @@ final class AppModel {
                 else { hasToken = !(try credentials.read() ?? "").isEmpty }
             }
             catch { message = safeDescription(error) }
+            try loadDictionary(legacy: legacyDictionary)
             historyStore = try HistoryStore(directory: self.directory)
             pendingStore = try PendingRecordingStore(directory: self.directory.appendingPathComponent("Pending"))
             retryCooldown = try RetryCooldownStore(directory: self.directory)
@@ -191,7 +207,11 @@ final class AppModel {
                 }
             }
         ]
+        if isConfigured { scheduleDictionarySync(after: 0) }
     }
+
+    /// Options for a new request (see `AppSettings.options(dictionary:)`).
+    var currentOptions: OlivOptions { settings.options(dictionary: dictionary) }
 
     private static func makeDefault() -> AppModel {
         #if DEBUG
@@ -222,8 +242,8 @@ final class AppModel {
     func saveSettings() {
         guard !isBusy else { message = String(localized: "Finish this dictation before changing settings."); return }
         do {
-            try settings.options.validate()
-            try settings.options.validateServerLimits()
+            try currentOptions.validate()
+            try currentOptions.validateServerLimits()
             let entered = tokenInput.trimmingCharacters(in: .whitespacesAndNewlines)
             if settings.requiresNewAPIKey == true && entered.isEmpty {
                 throw OlivError.invalidConfiguration(String(localized: "Enter your new individual API key. The retired shared token cannot be reused."))
@@ -250,6 +270,7 @@ final class AppModel {
             hasToken = true
             connectionMessage = String(localized: "Settings saved.")
             message = nil
+            scheduleDictionarySync(after: 0)
         } catch { message = safeDescription(error) }
     }
 
@@ -492,8 +513,8 @@ final class AppModel {
         if fromIntent { CaptureDiagnostics.record(event: .startRequested, detail: diagnosticAppState) }
         do {
             _ = try configuration()
-            try settings.options.validate()
-            try settings.options.validateServerLimits()
+            try currentOptions.validate()
+            try currentOptions.validateServerLimits()
         } catch {
             if fromIntent { CaptureDiagnostics.record(event: .setupRejected, error: error) }
             throw error
@@ -540,7 +561,7 @@ final class AppModel {
             try Task.checkCancellation()
             guard operationID == startID else { return }
             intentStartStage = .setup
-            activeOptions = settings.options
+            activeOptions = currentOptions
             try JSONEncoder().encode(activeOptions).write(to: optionsRecoveryURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
             intentStartStage = .microphone
             if fromIntent { CaptureDiagnostics.record(event: .microphoneStarting, detail: diagnosticAppState) }
@@ -764,6 +785,7 @@ final class AppModel {
                 try retryCooldown.check()
                 let reply = try await client.dictate(wav: wav, options: item.options)
                 try Task.checkCancellation()
+                self.noteDictionaryRevision(reply.dictionaryRevision)
                 guard self.operationID == id else { return }
                 let duration = Self.seconds(start.duration(to: .now))
                 let entry = HistoryEntry(id: item.id, createdAt: item.createdAt, source: source,
@@ -823,6 +845,144 @@ final class AppModel {
         await task.value
     }
 
+    // MARK: Dictionary
+
+    /// Load dictionary.json; on first launch, seed it from the old
+    /// vocabulary/replacement settings. Their keys stay inert in settings.json
+    /// (loading never rewrites it) until the next save drops them.
+    private func loadDictionary(legacy: LegacyDictionarySettings?) throws {
+        let store = try DictionaryBookStore(directory: directory)
+        dictionaryStore = store
+        if store.exists {
+            dictionary = try store.load()
+            return
+        }
+        dictionary = DictionaryBook(entries: DictionaryBook.migrate(
+            vocabularyText: legacy?.vocabularyText ?? "", replacements: legacy?.replacements ?? []))
+        try store.save(dictionary)
+    }
+
+    /// Add or edit an entry. Returns an error message when the word is not
+    /// accepted (empty, too long, or already in the Dictionary).
+    @discardableResult
+    func saveDictionaryEntry(id: String? = nil, word: String, correction: String?) -> String? {
+        guard let word = DictionaryEntry.clean(word) else {
+            return String(localized: "Enter a word of up to \(DictionaryEntry.maxFieldLength) characters.")
+        }
+        let heard = correction.flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0 }
+        var cleanHeard: String?
+        if let heard {
+            guard let value = DictionaryEntry.clean(heard) else {
+                return String(localized: "The spoken phrase needs up to \(DictionaryEntry.maxFieldLength) characters.")
+            }
+            cleanHeard = value
+        }
+        var entries = dictionary.entries
+        var entry = entries.first { $0.id == id } ?? DictionaryEntry(word: word)
+        entry.word = word
+        entry.correction = cleanHeard
+        guard !entries.contains(where: { $0.id != entry.id && $0.identity == entry.identity }) else {
+            return String(localized: "That word is already in your Dictionary.")
+        }
+        if let index = entries.firstIndex(where: { $0.id == entry.id }) { entries[index] = entry } else { entries.append(entry) }
+        editDictionary(entries)
+        return nil
+    }
+
+    func removeDictionaryEntries(_ ids: Set<String>) {
+        editDictionary(dictionary.entries.filter { !ids.contains($0.id) })
+    }
+
+    func setDictionaryEntry(_ id: String, starred: Bool? = nil, enabled: Bool? = nil) {
+        editDictionary(dictionary.entries.map { entry in
+            guard entry.id == id else { return entry }
+            var entry = entry
+            if let starred { entry.starred = starred }
+            if let enabled { entry.enabled = enabled }
+            return entry
+        })
+    }
+
+    private func editDictionary(_ entries: [DictionaryEntry]) {
+        dictionary.edit(entries)
+        persistDictionary()
+        scheduleDictionarySync(after: 1)
+    }
+
+    private func persistDictionary() {
+        do { try dictionaryStore?.save(dictionary) }
+        catch { message = String(localized: "Your Dictionary could not be saved on this iPhone. \(safeDescription(error))") }
+    }
+
+    /// A reply carried the server's revision; refresh if another device
+    /// changed the Dictionary.
+    private func noteDictionaryRevision(_ revision: Int?) {
+        guard let revision, revision != dictionary.revision else { return }
+        scheduleDictionarySync(after: 0)
+    }
+
+    /// Coalesce bursts of edits into one request.
+    func scheduleDictionarySync(after seconds: Double) {
+        dictionarySyncTask?.cancel()
+        dictionarySyncTask = Task { @MainActor [weak self] in
+            if seconds > 0 { try? await Task.sleep(for: .seconds(seconds)) }
+            guard !Task.isCancelled else { return }
+            await self?.syncDictionary()
+        }
+    }
+
+    /// One exchange with the server (server/docs/DICTIONARY.md); reruns
+    /// while edits keep arriving. Offline, changes simply wait for the next
+    /// trigger (an edit, a dictation, opening OLIV, or pull to refresh).
+    func syncDictionary() async {
+        if let running = dictionarySyncRun {
+            dictionarySyncAgain = true
+            await running.value
+            return
+        }
+        let run = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.runDictionarySync()
+        }
+        dictionarySyncRun = run
+        await run.value
+        dictionarySyncRun = nil
+    }
+
+    private func runDictionarySync() async {
+        repeat {
+            guard isConfigured, let configuration = try? configuration() else {
+                dictionarySyncStatus = .localOnly
+                return
+            }
+            dictionarySyncAgain = false
+            let ops = dictionary.outgoing()
+            persistDictionary()
+            dictionarySyncStatus = .syncing
+            do {
+                let snapshot = try await clientFactory(configuration).dictionary(ops: ops)
+                let refused = Set(snapshot.rejected.map(\.id))
+                dictionaryRejectedWords = (ops ?? []).compactMap { op in
+                    guard case .upsert(let entry) = op, refused.contains(entry.id) else { return nil }
+                    return entry.word
+                }
+                dictionary.acknowledge(snapshot)
+                dictionarySyncStatus = dictionary.pending.isEmpty ? .synced : .waiting
+                if !dictionary.pending.isEmpty { dictionarySyncAgain = true }
+            } catch OlivError.dictionaryUnsupported {
+                dictionary.serverUnsupported()
+                dictionarySyncStatus = .unsupported
+            } catch let error as OlivError where error == .unauthorized || error == .forbidden(reason: .missingScope) {
+                dictionary.exchangeFailed()
+                dictionarySyncStatus = .failed(safeDescription(error))
+            } catch {
+                dictionary.exchangeFailed()
+                dictionarySyncStatus = .waiting
+            }
+            persistDictionary()
+        } while dictionarySyncAgain && dictionarySyncStatus != .unsupported
+    }
+
     func cleanText(_ text: String) async {
         guard !isBusy, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         clearKeyboardDelivery()
@@ -837,8 +997,9 @@ final class AppModel {
             do {
                 guard let retryCooldown = self.retryCooldown else { throw OlivError.corruptedStore }
                 try retryCooldown.check()
-                let reply = try await self.clientFactory(try self.configuration()).clean(text: text, options: self.settings.options)
+                let reply = try await self.clientFactory(try self.configuration()).clean(text: text, options: self.currentOptions)
                 try Task.checkCancellation()
+                self.noteDictionaryRevision(reply.dictionaryRevision)
                 guard self.operationID == id else { return }
                 let entry = HistoryEntry(source: .cleanup, audioDuration: 0,
                     totalDuration: Self.seconds(start.duration(to: .now)), reply: reply)

@@ -19,7 +19,7 @@ struct CleanTextSheet: View {
                         Eyebrow(text: "A second pass")
                         Text("A little clarity.")
                             .font(.system(.largeTitle, design: .serif))
-                        Text("Tidy existing text with the same vocabulary, replacements, and formatting you use for voice.")
+                        Text("Tidy existing text with the same Dictionary and formatting you use for voice.")
                             .font(.subheadline)
                             .foregroundStyle(OlivTheme.secondary)
                             .fixedSize(horizontal: false, vertical: true)

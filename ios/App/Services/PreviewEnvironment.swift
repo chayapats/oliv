@@ -208,6 +208,8 @@ actor FixtureOlivService: OlivServing {
     private(set) var dictateCalls = 0
     private(set) var cleanCalls = 0
     private(set) var lastOptions: OlivOptions?
+    private var dictionaryEntries: [DictionaryEntry] = []
+    private var dictionaryRevision = 0
     init(mode: Mode = .success) { self.mode = mode }
 
     func dictate(wav: Data, options: OlivOptions) async throws -> DictationReply {
@@ -225,6 +227,14 @@ actor FixtureOlivService: OlivServing {
         if text.isEmpty { return DictationReply(noSpeech: true) }
         try await Task.sleep(for: .milliseconds(100))
         return DictationReply(raw: text, finalText: text.trimmingCharacters(in: .whitespacesAndNewlines), tCleanup: 0.1)
+    }
+    /// An in-memory server dictionary, so demos show sync working.
+    func dictionary(ops: [DictionaryOp]?) async throws -> DictionarySnapshot {
+        if let ops, !ops.isEmpty {
+            dictionaryEntries = DictionaryOp.apply(ops, to: dictionaryEntries)
+            dictionaryRevision += 1
+        }
+        return DictionarySnapshot(revision: dictionaryRevision, maxEntries: 1000, entries: dictionaryEntries)
     }
     func health() async throws -> ServerHealth {
         try JSONDecoder().decode(ServerHealth.self, from: Data(

@@ -195,7 +195,7 @@ final class ClientTests: XCTestCase, @unchecked Sendable {
         let cases: [(Int, String, OlivError)] = [
             (401, "private token secret", .unauthorized),
             (403, "private token secret", .forbidden(reason: .unknown)),
-            (502, #"{"ok":false,"error":"private transcript"}"#, .serviceUnavailable(statusCode: 502, retryAfter: nil)),
+            (502, #"{"ok":false,"error":"private transcript","code":"inference_failed"}"#, .serviceUnavailable(statusCode: 502, retryAfter: nil)),
             (302, "redirect", .server(statusCode: 302)),
             (200, "<html>private transcript</html>", .invalidResponse),
             (200, #"{"ok":false,"error":"private transcript"}"#, .server(statusCode: 200)),
@@ -373,6 +373,79 @@ final class ClientTests: XCTestCase, @unchecked Sendable {
         catch let error as OlivError {
             guard case .invalidAudio = error else { return XCTFail("Expected invalid audio") }
         }
+    }
+
+    func testDictionarySyncRequestsAndReplies() async throws {
+        let snapshot = Data(#"{"ok":true,"revision":2,"max_entries":1000,"rejected":[],"entries":[{"id":"a","word":"SHA256","correction":null,"enabled":true,"starred":true,"source":"manual"}]}"#.utf8)
+        let capture = RequestCapture()
+        let (client, session) = try makeClient { request in
+            capture.set(request)
+            return .response(200, snapshot)
+        }
+        defer { session.invalidateAndCancel() }
+        let fetched = try await client.dictionary(ops: nil)
+        XCTAssertEqual(fetched.entries.first?.word, "SHA256")
+        var request = try XCTUnwrap(capture.get())
+        XCTAssertEqual(request.httpMethod, "GET")
+        XCTAssertEqual(request.url?.path, "/proxy/v1/dictionary")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer test-token",
+                       "unlike /health, the dictionary is per key")
+
+        _ = try await client.dictionary(ops: [.delete(id: "a"), .upsert(DictionaryEntry(id: "b", word: "Koolify", correction: "คูลิฟาย"))])
+        request = try XCTUnwrap(capture.get())
+        XCTAssertEqual(request.httpMethod, "POST")
+        let body = try XCTUnwrap(JSONSerialization.jsonObject(with: requestBody(request)) as? [String: [[String: Any]]])
+        XCTAssertEqual(body["ops"]?.first?["op"] as? String, "delete")
+        let entry = try XCTUnwrap(body["ops"]?.last?["entry"] as? [String: Any])
+        XCTAssertEqual(entry["correction"] as? String, "คูลิฟาย")
+        XCTAssertEqual(entry["source"] as? String, "manual")
+    }
+
+    func testOlderServersReportDictionaryUnsupported() async throws {
+        let (client, session) = try makeClient { _ in .response(404, Data(#"{"ok":false,"code":"not_found"}"#.utf8)) }
+        defer { session.invalidateAndCancel() }
+        do { _ = try await client.dictionary(ops: nil); XCTFail("Expected unsupported") }
+        catch let error as OlivError { XCTAssertEqual(error, .dictionaryUnsupported) }
+    }
+
+    func testDictationReplyCarriesTheDictionaryRevision() throws {
+        let reply = try JSONDecoder().decode(DictationReply.self, from: Data(#"{"ok":true,"final":"x","dictionary_revision":7}"#.utf8))
+        XCTAssertEqual(reply.dictionaryRevision, 7)
+        XCTAssertNil(try JSONDecoder().decode(DictationReply.self, from: Data(#"{"ok":true,"final":"x"}"#.utf8)).dictionaryRevision)
+    }
+
+    func testUnreachedRequestsAreRetriedOnceAndProcessedOnesNever() async throws {
+        let attempts = RequestCounter()
+        let (client, session) = try makeClient { _ in
+            attempts.increment()
+            return attempts.count == 1
+                ? .response(502, Data("<html>Bad gateway</html>".utf8), headers: ["Content-Type": "text/html"])
+                : .response(200, Data(#"{"ok":true,"final":"after restart"}"#.utf8))
+        }
+        defer { session.invalidateAndCancel() }
+        let reply = try await client.clean(text: "x")
+        XCTAssertEqual(reply.finalText, "after restart")
+        XCTAssertEqual(attempts.count, 2)
+
+        let processed = RequestCounter()
+        let (again, session2) = try makeClient { _ in
+            processed.increment()
+            return .response(502, Data(#"{"ok":false,"error":"speech recognition failed","code":"inference_failed"}"#.utf8))
+        }
+        defer { session2.invalidateAndCancel() }
+        do { _ = try await again.clean(text: "x"); XCTFail("Expected failure") }
+        catch let error as OlivError { XCTAssertEqual(error, .serviceUnavailable(statusCode: 502, retryAfter: nil)) }
+        XCTAssertEqual(processed.count, 1, "an oliv-api error means the request was processed")
+
+        let refused = RequestCounter()
+        let (third, session3) = try makeClient { _ in
+            refused.increment()
+            return .failure(URLError(.cannotConnectToHost))
+        }
+        defer { session3.invalidateAndCancel() }
+        do { _ = try await third.clean(text: "x"); XCTFail("Expected failure") }
+        catch let error as OlivError { XCTAssertEqual(error, .networkUnavailable) }
+        XCTAssertEqual(refused.count, 2)
     }
 
     private func makeClient(_ handler: @escaping @Sendable (URLRequest) -> StubURLProtocol.Result) throws -> (OlivClient, URLSession) {

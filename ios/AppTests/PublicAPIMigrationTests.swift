@@ -15,6 +15,24 @@ final class PublicAPIMigrationTests: XCTestCase {
     }
 
     @MainActor
+    func testVocabularyAndReplacementsMoveIntoTheDictionaryOnce() throws {
+        let directory = migrationTestDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writeSettings(AppSettings(), legacyVocabulary: "OLIV\nกราฟาน่า",
+                          legacyReplacements: [ReplacementRule(spoken: "กราฟาน่า", written: "Grafana")],
+                          directory: directory)
+        let open = {
+            AppModel(directory: directory, credentials: MemoryCredentialStore(),
+                     capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
+                     clientFactory: { _ in PublicAPITestService() })
+        }
+        let model = open()
+        XCTAssertEqual(model.dictionary.entries.map(\.word), ["OLIV", "กราฟาน่า", "Grafana"])
+        XCTAssertEqual(model.currentOptions.replacements.map(\.written), ["Grafana"])
+        XCTAssertEqual(open().dictionary.entries.count, 3, "migrated once, not again")
+    }
+
+    @MainActor
     func testCustomEndpointsAndTheirExistingPreferencesAreNotMigrated() throws {
         for endpoint in ["https://custom.example/oliv", "http://192.168.1.10:8083",
                          "http://100.64.0.10:8083/custom"] {
@@ -23,10 +41,9 @@ final class PublicAPIMigrationTests: XCTestCase {
             var settings = AppSettings()
             settings.serverURL = endpoint
             settings.allowsInsecureHTTP = endpoint.hasPrefix("http:")
-            settings.vocabularyText = "Keep this custom setup"
             settings.credentialBinding = "existing-custom-binding"
             settings.requiresNewAPIKey = nil
-            try writeSettings(settings, directory: directory)
+            try writeSettings(settings, legacyVocabulary: "Keep this custom setup", directory: directory)
             let settingsURL = directory.appendingPathComponent("settings.json")
             let originalData = try Data(contentsOf: settingsURL)
             let credentials = MemoryCredentialStore(token: "custom-server-key")
@@ -37,6 +54,7 @@ final class PublicAPIMigrationTests: XCTestCase {
 
             XCTAssertEqual(model.settings, settings)
             XCTAssertEqual(try Data(contentsOf: settingsURL), originalData)
+            XCTAssertEqual(model.dictionary.entries.map(\.word), ["Keep this custom setup"])
             XCTAssertEqual(try credentials.read(), "custom-server-key")
         }
     }
@@ -82,7 +100,7 @@ final class PublicAPIMigrationTests: XCTestCase {
         let deadline = Date().addingTimeInterval(600)
         let h = try PublicAPIHarness(mode: .dictationRateLimit(deadline))
         defer { h.removeDirectory() }
-        h.model.settings.vocabularyText = "Original options"
+        h.model.saveDictionaryEntry(word: "Original options", correction: nil)
         await h.model.startInForeground()
         await h.model.stopFromIntent()
         XCTAssertEqual(h.model.phase, .failed)
@@ -475,9 +493,17 @@ private func migrationTestDirectory() -> URL {
     FileManager.default.temporaryDirectory.appendingPathComponent("OlivPublicAPITests-\(UUID())", isDirectory: true)
 }
 
-private func writeSettings(_ settings: AppSettings, directory: URL) throws {
+/// settings.json as an older build wrote it, optionally with the
+/// pre-Dictionary vocabulary/replacement fields.
+private func writeSettings(_ settings: AppSettings, legacyVocabulary: String? = nil,
+                           legacyReplacements: [ReplacementRule]? = nil, directory: URL) throws {
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    try JSONEncoder().encode(settings).write(to: directory.appendingPathComponent("settings.json"))
+    var object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(settings)) as? [String: Any])
+    if let legacyVocabulary { object["vocabularyText"] = legacyVocabulary }
+    if let legacyReplacements {
+        object["replacements"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(legacyReplacements))
+    }
+    try JSONSerialization.data(withJSONObject: object).write(to: directory.appendingPathComponent("settings.json"))
 }
 
 private func testWAV() throws -> Data {

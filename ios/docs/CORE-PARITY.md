@@ -11,11 +11,11 @@ The client transport reference is the former `oliv-linux` repository at `0000a4d
 | 120-second recording cap | Recorder cap and core request validation. |
 | Accidental Linux key presses under 300 ms ignored; fewer than 100 ms of captured samples rejected | iPhone rejects recordings shorter than 250 ms. This is a deliberate touch-interaction adaptation, not exact key-hold parity. Source thresholds also remain represented in `RecordingLimits`. |
 | Thai + English in one utterance | The existing server performs automatic language decoding. Low-confidence auto results can be re-decoded in English and replaced only when confidence improves. |
-| Dictionary, vocabulary, phonetic correction | Identical server pipeline, with the user's vocabulary sent per request. |
+| Dictionary, vocabulary, phonetic correction | Identical server pipeline. The personal Dictionary is stored on the server per profile and applied to every request (`server/docs/DICTIONARY.md`); servers without it receive derived vocabulary per request. |
 | Selective language-model cleanup | `cleanup` option maps directly to the server. No additional client-side rewriting is applied. |
 | Remove fillers | `remove_fillers` defaults to true and is configurable. |
 | Thai formatting | `thai_format` defaults to true and is configurable. |
-| Ordered spoken → written replacements | Rules are stored as an ordered array and transmitted as an insertion-ordered JSON object. String escaping is delegated to `JSONEncoder`. |
+| Spoken → written corrections | Dictionary entries with a correction. For servers without dictionary sync they are transmitted as an insertion-ordered `replacements` object. String escaping is delegated to `JSONEncoder`. |
 | Clean existing text | `POST /v1/clean`, using the same options and server pipeline as dictation. |
 | No-speech / hallucination result | Successful empty results and `no_speech` never become text to copy or return from an intent. |
 | Cleanup failure preserves text | `cleanup_error` is a successful degraded result. Deterministic text remains available rather than triggering an audio retry. |
@@ -47,7 +47,7 @@ The authoritative order in `server/oliv-api/src/dictate.rs` and `pipeline.rs` is
 5. Gate language-model cleanup and provide relevant vocabulary hints.
 6. Apply the model only when needed; guard against missing content, added content, lost protected terms, translation, or excessive edits. Fall back to deterministic text on rejection or model failure.
 7. Normalize Thai spacing and canonical casing.
-8. Apply user replacements in their original order.
+8. Apply Dictionary corrections merged with request replacements.
 9. Apply Thai number conversion and reduplication formatting, when enabled.
 
 Vocabulary is deliberately **not** passed into Whisper's initial prompt in the source deployment: source evaluation found that doing so caused repetition loops. The iPhone client retains that behavior. Linux v1 explicitly excludes spoken formatting commands, and it does not provide a creative rewrite, translation, or tone-selection product feature.

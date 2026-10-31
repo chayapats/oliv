@@ -15,8 +15,6 @@ struct AppSettings: Codable, Equatable {
     var cleanup = true
     var removeFillers = true
     var thaiFormat = true
-    var vocabularyText = ""
-    var replacements: [ReplacementRule] = []
     var autoCopy = true
     var keepHistory = true
     var stopAfterSilence = false
@@ -37,14 +35,34 @@ struct AppSettings: Codable, Equatable {
     /// existed. AppModel's init tells those two apart.
     var finishedSetup: Bool?
 
-    var options: OlivOptions {
-        var seen = Set<String>()
-        let vocabulary = vocabularyText.components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty && seen.insert($0).inserted }
-        return OlivOptions(cleanup: cleanup, removeFillers: removeFillers,
-                           thaiFormat: thaiFormat, vocabulary: vocabulary, replacements: replacements)
+    /// Request options. A server with dictionary sync applies the synced
+    /// Dictionary itself; older servers get it as vocabulary/replacements.
+    func options(dictionary: DictionaryBook) -> OlivOptions {
+        let derive = !dictionary.serverAppliesDictionary
+        return OlivOptions(cleanup: cleanup, removeFillers: removeFillers, thaiFormat: thaiFormat,
+                           vocabulary: derive ? dictionary.derivedVocabulary : [],
+                           replacements: derive ? dictionary.derivedReplacements : [])
     }
+}
+
+/// The pre-Dictionary vocabulary and replacement settings, read once from an
+/// older settings.json to seed the Dictionary.
+struct LegacyDictionarySettings: Decodable {
+    var vocabularyText: String?
+    var replacements: [ReplacementRule]?
+}
+
+/// Where the Dictionary stands with the server, for Settings.
+enum DictionarySyncStatus: Equatable {
+    /// Not connected yet: the Dictionary lives on this iPhone.
+    case localOnly
+    case syncing
+    case synced
+    /// Changes are saved here and wait for the server.
+    case waiting
+    /// The server predates dictionary sync.
+    case unsupported
+    case failed(String)
 }
 
 enum CapturePhase: String {

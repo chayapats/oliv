@@ -84,6 +84,9 @@ public struct DictationReply: Codable, Equatable, Sendable {
     public var fillersRemoved: Int
     public var replacementsFired: Int
     public var thaiFormatFired: Int
+    /// The server dictionary revision this request used (nil from servers
+    /// without dictionary sync). A change means another device edited it.
+    public var dictionaryRevision: Int?
 
     /// An empty successful result is a no-speech outcome, including filler-only speech.
     public var hasText: Bool {
@@ -94,7 +97,8 @@ public struct DictationReply: Codable, Equatable, Sendable {
                 sttRedecoded: Bool = false, tSTT: TimeInterval = 0, tCleanup: TimeInterval = 0,
                 llmRan: Bool = false, gateReason: String = "", guardrailFlag: String = "",
                 cleanupError: String? = nil, dictionaryHits: Int = 0, vocabularyCorrections: Int = 0,
-                fillersRemoved: Int = 0, replacementsFired: Int = 0, thaiFormatFired: Int = 0) {
+                fillersRemoved: Int = 0, replacementsFired: Int = 0, thaiFormatFired: Int = 0,
+                dictionaryRevision: Int? = nil) {
         self.ok = ok
         self.raw = raw
         self.finalText = finalText
@@ -111,6 +115,7 @@ public struct DictationReply: Codable, Equatable, Sendable {
         self.fillersRemoved = fillersRemoved
         self.replacementsFired = replacementsFired
         self.thaiFormatFired = thaiFormatFired
+        self.dictionaryRevision = dictionaryRevision
     }
 
     enum CodingKeys: String, CodingKey {
@@ -121,6 +126,7 @@ public struct DictationReply: Codable, Equatable, Sendable {
         case dictionaryHits = "dict_hits", vocabularyCorrections = "vocab_fired"
         case fillersRemoved = "fillers_removed", replacementsFired = "replacements_fired"
         case thaiFormatFired = "thai_format_fired"
+        case dictionaryRevision = "dictionary_revision"
     }
 
     public init(from decoder: any Decoder) throws {
@@ -149,6 +155,7 @@ public struct DictationReply: Codable, Equatable, Sendable {
         fillersRemoved = try c.decodeIfPresent(Int.self, forKey: .fillersRemoved) ?? 0
         replacementsFired = try c.decodeIfPresent(Int.self, forKey: .replacementsFired) ?? 0
         thaiFormatFired = try c.decodeIfPresent(Int.self, forKey: .thaiFormatFired) ?? 0
+        dictionaryRevision = try c.decodeIfPresent(Int.self, forKey: .dictionaryRevision)
     }
 }
 
@@ -194,6 +201,7 @@ public enum OlivError: Error, LocalizedError, Equatable, Sendable {
     case transport
     case missingRecording
     case corruptedStore
+    case dictionaryUnsupported
 
     public var retryAfter: Date? {
         switch self {
@@ -225,6 +233,7 @@ public enum OlivError: Error, LocalizedError, Equatable, Sendable {
         case .transport: return String(localized: "The connection to OLIV failed. Your recording can be retried.", bundle: .main)
         case .missingRecording: return String(localized: "This saved recording is no longer available.", bundle: .main)
         case .corruptedStore: return String(localized: "Saved OLIV data could not be read. Existing data has been preserved.", bundle: .main)
+        case .dictionaryUnsupported: return String(localized: "This OLIV server doesn't sync dictionaries yet. Your words still apply on this iPhone.", bundle: .main)
         }
     }
 }

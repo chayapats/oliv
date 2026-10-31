@@ -9,7 +9,8 @@ Repeated Action button starts passed 12 of 12 on a physical iPhone in build 18. 
 ## Implemented
 
 - 16 kHz mono 16-bit PCM capture, up to two minutes, with on-device speech detection for automatic finish.
-- Public HTTPS OLIV API with an individual device key: automatic Thai/English recognition, fillers, dictionary/phonetic/vocabulary correction, selective LLM cleanup, guardrails, casing, Thai numbers/reduplication and ordered replacements.
+- Public HTTPS OLIV API with an individual device key: automatic Thai/English recognition, fillers, dictionary/phonetic/vocabulary correction, selective LLM cleanup, guardrails, casing and Thai numbers/reduplication.
+- A personal Dictionary (words plus optional "when I say" corrections, star and on/off) synced with the OLIV server and your other devices; edits made offline sync later. Older servers without sync still receive it as vocabulary/replacements.
 - Durable audio before upload, original settings for retry, cancellation, interrupted-recording recovery, local history, raw/finished comparison and timing.
 - Text cleanup using the same pipeline; failed cleanup keeps the draft.
 - App Intents, Control Center controls, Home/Lock Screen widget, Live Activity and Dynamic Island stop/cancel.
@@ -49,6 +50,8 @@ The app and the optional [free-trial server](../server/README.md#free-trial) wor
 1. Ask the OLIV administrator for an API key for this iPhone. A key with scope **dictate** includes cleanup during dictation; **Clean existing text** also needs scope **clean**.
 2. In Settings, enter your OLIV server's HTTPS URL and paste the key. It goes into this device's Keychain, never the repository or settings JSON.
 3. Tap **Test connection**. This checks that the server responds and that the key works, without sending speech or using quota. Before saving a new address it checks only that the server responds, so a saved key never reaches an unsaved address.
+
+On upgrade, vocabulary and replacements move into the Dictionary.
 
 No real token is bundled. Do not put it in a commit, issue, or launch argument. See [privacy](docs/PRIVACY.md).
 

@@ -287,7 +287,7 @@ final class KeyboardCaptureTests: XCTestCase {
         model.saveSettings()
         try await model.startFromIntent(allowKeyboardDelivery: false)
         await model.stopFromIntent()
-        model.settings.vocabularyText = "unsaved"
+        model.settings.removeFillers.toggle()
         try await Task.sleep(for: .seconds(1.8))
         XCTAssertEqual(releases, 0)
     }

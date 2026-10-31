@@ -197,7 +197,8 @@ public final class PendingRecordingStore: @unchecked Sendable {
     private func folder(_ id: UUID) -> URL { directory.appendingPathComponent(id.uuidString, isDirectory: true) }
 }
 
-private enum StoreIO {
+/// Durable, private JSON files shared by the stores.
+enum StoreIO {
     static func prepare(_ directory: URL) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
                                                attributes: [.posixPermissions: 0o700])

@@ -31,8 +31,7 @@ struct SettingsView: View {
                 .buttonStyle(OlivSecondaryButtonStyle())
                 .accessibilityIdentifier("keyboardSetupButton")
                 writingCard
-                vocabularyCard
-                replacementCard
+                dictionaryCard
                 preferencesCard
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -247,119 +246,20 @@ struct SettingsView: View {
         }
     }
 
-    private var vocabularyCard: some View {
+    private var dictionaryCard: some View {
         OlivCard {
             VStack(alignment: .leading, spacing: 16) {
-                SectionHeading(title: "Words you use", caption: "Help Oliv recognize names, products, and specialist terms. One word or phrase per line.")
-                ZStack(alignment: .topLeading) {
-                    if model.settings.vocabularyText.isEmpty {
-                        Text("Oliv\nชื่อเฉพาะ\nYour project name")
-                            .font(.body)
-                            .foregroundStyle(OlivTheme.secondary.opacity(0.8))
-                            .padding(.leading, 5)
-                            .padding(.top, 8)
-                            .allowsHitTesting(false)
-                    }
-                    TextEditor(text: $model.settings.vocabularyText)
-                        .scrollContentBackground(.hidden)
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.never)
-                        .focused($fieldIsFocused)
-                        .frame(minHeight: 130)
-                        .accessibilityLabel("Custom vocabulary, one phrase per line")
-                        .accessibilityIdentifier("vocabularyField")
-                }
-                .olivField()
-            }
-            .disabled(model.isBusy)
-        }
-    }
-
-    private var replacementCard: some View {
-        OlivCard {
-            VStack(alignment: .leading, spacing: 18) {
-                SectionHeading(title: "Say this. Write that.", caption: "Replace spoken phrases with the text you prefer. Rules run from top to bottom.")
-
-                if model.settings.replacements.isEmpty {
-                    HStack(alignment: .center, spacing: 10) {
-                        Text("โอลิฟ")
-                        Image(systemName: "arrow.right")
-                            .font(.caption)
-                        Text("Oliv")
-                        Spacer(minLength: 0)
-                        Text("Example")
-                            .font(.caption2)
-                    }
-                    .font(.subheadline)
-                    .foregroundStyle(OlivTheme.secondary)
-                    .padding(15)
-                    .background(OlivTheme.background, in: RoundedRectangle(cornerRadius: 13))
-                }
-
-                ForEach($model.settings.replacements) { $rule in
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Text("RULE \(ruleNumber(rule.id))")
-                                .font(.caption2.weight(.semibold))
-                                .tracking(1)
-                                .foregroundStyle(OlivTheme.secondary)
-                            Spacer()
-                            Menu {
-                                Button("Move up", systemImage: "arrow.up") { moveRule(rule.id, by: -1) }
-                                    .disabled(rule.id == model.settings.replacements.first?.id)
-                                Button("Move down", systemImage: "arrow.down") { moveRule(rule.id, by: 1) }
-                                    .disabled(rule.id == model.settings.replacements.last?.id)
-                                Button("Remove rule", systemImage: "trash", role: .destructive) {
-                                    model.settings.replacements.removeAll { $0.id == rule.id }
-                                }
-                            } label: {
-                                Image(systemName: "ellipsis")
-                                    .frame(width: 44, height: 44)
-                                    .contentShape(Rectangle())
-                            }
-                            .accessibilityLabel("Replacement rule \(ruleNumber(rule.id)) options")
-                        }
-                        TextField("Spoken phrase", text: $rule.spoken)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-                            .focused($fieldIsFocused)
-                            .olivField()
-                            .accessibilityLabel("Spoken phrase")
-                            .accessibilityIdentifier("replacementSpoken_\(ruleNumber(rule.id))")
-                        HStack(spacing: 10) {
-                            Image(systemName: "arrow.turn.down.right")
-                                .foregroundStyle(OlivTheme.secondary)
-                                .accessibilityHidden(true)
-                            TextField("Replacement text", text: $rule.written)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                                .focused($fieldIsFocused)
-                                .olivField()
-                                .accessibilityLabel("Replacement text")
-                                .accessibilityIdentifier("replacementWritten_\(ruleNumber(rule.id))")
-                        }
-                    }
-                    if rule.id != model.settings.replacements.last?.id {
-                        OlivDivider()
-                    }
-                }
-
-                Button {
-                    model.settings.replacements.append(ReplacementRule(spoken: "", written: ""))
+                SectionHeading(title: "Your Dictionary",
+                               caption: "Words OLIV should spell your way, and what to write when you say something. Shared with your other devices through your OLIV server.")
+                NavigationLink {
+                    DictionaryView(model: model)
                 } label: {
-                    Label("Add a replacement", systemImage: "plus")
+                    Label("\(model.dictionary.entries.count) words", systemImage: "character.book.closed")
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(OlivSecondaryButtonStyle())
-                .accessibilityIdentifier("addReplacementButton")
-
-                if !model.settings.replacements.isEmpty {
-                    Text("An empty replacement removes the spoken phrase.")
-                        .font(.caption)
-                        .foregroundStyle(OlivTheme.secondary)
-                }
+                .accessibilityIdentifier("dictionaryButton")
             }
-            .disabled(model.isBusy)
         }
     }
 
@@ -383,15 +283,6 @@ struct SettingsView: View {
         }
     }
 
-    private func ruleNumber(_ id: UUID) -> Int {
-        (model.settings.replacements.firstIndex { $0.id == id } ?? 0) + 1
-    }
-
-    private func moveRule(_ id: UUID, by offset: Int) {
-        guard let index = model.settings.replacements.firstIndex(where: { $0.id == id }),
-              model.settings.replacements.indices.contains(index + offset) else { return }
-        model.settings.replacements.swapAt(index, index + offset)
-    }
 }
 
 private struct SettingsToggle: View {

@@ -35,14 +35,16 @@ final class AppModelTests: XCTestCase {
     func testFailureRetainsAudioAndRetryUsesOriginalOptionSnapshot() async throws {
         let h = try Harness(mode: .failOnce)
         defer { h.removeDirectory() }
+        // Settle the first Dictionary sync so request options cannot change underneath.
+        await h.model.syncDictionary()
         h.model.settings.cleanup = false
-        h.model.settings.vocabularyText = "Grafana\nOLIV"
-        h.model.settings.replacements = [ReplacementRule(spoken: "ซี", written: "C")]
-        let original = h.model.settings.options
+        h.model.saveDictionaryEntry(word: "Grafana", correction: nil)
+        h.model.saveDictionaryEntry(word: "C", correction: "ซี")
+        let original = h.model.currentOptions
         await h.model.startInForeground()
         // Programmatic changes cannot alter an already-started recording.
         h.model.settings.cleanup = true
-        h.model.settings.vocabularyText = "Changed after start"
+        h.model.saveDictionaryEntry(word: "Changed after start", correction: nil)
         await h.model.stopFromIntent()
 
         XCTAssertEqual(h.model.phase, .failed)
@@ -54,7 +56,7 @@ final class AppModelTests: XCTestCase {
         XCTAssertNotNil(pending.lastError)
         let store = try PendingRecordingStore(directory: h.directory.appendingPathComponent("Pending"))
         XCTAssertGreaterThan(try store.audio(for: pending.id).count, 44)
-        h.model.settings.vocabularyText = "Changed before retry"
+        h.model.saveDictionaryEntry(word: "Changed before retry", correction: nil)
         await h.model.retry(pending)
 
         XCTAssertEqual(h.model.phase, .result)
@@ -335,12 +337,10 @@ final class AppModelTests: XCTestCase {
         let h = try Harness()
         defer { h.removeDirectory() }
         h.model.tokenInput = "new-test-secret"
-        h.model.settings.vocabularyText = "Grafana\n\nGrafana\n OLIV "
         h.model.saveSettings()
         XCTAssertNil(h.model.message)
         XCTAssertEqual(h.model.tokenInput, "")
         XCTAssertEqual(try h.credentials.read(), "new-test-secret")
-        XCTAssertEqual(h.model.settings.options.vocabulary, ["Grafana", "OLIV"])
         let stored = try Data(contentsOf: h.directory.appendingPathComponent("settings.json"))
         XCTAssertFalse(String(decoding: stored, as: UTF8.self).contains("new-test-secret"))
     }
@@ -387,7 +387,9 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.phase, .recording)
         await model.stopFromIntent()
         XCTAssertEqual(model.phase, .result)
-        XCTAssertEqual(forwardedHosts, ["unconfirmed.example", "unconfirmed.example"])
+        // Once saved, requests (dictation, Dictionary sync) go to that endpoint only.
+        XCTAssertGreaterThanOrEqual(forwardedHosts.count, 2)
+        XCTAssertTrue(forwardedHosts.allSatisfy { $0 == "unconfirmed.example" })
         XCTAssertEqual(forwardedTokens.last, "fixture-bound-token")
         XCTAssertEqual(capture.startCount, 1)
         XCTAssertEqual(try credentials.read(), "fixture-bound-token")
@@ -546,7 +548,7 @@ final class AppModelTests: XCTestCase {
     }
 
     @MainActor
-    func testDefaultOptionsMatchSourceAndInvalidRulesDoNotReplaceSavedSettings() throws {
+    func testDefaultOptionsMatchSourceAndInvalidSettingsDoNotReplaceSavedSettings() throws {
         let defaults = AppSettings()
         XCTAssertTrue(defaults.cleanup)
         XCTAssertTrue(defaults.removeFillers)
@@ -554,17 +556,16 @@ final class AppModelTests: XCTestCase {
         XCTAssertTrue(defaults.keepHistory)
         XCTAssertFalse(defaults.allowsInsecureHTTP)
         XCTAssertFalse(defaults.stopAfterSilence)
-        XCTAssertEqual(defaults.options, OlivOptions())
+        XCTAssertEqual(defaults.options(dictionary: DictionaryBook()), OlivOptions())
         let h = try Harness()
         defer { h.removeDirectory() }
         h.model.saveSettings()
         let url = h.directory.appendingPathComponent("settings.json")
         let saved = try Data(contentsOf: url)
         h.model.tokenInput = "must-not-be-written"
-        h.model.settings.replacements = [ReplacementRule(spoken: "duplicate", written: "a"),
-                                         ReplacementRule(spoken: "duplicate", written: "b")]
+        h.model.settings.serverURL = "http://example.com"
         h.model.saveSettings()
-        XCTAssertTrue(h.model.message?.contains("only one") == true)
+        XCTAssertTrue(h.model.message?.contains("HTTPS") == true)
         XCTAssertEqual(try Data(contentsOf: url), saved)
         XCTAssertEqual(try h.credentials.read(), "fixture-token")
     }

@@ -6,6 +6,7 @@ struct OlivApp: App {
     @UIApplicationDelegateAdaptor(KeyboardReferenceAppDelegate.self) private var referenceDelegate
     #endif
     @State private var model = AppModel.shared
+    @Environment(\.scenePhase) private var scenePhase
     var body: some Scene {
         WindowGroup {
             appContent
@@ -13,6 +14,10 @@ struct OlivApp: App {
                     guard url.scheme == "oliv" else { return }
                     // URL links navigate only. Recording always requires an explicit user action.
                     model.selectedTab = url.host == "settings" ? 2 : 0
+                }
+                .onChange(of: scenePhase) { _, phase in
+                    // Pick up Dictionary edits made on other devices.
+                    if phase == .active { model.scheduleDictionarySync(after: 0) }
                 }
         }
     }
