@@ -53,11 +53,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      # One rustc call first: rustup finishes any component download here, not
+      # across cargo's parallel build, where the downloads collide.
       - name: Rust toolchain
         run: |
-          rustup toolchain install stable --profile minimal
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy
           rustup default stable
-          echo "OLIV_CARGO=$(rustup which cargo)" >> "$GITHUB_ENV"
+          rustc --version
+          echo "OLIV_CARGO=$(command -v cargo)" >> "$GITHUB_ENV"
       - name: Build tools
         run: brew install xcodegen ripgrep
       - name: Build and test
