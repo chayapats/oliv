@@ -83,6 +83,16 @@
         }
       }
     },
+    "A Dictionary word can't hold these, like rules that write only symbols. They keep working on this iPhone.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พจนานุกรมเก็บรายการเหล่านี้ไม่ได้ เช่น กฎที่เขียนแค่สัญลักษณ์ แต่ยังใช้งานได้บน iPhone เครื่องนี้"
+          }
+        }
+      }
+    },
     "A few differences from Apple’s keyboard": {
       "localizations": {
         "th": {
@@ -1508,6 +1518,16 @@
         }
       }
     },
+    "Older rules · %lld": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "กฎเก่า · %lld"
+          }
+        }
+      }
+    },
     "OLIV": {},
     "OLIV Capture": {},
     "OLIV KEYBOARD": {
@@ -1853,6 +1873,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "ช่วยให้ถอดเสียงแม่นขึ้น"
+          }
+        }
+      }
+    },
+    "Remove %@": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ลบ %@"
           }
         }
       }
@@ -3588,12 +3618,32 @@
         }
       }
     },
+    "Your Dictionary could not be read, so OLIV kept the file and isn't changing it. Dictation still works.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อ่านพจนานุกรมไม่ได้ OLIV จึงเก็บไฟล์ไว้และไม่แก้ไขไฟล์นั้น แต่ยังพูดพิมพ์ได้ตามปกติ"
+          }
+        }
+      }
+    },
     "Your Dictionary could not be saved on this iPhone. %@": {
       "localizations": {
         "th": {
           "stringUnit": {
             "state": "translated",
             "value": "บันทึกพจนานุกรมบน iPhone เครื่องนี้ไม่ได้ %@"
+          }
+        }
+      }
+    },
+    "Your Dictionary is full. Remove a word to add another.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "พจนานุกรมเต็มแล้ว ลบคำออกก่อนจึงจะเพิ่มคำใหม่ได้"
           }
         }
       }

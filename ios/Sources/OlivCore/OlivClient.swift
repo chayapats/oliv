@@ -189,10 +189,10 @@ public struct OlivClient: Sendable {
                     throw OlivError.rateLimited(retryAfter: Self.retryDate(header: retryHeader, now: now))
                 }
                 if http.statusCode == 502 || http.statusCode == 530 {
-                    let prefix = try await Self.prefix(of: bytes)
+                    let (prefix, complete) = try await Self.readPrefix(of: bytes)
                     let error = OlivError.serviceUnavailable(statusCode: http.statusCode,
                         retryAfter: retryHeader.map { Self.retryDate(header: $0, now: now) })
-                    throw Self.isOlivAPIError(prefix) ? error : Unreached(underlying: error)
+                    throw Self.neverReachedOlivAPI(body: prefix, complete: complete) ? Unreached(underlying: error) : error
                 }
                 if (500...599).contains(http.statusCode) {
                     throw OlivError.serviceUnavailable(statusCode: http.statusCode,
@@ -239,7 +239,13 @@ public struct OlivClient: Sendable {
 
     /// Up to 16 KiB of an error body, for classification only.
     private static func prefix(of bytes: URLSession.AsyncBytes) async throws -> Data {
+        try await readPrefix(of: bytes).data
+    }
+
+    /// `complete` is false when the connection failed before the body ended.
+    private static func readPrefix(of bytes: URLSession.AsyncBytes) async throws -> (data: Data, complete: Bool) {
         var prefix = Data()
+        var complete = true
         do {
             for try await byte in bytes {
                 guard prefix.count < 16 * 1_024 else { break }
@@ -249,9 +255,16 @@ public struct OlivClient: Sendable {
             if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
                 throw CancellationError()
             }
+            complete = false
         }
         try Task.checkCancellation()
-        return prefix
+        return (prefix, complete)
+    }
+
+    /// A body cut short proves nothing: oliv-api's error may be what was lost,
+    /// and it may have charged for the request.
+    static func neverReachedOlivAPI(body: Data, complete: Bool) -> Bool {
+        complete && !isOlivAPIError(body)
     }
 
     /// oliv-api's own errors are JSON with a `code`.

@@ -25,6 +25,7 @@ struct DictionaryView: View {
             VStack(alignment: .leading, spacing: 22) {
                 addCard
                 listCard
+                if !olderLines.isEmpty { olderCard }
                 syncFooter
             }
             .padding(22)
@@ -87,7 +88,8 @@ struct DictionaryView: View {
             VStack(alignment: .leading, spacing: 14) {
                 SectionHeading(title: "Your words · \(model.dictionary.entries.count)",
                                caption: "Starred words reach recognition first. Tap a word to edit it.")
-                if model.dictionary.entries.count > 8 {
+                // A search in progress keeps its field, or it couldn't be cleared.
+                if model.dictionary.entries.count > 8 || !search.isEmpty {
                     TextField("Search", text: $search)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -102,6 +104,36 @@ struct DictionaryView: View {
                 ForEach(shown) { entry in
                     row(entry)
                     if entry.id != shown.last?.id { OlivDivider() }
+                }
+            }
+        }
+    }
+
+    private var olderLines: [(id: String, text: String, remove: () -> Void)] {
+        model.dictionary.olderVocabulary.map { line in
+            (id: "line-" + line, text: line, remove: { model.removeOlderVocabulary(line) })
+        } + model.dictionary.olderRules.map { rule in
+            (id: "rule-" + rule.spoken, text: "\(rule.spoken) → \(rule.written)",
+             remove: { model.removeOlderRule(spoken: rule.spoken) })
+        }
+    }
+
+    private var olderCard: some View {
+        OlivCard {
+            VStack(alignment: .leading, spacing: 14) {
+                SectionHeading(title: "Older rules · \(olderLines.count)",
+                               caption: "A Dictionary word can't hold these, like rules that write only symbols. They keep working on this iPhone.")
+                ForEach(olderLines, id: \.id) { line in
+                    HStack(spacing: 12) {
+                        Text(verbatim: line.text)
+                            .font(.subheadline)
+                            .foregroundStyle(OlivTheme.ink)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button(action: line.remove) {
+                            Image(systemName: "trash").frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("Remove \(line.text)")
+                    }
                 }
             }
         }

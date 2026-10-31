@@ -38,10 +38,8 @@ struct AppSettings: Codable, Equatable {
     /// Request options. A server with dictionary sync applies the synced
     /// Dictionary itself; older servers get it as vocabulary/replacements.
     func options(dictionary: DictionaryBook) -> OlivOptions {
-        let derive = !dictionary.serverAppliesDictionary
-        return OlivOptions(cleanup: cleanup, removeFillers: removeFillers, thaiFormat: thaiFormat,
-                           vocabulary: derive ? dictionary.derivedVocabulary : [],
-                           replacements: derive ? dictionary.derivedReplacements : [])
+        OlivOptions(cleanup: cleanup, removeFillers: removeFillers, thaiFormat: thaiFormat,
+                    vocabulary: dictionary.requestVocabulary, replacements: dictionary.requestReplacements)
     }
 }
 

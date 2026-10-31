@@ -154,7 +154,9 @@ final class AppModel {
                 else { hasToken = !(try credentials.read() ?? "").isEmpty }
             }
             catch { message = safeDescription(error) }
-            try loadDictionary(legacy: legacyDictionary)
+            // Its own failure: a damaged Dictionary must not stop recording.
+            do { try loadDictionary(legacy: legacyDictionary) }
+            catch { message = String(localized: "Your Dictionary could not be read, so OLIV kept the file and isn't changing it. Dictation still works.") }
             historyStore = try HistoryStore(directory: self.directory)
             pendingStore = try PendingRecordingStore(directory: self.directory.appendingPathComponent("Pending"))
             retryCooldown = try RetryCooldownStore(directory: self.directory)
@@ -261,11 +263,12 @@ final class AppModel {
             let data = try JSONEncoder().encode(approved)
             if !entered.isEmpty { try credentials.write(entered) }
             try data.write(to: directory.appendingPathComponent("settings.json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+            let previousBinding = savedCredentialBinding
             savedServerURL = settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)
             savedCredentialBinding = approved.credentialBinding
             settings = approved
             persistedSettings = approved
-            connectionGeneration += 1
+            connectionChanged(from: previousBinding)
             tokenInput = ""
             hasToken = true
             connectionMessage = String(localized: "Settings saved.")
@@ -333,9 +336,10 @@ final class AppModel {
         }
         settings = approved
         persistedSettings = approved
-        connectionGeneration += 1
+        let previousBinding = savedCredentialBinding
         savedServerURL = trialServerURL
         savedCredentialBinding = approved.credentialBinding
+        connectionChanged(from: previousBinding)
         hasToken = true
         message = nil
     }
@@ -852,14 +856,25 @@ final class AppModel {
     /// (loading never rewrites it) until the next save drops them.
     private func loadDictionary(legacy: LegacyDictionarySettings?) throws {
         let store = try DictionaryBookStore(directory: directory)
-        dictionaryStore = store
         if store.exists {
             dictionary = try store.load()
-            return
+        } else {
+            dictionary = DictionaryBook.migrate(vocabularyText: legacy?.vocabularyText ?? "",
+                                                replacements: legacy?.replacements ?? [])
+            try store.save(dictionary)
         }
-        dictionary = DictionaryBook(entries: DictionaryBook.migrate(
-            vocabularyText: legacy?.vocabularyText ?? "", replacements: legacy?.replacements ?? []))
-        try store.save(dictionary)
+        // Only now: a file that wouldn't load must never be overwritten.
+        dictionaryStore = store
+    }
+
+    /// The saved server or key changed. The Dictionary starts over with the
+    /// new connection, and any reply still on its way from the old one is
+    /// ignored. Saving the same connection again changes nothing.
+    private func connectionChanged(from previousBinding: String?) {
+        connectionGeneration += 1
+        guard savedCredentialBinding != previousBinding else { return }
+        dictionary.connectionChanged()
+        persistDictionary()
     }
 
     /// Add or edit an entry. Returns an error message when the word is not
@@ -878,6 +893,9 @@ final class AppModel {
             cleanHeard = value
         }
         var entries = dictionary.entries
+        guard entries.count < DictionaryBook.maxEntries || entries.contains(where: { $0.id == id }) else {
+            return String(localized: "Your Dictionary is full. Remove a word to add another.")
+        }
         var entry = entries.first { $0.id == id } ?? DictionaryEntry(word: word)
         entry.word = word
         entry.correction = cleanHeard
@@ -887,6 +905,16 @@ final class AppModel {
         if let index = entries.firstIndex(where: { $0.id == entry.id }) { entries[index] = entry } else { entries.append(entry) }
         editDictionary(entries)
         return nil
+    }
+
+    func removeOlderVocabulary(_ line: String) {
+        dictionary.removeOlderVocabulary(line)
+        persistDictionary()
+    }
+
+    func removeOlderRule(spoken: String) {
+        dictionary.removeOlderRule(spoken: spoken)
+        persistDictionary()
     }
 
     func removeDictionaryEntries(_ ids: Set<String>) {
@@ -915,9 +943,11 @@ final class AppModel {
     }
 
     /// A reply carried the server's revision; refresh if another device
-    /// changed the Dictionary.
+    /// changed the Dictionary. It also proves the server is reachable again,
+    /// so edits still waiting go now: dictation doesn't use them until then.
     private func noteDictionaryRevision(_ revision: Int?) {
-        guard let revision, revision != dictionary.revision else { return }
+        let changedElsewhere = revision != nil && revision != dictionary.revision
+        guard changedElsewhere || !dictionary.pending.isEmpty else { return }
         scheduleDictionarySync(after: 0)
     }
 
@@ -950,22 +980,33 @@ final class AppModel {
     }
 
     private func runDictionarySync() async {
+        var rejectedWords: [String] = []
         repeat {
-            guard isConfigured, let configuration = try? configuration() else {
+            guard dictionaryStore != nil, isConfigured, let configuration = try? configuration() else {
                 dictionarySyncStatus = .localOnly
                 return
             }
             dictionarySyncAgain = false
+            let generation = connectionGeneration
             let ops = dictionary.outgoing()
             persistDictionary()
             dictionarySyncStatus = .syncing
+            let result: Result<DictionarySnapshot, Error>
+            do { result = .success(try await clientFactory(configuration).dictionary(ops: ops)) }
+            catch { result = .failure(error) }
+            // The answer is about a connection this iPhone has left.
+            guard generation == connectionGeneration else {
+                dictionarySyncAgain = true
+                continue
+            }
             do {
-                let snapshot = try await clientFactory(configuration).dictionary(ops: ops)
+                let snapshot = try result.get()
                 let refused = Set(snapshot.rejected.map(\.id))
-                dictionaryRejectedWords = (ops ?? []).compactMap { op in
+                rejectedWords += (ops ?? []).compactMap { op in
                     guard case .upsert(let entry) = op, refused.contains(entry.id) else { return nil }
                     return entry.word
                 }
+                dictionaryRejectedWords = rejectedWords
                 dictionary.acknowledge(snapshot)
                 dictionarySyncStatus = dictionary.pending.isEmpty ? .synced : .waiting
                 if !dictionary.pending.isEmpty { dictionarySyncAgain = true }

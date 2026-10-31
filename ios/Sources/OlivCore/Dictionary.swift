@@ -27,12 +27,16 @@ public struct DictionaryEntry: Codable, Identifiable, Equatable, Hashable, Senda
     /// The server's field limit (`user_dictionary::MAX_FIELD_CHARS`).
     public static let maxFieldLength = 100
 
-    /// The trimmed field when the server would accept it: 1…100 characters
-    /// with at least one letter or digit.
+    /// The trimmed field when the server would accept it: 1…100 Unicode scalars
+    /// (Rust `chars`) with at least one letter, digit or Thai character. One
+    /// field it refuses would fail the whole request, every time.
     public static func clean(_ text: String) -> String? {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !t.isEmpty, t.count <= maxFieldLength,
-              t.unicodeScalars.contains(where: { CharacterSet.alphanumerics.contains($0) }) else { return nil }
+        guard !t.isEmpty, t.unicodeScalars.count <= maxFieldLength,
+              t.unicodeScalars.contains(where: {
+                  $0.properties.isAlphabetic || $0.properties.numericType != nil
+                      || (0x0E00...0x0E7F).contains($0.value)
+              }) else { return nil }
         return t
     }
 
@@ -150,13 +154,29 @@ public struct DictionaryBook: Codable, Equatable, Sendable {
     public private(set) var uploadedLocal = false
     /// nil until the server answered once; false for servers without sync.
     public private(set) var serverSupportsDictionary: Bool?
+    /// Old settings a Dictionary entry can't hold (rules that delete a phrase
+    /// or write only symbols, over-long lines). Stay on this iPhone and go
+    /// with every request, as they always did.
+    public private(set) var olderVocabulary: [String] = []
+    public private(set) var olderRules: [ReplacementRule] = []
     /// The first `inFlight` pending ops are in the request being sent; they
     /// are never compacted until it answers. Not persisted.
     private var inFlight = 0
 
-    enum CodingKeys: String, CodingKey { case entries, revision, pending, uploadedLocal, serverSupportsDictionary }
+    enum CodingKeys: String, CodingKey {
+        case entries, revision, pending, uploadedLocal, serverSupportsDictionary, olderVocabulary, olderRules
+    }
 
-    public init(entries: [DictionaryEntry] = []) { self.entries = entries }
+    /// The server's `MAX_ENTRIES` and `MAX_OPS`.
+    public static let maxEntries = 1_000
+    public static let maxOpsPerRequest = 1_000
+
+    public init(entries: [DictionaryEntry] = [], olderVocabulary: [String] = [],
+                olderRules: [ReplacementRule] = []) {
+        self.entries = entries
+        self.olderVocabulary = olderVocabulary
+        self.olderRules = olderRules
+    }
 
     /// The server applies its own copy, so dictation can leave the request's
     /// vocabulary/replacements out.
@@ -170,14 +190,17 @@ public struct DictionaryBook: Codable, Equatable, Sendable {
         pending = Array(pending.prefix(inFlight)) + DictionaryOp.compact(pending.dropFirst(inFlight) + ops)
     }
 
-    /// The operations for the next request (nil = just fetch). The first sync
-    /// also uploads this device's entries.
+    /// The operations for the next request (nil = just fetch), at most what
+    /// the server takes at once. The first sync also uploads this device's
+    /// entries; they queue like any edit, so they survive a failed attempt.
     public mutating func outgoing() -> [DictionaryOp]? {
+        if !uploadedLocal {
+            pending = entries.map(DictionaryOp.upsert) + pending
+            uploadedLocal = true
+        }
         pending = DictionaryOp.compact(pending)
-        inFlight = pending.count
-        let upload = uploadedLocal ? [] : entries.map(DictionaryOp.upsert)
-        let ops = DictionaryOp.compact(upload + pending)
-        return ops.isEmpty ? nil : ops
+        inFlight = min(pending.count, Self.maxOpsPerRequest)
+        return inFlight == 0 ? nil : Array(pending.prefix(inFlight))
     }
 
     /// The server answered `outgoing()`. Edits made meanwhile stay queued and
@@ -186,7 +209,6 @@ public struct DictionaryBook: Codable, Equatable, Sendable {
         pending.removeFirst(min(inFlight, pending.count))
         inFlight = 0
         revision = snapshot.revision
-        uploadedLocal = true
         serverSupportsDictionary = true
         entries = DictionaryOp.apply(pending, to: snapshot.entries)
     }
@@ -201,6 +223,40 @@ public struct DictionaryBook: Codable, Equatable, Sendable {
         pending = []
         uploadedLocal = false
         serverSupportsDictionary = false
+    }
+
+    /// The connection now leads to another server or profile, which knows
+    /// nothing of this device: start over with a full upload.
+    public mutating func connectionChanged() {
+        inFlight = 0
+        pending = []
+        revision = 0
+        uploadedLocal = false
+        serverSupportsDictionary = nil
+    }
+
+    public mutating func removeOlderVocabulary(_ line: String) { olderVocabulary.removeAll { $0 == line } }
+
+    public mutating func removeOlderRule(spoken: String) { olderRules.removeAll { $0.spoken == spoken } }
+
+    /// `vocabulary` for a request: the older lines, plus the Dictionary when
+    /// the server can't apply it. Kept within the request limits, which the
+    /// Dictionary is larger than, so a long list can never block dictation.
+    public var requestVocabulary: [String] {
+        var seen = Set<String>()
+        let words = olderVocabulary + (serverAppliesDictionary ? [] : derivedVocabulary)
+        return Array(words.filter { $0.utf8.count <= OlivOptions.maximumEntryBytes && seen.insert($0).inserted }
+            .prefix(OlivOptions.maximumEntries))
+    }
+
+    /// `replacements` for a request, likewise.
+    public var requestReplacements: [ReplacementRule] {
+        var seen = Set<String>()
+        let limit = OlivOptions.maximumEntryBytes
+        let rules = olderRules + (serverAppliesDictionary ? [] : derivedReplacements)
+        return Array(rules.filter {
+            $0.spoken.utf8.count <= limit && $0.written.utf8.count <= limit && seen.insert($0.spoken).inserted
+        }.prefix(OlivOptions.maximumEntries))
     }
 
     /// Request vocabulary for servers without sync: enabled words, starred first.
@@ -220,21 +276,27 @@ public struct DictionaryBook: Codable, Equatable, Sendable {
     }
 
     /// Fold the pre-Dictionary settings (newline-separated vocabulary and
-    /// ordered replacement rules) into entries, deduplicated.
-    public static func migrate(vocabularyText: String, replacements: [ReplacementRule]) -> [DictionaryEntry] {
+    /// ordered replacement rules) into entries, deduplicated. Anything an
+    /// entry can't hold stays as it was, so an upgrade loses nothing.
+    public static func migrate(vocabularyText: String, replacements: [ReplacementRule]) -> DictionaryBook {
         var entries: [DictionaryEntry] = []
+        var olderVocabulary: [String] = []
+        var olderRules: [ReplacementRule] = []
         var identities = Set<String>()
         func add(_ entry: DictionaryEntry) {
             if identities.insert(entry.identity).inserted { entries.append(entry) }
         }
         for line in vocabularyText.components(separatedBy: .newlines) {
-            if let word = DictionaryEntry.clean(line) { add(DictionaryEntry(word: word)) }
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let word = DictionaryEntry.clean(trimmed) { add(DictionaryEntry(word: word)) }
+            else if !trimmed.isEmpty, !olderVocabulary.contains(trimmed) { olderVocabulary.append(trimmed) }
         }
         for rule in replacements {
-            guard let word = DictionaryEntry.clean(rule.written), let heard = DictionaryEntry.clean(rule.spoken) else { continue }
-            add(DictionaryEntry(word: word, correction: heard))
+            if let word = DictionaryEntry.clean(rule.written), let heard = DictionaryEntry.clean(rule.spoken) {
+                add(DictionaryEntry(word: word, correction: heard))
+            } else { olderRules.append(rule) }
         }
-        return entries
+        return DictionaryBook(entries: entries, olderVocabulary: olderVocabulary, olderRules: olderRules)
     }
 }
 

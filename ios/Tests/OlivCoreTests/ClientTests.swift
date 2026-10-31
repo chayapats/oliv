@@ -414,6 +414,15 @@ final class ClientTests: XCTestCase, @unchecked Sendable {
         XCTAssertNil(try JSONDecoder().decode(DictationReply.self, from: Data(#"{"ok":true,"final":"x"}"#.utf8)).dictionaryRevision)
     }
 
+    func testOnlyAWholeForeignErrorBodyProvesARequestNeverArrived() {
+        let page = Data("<html>Bad gateway</html>".utf8)
+        let own = Data(#"{"ok":false,"error":"failed","code":"inference_failed"}"#.utf8)
+        XCTAssertTrue(OlivClient.neverReachedOlivAPI(body: page, complete: true))
+        XCTAssertFalse(OlivClient.neverReachedOlivAPI(body: own, complete: true))
+        XCTAssertFalse(OlivClient.neverReachedOlivAPI(body: Data(#"{"ok":false,"err"#.utf8), complete: false),
+                       "the lost part may be oliv-api's error, after it charged for the request")
+    }
+
     func testUnreachedRequestsAreRetriedOnceAndProcessedOnesNever() async throws {
         let attempts = RequestCounter()
         let (client, session) = try makeClient { _ in

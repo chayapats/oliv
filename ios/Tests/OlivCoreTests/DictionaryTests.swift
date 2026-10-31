@@ -78,12 +78,72 @@ final class DictionaryTests: XCTestCase {
     }
 
     func testMigrationFromTheOldSettings() {
-        let entries = DictionaryBook.migrate(
-            vocabularyText: "OLIV\n\n olive \nOLIV\n!!!",
+        let long = String(repeating: "x", count: 101)
+        let book = DictionaryBook.migrate(
+            vocabularyText: "OLIV\n\n olive \nOLIV\n!!!\n\(long)",
             replacements: [ReplacementRule(spoken: "กราฟาน่า", written: "Grafana"),
-                           ReplacementRule(spoken: "remove", written: "")])
-        XCTAssertEqual(entries.map(\.word), ["OLIV", "olive", "Grafana"])
-        XCTAssertEqual(entries.last?.correction, "กราฟาน่า")
+                           ReplacementRule(spoken: "remove", written: ""),
+                           ReplacementRule(spoken: "and", written: "&")])
+        XCTAssertEqual(book.entries.map(\.word), ["OLIV", "olive", "Grafana"])
+        XCTAssertEqual(book.entries.last?.correction, "กราฟาน่า")
+        // What an entry can't hold keeps working, on any server.
+        XCTAssertEqual(book.olderVocabulary, ["!!!", long])
+        XCTAssertEqual(book.olderRules.map(\.spoken), ["remove", "and"])
+        var synced = book
+        _ = synced.outgoing()
+        synced.acknowledge(DictionarySnapshot(revision: 1, entries: book.entries))
+        XCTAssertEqual(synced.requestVocabulary, ["!!!", long])
+        XCTAssertEqual(synced.requestReplacements.map(\.written), ["", "&"])
+    }
+
+    func testFieldsAreMeasuredAsTheServerMeasuresThem() {
+        XCTAssertNotNil(DictionaryEntry.clean(String(repeating: "e\u{301}", count: 50)))
+        XCTAssertNil(DictionaryEntry.clean(String(repeating: "e\u{301}", count: 51)), "102 scalars")
+        XCTAssertNil(DictionaryEntry.clean("\u{301}"), "a mark alone is not a letter")
+        XCTAssertEqual(DictionaryEntry.clean(" บางแค "), "บางแค")
+        XCTAssertEqual(DictionaryEntry.clean("๑"), "๑")
+    }
+
+    func testALargeQueueGoesInBatchesTheServerAccepts() {
+        let entries = (0...DictionaryBook.maxOpsPerRequest).map { DictionaryEntry(id: "\($0)", word: "w\($0)") }
+        var book = DictionaryBook(entries: entries)
+        XCTAssertEqual(book.outgoing()?.count, DictionaryBook.maxOpsPerRequest)
+        book.acknowledge(DictionarySnapshot(revision: 1, entries: Array(entries.dropLast())))
+        XCTAssertEqual(book.pending.count, 1, "only what was sent is acknowledged")
+        XCTAssertEqual(book.entries.count, entries.count)
+        XCTAssertEqual(book.outgoing(), [.upsert(entries[entries.count - 1])])
+        book.acknowledge(DictionarySnapshot(revision: 2, entries: entries))
+        XCTAssertNil(book.outgoing())
+    }
+
+    func testAFailedFirstSyncStillUploadsEverything() {
+        var book = DictionaryBook(entries: [DictionaryEntry(id: "a", word: "A")])
+        XCTAssertEqual(book.outgoing()?.count, 1)
+        book.exchangeFailed()
+        XCTAssertEqual(book.outgoing()?.count, 1)
+    }
+
+    func testANewConnectionUploadsEverythingAgain() {
+        let word = DictionaryEntry(id: "a", word: "A")
+        var book = DictionaryBook(entries: [word])
+        _ = book.outgoing()
+        book.acknowledge(DictionarySnapshot(revision: 5, entries: [word]))
+        book.connectionChanged()
+        XCTAssertFalse(book.serverAppliesDictionary)
+        XCTAssertEqual(book.revision, 0)
+        XCTAssertEqual(book.outgoing(), [.upsert(word)])
+    }
+
+    func testRequestsStayWithinTheLimitsOfAnOlderServer() throws {
+        let tooLong = String(repeating: "ก", count: 100)
+        let words = (0..<OlivOptions.maximumEntries + 5).map { DictionaryEntry(word: "w\($0)", correction: "s\($0)") }
+        let book = DictionaryBook(entries: [DictionaryEntry(word: tooLong, correction: "x")] + words)
+        let options = OlivOptions(vocabulary: book.requestVocabulary, replacements: book.requestReplacements)
+        XCTAssertEqual(options.vocabulary.count, OlivOptions.maximumEntries)
+        XCTAssertEqual(options.replacements.count, OlivOptions.maximumEntries)
+        XCTAssertFalse(options.vocabulary.contains(tooLong))
+        try options.validateServerLimits()
+        try options.validate()
     }
 
     func testBookPersistsWithoutTheInFlightMarker() throws {

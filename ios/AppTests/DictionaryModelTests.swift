@@ -4,7 +4,7 @@ import OlivCore
 @testable import Oliv
 
 /// AppModel's Dictionary: editing, migration from the old settings, request
-/// options, and sync with the server (see oliv-server docs/DICTIONARY.md).
+/// options, and sync with the server (see server/docs/DICTIONARY.md).
 final class DictionaryModelTests: XCTestCase {
     @MainActor
     func testEditingValidatesAndDeduplicates() throws {
@@ -62,6 +62,101 @@ final class DictionaryModelTests: XCTestCase {
     }
 
     @MainActor
+    func testChangingConnectionCarriesTheWordsToTheNewServer() async throws {
+        let h = try DictionaryHarness()
+        defer { h.removeDirectory() }
+        h.model.saveDictionaryEntry(word: "Grafana", correction: nil)
+        await h.model.syncDictionary()
+        XCTAssertEqual(h.model.dictionarySyncStatus, .synced)
+
+        await h.service.reset()
+        h.model.settings.serverURL = "https://other.example"
+        h.model.saveSettings()
+        XCTAssertEqual(h.model.currentOptions.vocabulary, ["Grafana"], "until the new server confirms sync")
+        await h.model.syncDictionary()
+        XCTAssertEqual(h.model.dictionary.entries.map(\.word), ["Grafana"])
+        let uploaded = await h.service.entries.map(\.word)
+        XCTAssertEqual(uploaded, ["Grafana"])
+
+        // Saving the same connection again doesn't start over.
+        h.model.saveSettings()
+        let revision = h.model.dictionary.revision
+        XCTAssertGreaterThan(revision, 0)
+    }
+
+    @MainActor
+    func testAReplyFromTheOldConnectionIsIgnored() async throws {
+        let h = try DictionaryHarness()
+        defer { h.removeDirectory() }
+        h.model.saveDictionaryEntry(word: "Grafana", correction: nil)
+        await h.model.syncDictionary()
+        await h.service.holdNextReply(returning: DictionarySnapshot(revision: 9, entries: []))
+        let sync = Task { await h.model.syncDictionary() }
+        while await !h.service.isHolding { await Task.yield() }
+
+        await h.service.reset()
+        h.model.settings.serverURL = "https://other.example"
+        h.model.saveSettings()
+        await h.service.release()
+        await sync.value
+        await h.model.syncDictionary()
+        XCTAssertEqual(h.model.dictionary.entries.map(\.word), ["Grafana"], "not the old server's empty list")
+        let uploaded = await h.service.entries.map(\.word)
+        XCTAssertEqual(uploaded, ["Grafana"])
+    }
+
+    @MainActor
+    func testAWorkingRequestSendsEditsThatWereWaiting() async throws {
+        let h = try DictionaryHarness()
+        defer { h.removeDirectory() }
+        await h.model.syncDictionary()
+        await h.service.fail(with: OlivError.networkUnavailable)
+        h.model.saveDictionaryEntry(word: "Grafana", correction: nil)
+        await h.model.syncDictionary()
+        XCTAssertEqual(h.model.dictionary.pending.count, 1)
+
+        await h.service.fail(with: nil)
+        await h.model.cleanText("ok") // Answers with the revision already saved.
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !h.model.dictionary.pending.isEmpty, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertTrue(h.model.dictionary.pending.isEmpty)
+    }
+
+    @MainActor
+    func testADamagedDictionaryLeavesEverythingElseWorking() async throws {
+        let h = try DictionaryHarness()
+        defer { h.removeDirectory() }
+        // The harness's own model finishes its first sync before the damage.
+        await h.model.syncDictionary()
+        try await Task.sleep(for: .milliseconds(100))
+        let url = h.directory.appendingPathComponent("dictionary.json")
+        let damaged = Data("not json".utf8)
+        try damaged.write(to: url)
+
+        let model = h.reopen()
+        XCTAssertNotNil(model.message)
+        await model.cleanText("still works")
+        XCTAssertEqual(model.latest?.finalText, "still works")
+        model.saveDictionaryEntry(word: "Grafana", correction: nil)
+        await model.syncDictionary()
+        XCTAssertEqual(model.dictionarySyncStatus, .localOnly)
+        XCTAssertEqual(try Data(contentsOf: url), damaged, "kept for recovery")
+    }
+
+    @MainActor
+    func testTheEditorStopsAtTheServersLimit() async throws {
+        let h = try DictionaryHarness()
+        defer { h.removeDirectory() }
+        let entries = (0..<DictionaryBook.maxEntries).map { DictionaryEntry(id: "\($0)", word: "w\($0)") }
+        try DictionaryBookStore(directory: h.directory).save(DictionaryBook(entries: entries))
+        let model = h.reopen()
+        XCTAssertNotNil(model.saveDictionaryEntry(word: "one more", correction: nil))
+        XCTAssertNil(model.saveDictionaryEntry(id: "0", word: "renamed", correction: nil), "edits still work")
+    }
+
+    @MainActor
     func testWithoutAConnectionTheDictionaryIsLocalOnly() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OlivDictionary-\(UUID())")
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -111,7 +206,24 @@ private actor DictionaryTestService: OlivServing {
     private var revision = 0
     private var failure: OlivError?
 
+    private var heldReply: DictionarySnapshot?
+    private var waiting: CheckedContinuation<Void, Never>?
+    var isHolding: Bool { waiting != nil }
+
     func fail(with error: OlivError?) { failure = error }
+
+    /// Now talking to a server that has never seen this device.
+    func reset() {
+        entries = []
+        revision = 0
+    }
+
+    func holdNextReply(returning snapshot: DictionarySnapshot) { heldReply = snapshot }
+
+    func release() {
+        waiting?.resume()
+        waiting = nil
+    }
 
     func addFromAnotherDevice(_ entry: DictionaryEntry) {
         entries.append(entry)
@@ -120,6 +232,11 @@ private actor DictionaryTestService: OlivServing {
 
     func dictionary(ops: [DictionaryOp]?) async throws -> DictionarySnapshot {
         calls += 1
+        if let held = heldReply {
+            heldReply = nil
+            await withCheckedContinuation { waiting = $0 }
+            return held
+        }
         if let failure { throw failure }
         if let ops, !ops.isEmpty {
             entries = DictionaryOp.apply(ops, to: entries)
