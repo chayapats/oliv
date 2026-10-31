@@ -102,7 +102,8 @@ final class AppModel {
     @ObservationIgnored private let releaseProcess: (() -> Void)?
     @ObservationIgnored private var capturedInBackground = false
     @ObservationIgnored private var releaseTask: Task<Void, Never>?
-    @ObservationIgnored private var liveActivityTeardowns = 0
+    @ObservationIgnored private var liveActivityCalls = 0
+    private static let completionLifetime: TimeInterval = 86_400
     @ObservationIgnored private var lifecycleObservers: [NSObjectProtocol] = []
     @ObservationIgnored private var persistedSettings = AppSettings()
     @ObservationIgnored private var connectionGeneration = 0
@@ -126,6 +127,7 @@ final class AppModel {
         self.releaseProcess = releaseProcess
         self.liveActivitiesEnabled = liveActivitiesEnabled
         self.keyboardDelivery = keyboardDelivery
+        var installedBefore = false
         do {
             try FileManager.default.createDirectory(at: self.directory, withIntermediateDirectories: true,
                 attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
@@ -134,6 +136,7 @@ final class AppModel {
             values.isExcludedFromBackup = true
             try folder.setResourceValues(values)
             let settingsURL = self.directory.appendingPathComponent("settings.json")
+            installedBefore = FileManager.default.fileExists(atPath: settingsURL.path)
             // Read before any settings migration rewrites the file.
             var legacyDictionary: LegacyDictionarySettings?
             if FileManager.default.fileExists(atPath: settingsURL.path) {
@@ -186,8 +189,9 @@ final class AppModel {
         }
         // Decided once: editing the address in Settings must never reopen setup.
         // An explicit false is a trial that started here and hasn't finished yet;
-        // nil with a connection is an install from before setup existed.
-        isInSetup = settings.finishedSetup == false || (settings.finishedSetup == nil && !isConfigured)
+        // nil with saved settings is an install from before setup existed, even
+        // one that must reconnect first.
+        isInSetup = settings.finishedSetup == false || (settings.finishedSetup == nil && !installedBefore)
         persistedSettings = settings
         restoreCompletion()
         lifecycleObservers = [
@@ -251,6 +255,12 @@ final class AppModel {
                 throw OlivError.invalidConfiguration(String(localized: "Enter your new individual API key. The retired shared token cannot be reused."))
             }
             let token = entered.isEmpty ? (try credentials.read() ?? "") : entered
+            // A trial key belongs to the server that issued it. Only a key
+            // someone chose for the new address may go there.
+            if entered.isEmpty, settings.trialExpiresAt != nil,
+               settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines) != savedServerURL {
+                throw OlivError.invalidConfiguration(String(localized: "Enter an API key for this server. Your trial key works only with the server that issued it."))
+            }
             guard let url = URL(string: settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
                 throw AppCaptureError.setupRequired
             }
@@ -467,21 +477,23 @@ final class AppModel {
     }
 
     private var canReleaseProcess: Bool {
-        guard !isBusy, !isStartingTrial, liveActivityTeardowns == 0, isInBackground(),
-              cleanupDraft.isEmpty, tokenInput.isEmpty, settings == persistedSettings else { return false }
-        // History may be off, or may have dropped this entry: then the result
-        // exists only in this process.
-        return latest.map { entry in history.contains { $0.id == entry.id } } ?? true
+        !isBusy && !isStartingTrial && liveActivityCalls == 0 && isInBackground()
+            && cleanupDraft.isEmpty && tokenInput.isEmpty && settings == persistedSettings
     }
 
+    /// `entry` is set only for a result history doesn't hold (history off, or
+    /// dropped by its limit), which would otherwise end with this process.
     private struct Completion: Codable {
         let entryID: UUID?
+        let entry: HistoryEntry?
         let message: String?
+        let savedAt: Date
     }
     private var completionURL: URL { directory.appendingPathComponent("last-completion.json") }
 
     private func saveCompletion() throws {
-        let completion = Completion(entryID: latest?.id, message: message)
+        let unsaved = latest.flatMap { entry in history.contains { $0.id == entry.id } ? nil : entry }
+        let completion = Completion(entryID: latest?.id, entry: unsaved, message: message, savedAt: Date())
         guard completion.entryID != nil || completion.message != nil else { return }
         try JSONEncoder().encode(completion).write(to: completionURL, options: [
             .atomic, .completeFileProtectionUntilFirstUserAuthentication])
@@ -494,20 +506,28 @@ final class AppModel {
     private func restoreCompletion() {
         guard let data = try? Data(contentsOf: completionURL),
               let completion = try? JSONDecoder().decode(Completion.self, from: data) else { return }
-        if let id = completion.entryID, let entry = history.first(where: { $0.id == id }) {
+        // Someone who never came back shouldn't find it, or keep it, any longer.
+        guard Date().timeIntervalSince(completion.savedAt) < Self.completionLifetime else {
+            clearCompletion()
+            return
+        }
+        if let entry = completion.entry ?? completion.entryID.flatMap({ id in history.first { $0.id == id } }) {
             latest = entry
             phase = .result
         }
         if message == nil { message = completion.message }
     }
 
-    /// `await` on ActivityKit has no time limit, so the release waits for it
-    /// rather than for a fixed delay.
-    private func endLiveActivity(_ end: () async -> Void) async {
-        liveActivityTeardowns += 1
-        await end()
-        liveActivityTeardowns -= 1
-        scheduleProcessRelease()
+    /// `await` on ActivityKit has no time limit, and cancelling a capture doesn't
+    /// stop a call already running, so the release waits for each of them rather
+    /// than for a fixed delay.
+    private func trackLiveActivity<T>(_ call: () async throws -> T) async rethrows -> T {
+        liveActivityCalls += 1
+        defer {
+            liveActivityCalls -= 1
+            scheduleProcessRelease()
+        }
+        return try await call()
     }
 
     private func beginRecording(fromIntent: Bool, startID: UUID, allowKeyboardDelivery: Bool) async throws {
@@ -557,7 +577,7 @@ final class AppModel {
                 intentStartStage = .liveActivity
                 if fromIntent { CaptureDiagnostics.record(event: .liveActivityStarting) }
                 do {
-                    try await LiveActivityManager.shared.start()
+                    try await trackLiveActivity { try await LiveActivityManager.shared.start() }
                     if fromIntent { CaptureDiagnostics.record(event: .liveActivityStarted) }
                 }
                 catch { if fromIntent { throw error } }
@@ -616,7 +636,7 @@ final class AppModel {
                 speechEndpoint = nil
                 clearKeyboardDelivery()
                 phase = .idle
-                if liveActivitiesEnabled { await endLiveActivity { await LiveActivityManager.shared.cancel() } }
+                if liveActivitiesEnabled { await trackLiveActivity { await LiveActivityManager.shared.cancel() } }
             }
             throw error
         }
@@ -709,7 +729,7 @@ final class AppModel {
             // Keep the recovery file if reading, conversion or persistence failed.
             message = String(localized: "Recording stopped because automatic finish became unavailable. Nothing was inserted. Open OLIV to review the recording.")
         }
-        if liveActivitiesEnabled { await endLiveActivity { await LiveActivityManager.shared.cancel() } }
+        if liveActivitiesEnabled { await trackLiveActivity { await LiveActivityManager.shared.cancel() } }
         guard operationID == captureID else { return }
         phase = .failed
     }
@@ -747,7 +767,7 @@ final class AppModel {
                 CaptureDiagnostics.record(event: .speechAnalysisFailed)
                 phase = .failed
                 message = String(localized: "Automatic finish became unavailable. The microphone is off and your audio is saved for retry. Nothing was inserted.")
-                if liveActivitiesEnabled { await endLiveActivity { await LiveActivityManager.shared.cancel() } }
+                if liveActivitiesEnabled { await trackLiveActivity { await LiveActivityManager.shared.cancel() } }
                 return
             }
             await submit(item, source: .dictation, keyboardTarget: target,
@@ -756,7 +776,7 @@ final class AppModel {
             clearKeyboardDelivery()
             phase = .failed
             message = safeDescription(error)
-            if liveActivitiesEnabled { await endLiveActivity { await LiveActivityManager.shared.cancel() } }
+            if liveActivitiesEnabled { await trackLiveActivity { await LiveActivityManager.shared.cancel() } }
         }
     }
 
@@ -776,7 +796,7 @@ final class AppModel {
         activeRecordID = item.id
         message = nil
         startBackgroundTask()
-        if liveActivitiesEnabled { await LiveActivityManager.shared.updateProcessing() }
+        if liveActivitiesEnabled { await trackLiveActivity { await LiveActivityManager.shared.updateProcessing() } }
         guard operationID == id else { return }
         let task = Task { @MainActor [weak self] in
             guard let self, self.operationID == id else { return }
@@ -841,8 +861,8 @@ final class AppModel {
             self.activeRecordID = nil
             self.endBackgroundTask()
             if self.liveActivitiesEnabled {
-                if self.phase == .result { await endLiveActivity { await LiveActivityManager.shared.finish() } }
-                else { await endLiveActivity { await LiveActivityManager.shared.cancel() } }
+                if self.phase == .result { await trackLiveActivity { await LiveActivityManager.shared.finish() } }
+                else { await trackLiveActivity { await LiveActivityManager.shared.cancel() } }
             }
         }
         operationTask = task
@@ -1090,7 +1110,7 @@ final class AppModel {
         level = 0
         latest = nil
         message = wasProcessing && !pending.isEmpty ? String(localized: "Stopped waiting. Your recording is saved for retry.") : nil
-        if liveActivitiesEnabled { await endLiveActivity { await LiveActivityManager.shared.cancel() } }
+        if liveActivitiesEnabled { await trackLiveActivity { await LiveActivityManager.shared.cancel() } }
     }
 
     private func clearKeyboardDelivery() {

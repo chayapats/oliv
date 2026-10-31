@@ -92,14 +92,15 @@ class Ledger:
         return int(self.clock() // 86_400)
 
     def _read(self):
+        """None when the file exists but can't be trusted: guessing zero would
+        hand out today's allowance a second time."""
         try:
             state = json.loads(self.path.read_text(encoding="utf-8"))
-            if self._valid(state):
-                return state
+        except FileNotFoundError:
+            return self._fresh()
         except (OSError, ValueError):
-            pass
-        # A lost ledger only restarts today's counts; max_active still applies.
-        return self._fresh()
+            return None
+        return state if self._valid(state) else None
 
     @staticmethod
     def _valid(state):
@@ -116,7 +117,20 @@ class Ledger:
     def _fresh(self):
         return {"day": self._day(), "salt": secrets.token_hex(32), "total": 0, "clients": {}}
 
+    def _from_an_earlier_day(self):
+        """Damage from before today held counts that have expired anyway."""
+        try:
+            return self.path.stat().st_mtime // 86_400 < self._day()
+        except OSError:
+            return False
+
     def _roll(self):
+        if self.state is None:
+            self.state = self._read()
+            if self.state is None and self._from_an_earlier_day():
+                self.state = self._fresh()
+        if self.state is None:
+            raise OSError("the trial ledger can't be read")
         if self.state["day"] != self._day():
             self.state = self._fresh()
 
@@ -165,7 +179,15 @@ class Ledger:
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as target:
                 json.dump(state, target)
+                target.flush()
+                os.fsync(target.fileno())
             os.replace(name, self.path)
+            # A charge must outlive a crash: the key store it pays for does.
+            directory = os.open(self.path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
         except BaseException:
             Path(name).unlink(missing_ok=True)
             raise
@@ -279,9 +301,10 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/try/health":
             self._json(200, {"ok": True})
         elif self.path in ("/try", "/try/"):
-            settings = load_settings(self.issuer.settings_path) or {}
+            settings = load_settings(self.issuer.settings_path) or DEFAULTS
             body = page_bytes(self.issuer.root).replace(
-                b"__TESTFLIGHT_URL__", settings.get("testflight_url", "").encode("ascii"))
+                b"__TESTFLIGHT_URL__", settings["testflight_url"].encode("ascii")).replace(
+                b"__TRIAL_DAYS__", str(settings["expires_in_days"]).encode("ascii"))
             # Inline style and script are the page's own, fixed and unparameterised.
             self._send(200, body, "text/html; charset=utf-8",
                        "default-src 'none'; style-src 'unsafe-inline'; "

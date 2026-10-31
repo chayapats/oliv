@@ -91,7 +91,7 @@ describe review and public-link availability. Builds expire after 90 days.
 OLIV turns Thai and English speech into editable text using your configured
 OLIV server. Record in the app, keep a local transcript history, clean existing
 text, and optionally use the OLIV keyboard and Shortcuts for dictation handoff.
-Requires iOS 18 or later. Tap Start free trial for 7 days of use, or connect your
+Requires iOS 18 or later. Tap Start free trial, or connect your
 own OLIV server. The keyboard's Full Access is optional for ordinary typing and
 required for dictation handoff. Recording begins only when you request it.
 
@@ -103,4 +103,4 @@ Full Access, put Toggle OLIV on the Action button or in Control Center, and try
 it in your usual apps. Report failures and your device and iOS version through
 TestFlight.
 
-Testers use their own 7-day trial key, or their own OLIV API key.
+Testers use their own trial key, or their own OLIV API key.

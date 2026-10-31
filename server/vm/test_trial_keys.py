@@ -16,7 +16,7 @@ from unittest.mock import patch
 import test_dashboard_keys
 import trial_keys
 from dashboard_keys import KeyAdminError, KeyManager
-from trial_keys import Closed, Ledger, TrialIssuer, load_settings
+from trial_keys import DEFAULTS, Closed, Ledger, TrialIssuer, load_settings
 
 
 class FakeManager:
@@ -243,17 +243,39 @@ class IssueTests(Fixture):
         self.assertNotIn("192.0.2.1", path.read_text(encoding="utf-8"))
         self.assertEqual(path.stat().st_mode & 0o777, 0o600)
 
-    def test_corrupt_ledger_starts_a_new_day_of_counts(self):
+    def test_a_damaged_ledger_refuses_today_instead_of_resetting_it(self):
         path = self.root / "trial-ledger.json"
-        path.write_text("{", encoding="utf-8")
-        self.assertEqual(Ledger(path, lambda: self.now).state["total"], 0)
         day = int(self.now // 86_400)
         salt = "a" * 64
-        for total, clients in ((-7, {}), (1, {"b" * 32: "x"}), (1, {"not-a-hash": 1}),
-                               (0, {"b" * 32: 1}), (True, {})):
-            path.write_text(json.dumps({"day": day, "salt": salt, "total": total, "clients": clients}),
-                            encoding="utf-8")
-            self.assertEqual(Ledger(path, lambda: self.now).state["clients"], {}, (total, clients))
+        states = ["{"] + [json.dumps({"day": day, "salt": salt, "total": total, "clients": clients})
+                          for total, clients in ((-7, {}), (1, {"b" * 32: "x"}), (1, {"not-a-hash": 1}),
+                                                 (0, {"b" * 32: 1}), (True, {}))]
+        for state in states:
+            path.write_text(state, encoding="utf-8")
+            os.utime(path, (self.now, self.now))
+            ledger = Ledger(path, lambda: self.now)
+            with self.assertRaises(OSError):
+                ledger.check("192.0.2.1", DEFAULTS)
+            with self.assertRaises(OSError):
+                ledger.charge("192.0.2.1")
+            self.assertEqual(path.read_text(encoding="utf-8"), state, "kept for the operator")
+
+    def test_a_damaged_ledger_heals_once_its_day_is_over(self):
+        path = self.root / "trial-ledger.json"
+        path.write_text("{", encoding="utf-8")
+        os.utime(path, (self.now - 86_400, self.now - 86_400))
+        ledger = Ledger(path, lambda: self.now)
+        ledger.check("192.0.2.1", DEFAULTS)
+        ledger.charge("192.0.2.1")
+        self.assertEqual(Ledger(path, lambda: self.now).state["total"], 1)
+
+    def test_repairing_a_damaged_ledger_needs_no_restart(self):
+        path = self.root / "trial-ledger.json"
+        path.write_text("{", encoding="utf-8")
+        os.utime(path, (self.now, self.now))
+        ledger = Ledger(path, lambda: self.now)
+        path.unlink()
+        ledger.check("192.0.2.1", DEFAULTS)
 
 
 class RealCLITests(unittest.TestCase):
@@ -377,7 +399,7 @@ class HTTPTests(Fixture):
     def setUp(self):
         super().setUp()
         (self.root / "trial.html").write_text(
-            '<a href="__TESTFLIGHT_URL__">x</a>', encoding="utf-8")
+            '<p>__TRIAL_DAYS__</p><a href="__TESTFLIGHT_URL__">x</a>', encoding="utf-8")
         self.settings({"testflight_url": "https://testflight.apple.com/join/example"})
 
         class Bound(trial_keys.Handler):
@@ -399,6 +421,7 @@ class HTTPTests(Fixture):
         status, headers, body = self.request("GET", "/try")
         self.assertEqual(status, 200)
         self.assertIn(b"https://testflight.apple.com/join/example", body)
+        self.assertIn(b"<p>7</p>", body, "the offer the server is really configured with")
         self.assertIn("default-src 'none'", headers["Content-Security-Policy"])
         self.assertEqual(headers["Cache-Control"], "no-store")
 

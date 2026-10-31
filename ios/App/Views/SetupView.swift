@@ -69,7 +69,7 @@ struct SetupView: View {
                 .buttonStyle(OlivPrimaryButtonStyle())
                 .disabled(model.isStartingTrial)
                 .accessibilityIdentifier("startTrialButton")
-                Text("7 days free. No account or card. Audio goes to the OLIV server to become text, and isn't kept there.")
+                Text("Free to try. No account or card. Audio goes to the OLIV server to become text, and isn't kept there.")
                     .font(.caption)
                     .foregroundStyle(OlivTheme.secondary)
                 if let message = model.trialMessage {
@@ -97,6 +97,10 @@ struct SetupView: View {
                 Button { openSystemSettings() } label: { wide("Open Settings") }
                     .buttonStyle(OlivPrimaryButtonStyle())
                     .accessibilityIdentifier("openSettingsButton")
+                // Device policy can make this impossible to grant.
+                Button { model.finishSetup() } label: { wide("Skip for now") }
+                    .buttonStyle(OlivSecondaryButtonStyle())
+                    .accessibilityIdentifier("skipMicrophoneButton")
             } else {
                 Button {
                     Task {

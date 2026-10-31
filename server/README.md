@@ -239,6 +239,10 @@ iPhone app's **Start free trial** button and the page at `/try` both call
     "keys_per_client_per_day": 2, "keys_per_day": 30, "max_active": 100}
    ```
 
+   If `trial-ledger.json` is ever damaged, sign-ups answer `unavailable` for
+   the rest of that UTC day, because its counts can't be trusted, and then
+   recover. Delete the file to reopen sooner.
+
 2. Install and start the service:
 
    ```sh

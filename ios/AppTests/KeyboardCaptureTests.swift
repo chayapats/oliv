@@ -293,7 +293,7 @@ final class KeyboardCaptureTests: XCTestCase {
     }
 
     @MainActor
-    func testResultThatExistsOnlyInMemoryKeepsTheProcess() async throws {
+    func testAResultHistoryDoesntHoldSurvivesTheRelease() async throws {
         let directory = keyboardTestDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         var releases = 0
@@ -308,7 +308,23 @@ final class KeyboardCaptureTests: XCTestCase {
         try await model.startFromIntent(allowKeyboardDelivery: false)
         await model.stopFromIntent()
         try await Task.sleep(for: .seconds(1.8))
-        XCTAssertEqual(releases, 0)
+        XCTAssertEqual(releases, 1, "the next Action button press needs a new process")
+        let finished = try XCTUnwrap(model.latest)
+        let completion = directory.appendingPathComponent("last-completion.json")
+
+        let open = {
+            AppModel(directory: directory, credentials: MemoryCredentialStore(token: "test-token"),
+                     capture: KeyboardTestCapture(directory: directory), liveActivitiesEnabled: false,
+                     clientFactory: { _ in service })
+        }
+        XCTAssertEqual(open().latest?.finalText, finished.finalText)
+
+        // Never opened in time: it goes, it doesn't linger.
+        var record = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: completion)) as? [String: Any])
+        record["savedAt"] = (record["savedAt"] as! Double) - 86_401
+        try JSONSerialization.data(withJSONObject: record).write(to: completion)
+        XCTAssertNil(open().latest)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: completion.path))
     }
 
     @MainActor

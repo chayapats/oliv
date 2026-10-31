@@ -15,6 +15,50 @@ final class PublicAPIMigrationTests: XCTestCase {
     }
 
     @MainActor
+    func testATrialKeyStaysWithTheServerThatIssuedIt() async throws {
+        let directory = migrationTestDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let credentials = MemoryCredentialStore()
+        let model = AppModel(directory: directory, credentials: credentials,
+            capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
+            clientFactory: { _ in PublicAPITestService() },
+            requestTrialKey: { _ in TrialKey(token: "trial-key", expiresAt: Date().addingTimeInterval(86_400)) })
+        model.trialServerURL = "https://trial.example.com"
+        await model.startTrial()
+        let issuer = model.settings.serverURL
+        let binding = model.settings.credentialBinding
+
+        model.settings.serverURL = "https://other.example.com"
+        model.saveSettings()
+        XCTAssertNotNil(model.message)
+        XCTAssertFalse(model.isConfigured)
+        XCTAssertEqual(model.settings.credentialBinding, binding)
+
+        // A key chosen for that address is fine.
+        model.tokenInput = "their-own-key"
+        model.saveSettings()
+        XCTAssertNil(model.message)
+        XCTAssertTrue(model.isConfigured)
+        XCTAssertNil(model.settings.trialExpiresAt)
+        XCTAssertNotEqual(model.settings.serverURL, issuer)
+    }
+
+    @MainActor
+    func testAnInstallThatMustReconnectDoesNotReenterSetup() throws {
+        let directory = migrationTestDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var saved = AppSettings()
+        saved.requiresNewAPIKey = true
+        saved.finishedSetup = nil
+        try writeSettings(saved, directory: directory)
+        let model = AppModel(directory: directory, credentials: MemoryCredentialStore(),
+                             capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
+                             clientFactory: { _ in PublicAPITestService() })
+        XCTAssertFalse(model.isConfigured)
+        XCTAssertFalse(model.isInSetup)
+    }
+
+    @MainActor
     func testVocabularyAndReplacementsMoveIntoTheDictionaryOnce() throws {
         let directory = migrationTestDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

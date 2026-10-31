@@ -37,7 +37,7 @@ On this development Mac, Xcode-beta.app supplies the working iOS 27 SDK and runs
 
 First launch walks through everything, and each step checks itself:
 
-1. **Start free trial** requests a 7-day key from the server baked into the build (`OLIV_DEFAULT_API_URL`) and saves it to Keychain. Nobody sees or pastes a key. **I have an API key** goes to Settings instead. Source builds have no default server, so they show only that option.
+1. **Start free trial** requests a trial key from the server baked into the build (`OLIV_DEFAULT_API_URL`) and saves it to Keychain. Nobody sees or pastes a key. **I have an API key** goes to Settings instead. Source builds have no default server, so they show only that option.
 2. **Allow microphone**, with a button to iPhone Settings if it was refused.
 3. **Try it now** records and shows a first result, before any keyboard setup.
 4. **Use it in every app** opens OLIV's page in iPhone Settings, then confirms OLIV's keyboard is live in a practice field.

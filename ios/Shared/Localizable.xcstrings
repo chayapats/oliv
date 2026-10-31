@@ -73,16 +73,6 @@
         }
       }
     },
-    "7 days free. No account or card. Audio goes to the OLIV server to become text, and isn't kept there.": {
-      "localizations": {
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ใช้ฟรี 7 วัน ไม่ต้องมีบัญชีหรือบัตร เสียงจะถูกส่งไปที่เซิร์ฟเวอร์ OLIV เพื่อแปลงเป็นข้อความ และจะไม่ถูกเก็บไว้"
-          }
-        }
-      }
-    },
     "A Dictionary word can't hold these, like rules that write only symbols. They keep working on this iPhone.": {
       "localizations": {
         "th": {
@@ -947,6 +937,16 @@
         }
       }
     },
+    "Enter an API key for this server. Your trial key works only with the server that issued it.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใส่ API key สำหรับเซิร์ฟเวอร์นี้ key ทดลองใช้ได้เฉพาะกับเซิร์ฟเวอร์ที่ออกให้เท่านั้น"
+          }
+        }
+      }
+    },
     "Enter an OLIV server URL without credentials, a query, or a fragment.": {
       "localizations": {
         "th": {
@@ -1124,6 +1124,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "ถ้าอยากใช้ Shortcuts แบบรันสองครั้งแล้วคัดลอกลงคลิปบอร์ด ให้ปิดการหยุดอัตโนมัติของปุ่มแอ็คชั่น แล้วต่อ Toggle OLIV ด้วย ถ้า ผลลัพธ์ มีค่าใดๆ → คัดลอกไปยังคลิปบอร์ด รันครั้งแรกจะเริ่มอัด ครั้งที่สองจะหยุดและคัดลอก เลือก เฉพาะในเครื่อง เพื่อเก็บคลิปบอร์ดไว้บน iPhone เครื่องนี้"
+          }
+        }
+      }
+    },
+    "Free to try. No account or card. Audio goes to the OLIV server to become text, and isn't kept there.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ทดลองใช้ฟรี ไม่ต้องมีบัญชีหรือบัตร เสียงจะถูกส่งไปที่เซิร์ฟเวอร์ OLIV เพื่อแปลงเป็นข้อความ และจะไม่ถูกเก็บไว้"
           }
         }
       }
