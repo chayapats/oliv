@@ -85,6 +85,9 @@ token = "PUT-YOUR-INDIVIDUAL-KEY-HERE"
 timeout_seconds = 120
 ```
 
+A server that offers a [free trial](../server/README.md#free-trial) gives you both
+lines on its `/try` page, with no account.
+
 Then install and check:
 
 ```sh
