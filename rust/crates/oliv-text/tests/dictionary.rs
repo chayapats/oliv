@@ -210,6 +210,18 @@ fn a_chained_correction_survives_cleanup_rewriting_the_output() {
         ["say Docker compose", "say Docker compose"]
     );
 
+    // Letters inside a longer word are not an overlap: the matcher never fires
+    // there, so a separate `cat` from cleanup is still corrected.
+    let inside = opts(json!({
+        "thai_format": false,
+        "dictionary": [{"word": "catalog", "correction": "foo"}, {"word": "kitten", "correction": "cat"}],
+    }))
+    .unwrap();
+    assert_eq!(
+        both("ใช้ foo catt x", &inside, &Fixed("ใช้ catalog cat x")),
+        ["ใช้ catalog kitten x", "ใช้ catalog kitten x"]
+    );
+
     // A word containing its own source, re-spaced by cleanup, is not expanded.
     let thai = opts(json!({
         "thai_format": false,
