@@ -352,18 +352,30 @@ impl Key {
 }
 
 /// Whether applying `key` could rewrite one of `produced`: its source is
-/// inside an output or wraps one, on the matcher's Latin word boundaries and
-/// ignoring case. A case-only correction to that same output can't chain, and
-/// repairs an LLM that undid it.
+/// inside an output or wraps one, on the matcher's Latin word boundaries,
+/// ignoring case and, because cleanup may join or split words, spacing too. A
+/// correction that only changes an output's case or spacing to that same
+/// output can't chain, and repairs an LLM that undid it.
 fn overlaps_output(key: &Key, produced: &[String]) -> bool {
     let fold = |s: &str| casefold(s).chars().collect::<Vec<char>>();
+    let tight = |t: &[char]| {
+        t.iter()
+            .copied()
+            .filter(|c| !c.is_whitespace())
+            .collect::<Vec<char>>()
+    };
     let source = fold(&key.chars.iter().collect::<String>());
+    let tight_source = tight(&source);
     produced.iter().any(|p| {
         let output = fold(p);
-        if source == output {
+        let tight_output = tight(&output);
+        if tight_source == tight_output {
             key.value != *p
         } else {
-            contains_term(&output, &source) || contains_term(&source, &output)
+            contains_term(&output, &source)
+                || contains_term(&source, &output)
+                || contains_term(&tight_output, &tight_source)
+                || contains_term(&tight_source, &tight_output)
         }
     })
 }

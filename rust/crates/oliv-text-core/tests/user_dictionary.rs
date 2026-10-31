@@ -280,3 +280,26 @@ fn fuzzy_vocab_still_fixes_digitless_mishearings() {
     let (text, fired, _) = correct_with_vocab("เรียก grafannah หน่อย", &vocab);
     assert_eq!((text.as_str(), fired), ("เรียก Grafana หน่อย", 1));
 }
+
+#[test]
+fn the_post_pass_skips_a_rule_that_could_rewrite_an_output() {
+    let d = dict(&[e("Git Hub", Some("foo")), e("X", Some("GitHub"))]);
+    let produced = vec!["Git Hub".to_string()];
+    // Cleanup joined the words: `GitHub` is the same output, not a new word.
+    assert_eq!(
+        d.apply_after_cleanup("use GitHub", &[], &produced),
+        fixed("use GitHub", 0)
+    );
+    assert_eq!(
+        d.apply_after_cleanup("use GIT HUB", &[], &produced),
+        fixed("use GIT HUB", 0)
+    );
+
+    // Letters inside a longer word are no overlap, spaced or not.
+    let d = dict(&[e("cat log", Some("foo")), e("kitten", Some("catl"))]);
+    let produced = vec!["cat log".to_string()];
+    assert_eq!(
+        d.apply_after_cleanup("a catl", &[], &produced),
+        fixed("a kitten", 1)
+    );
+}
