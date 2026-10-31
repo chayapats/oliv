@@ -56,6 +56,7 @@ final class OLIVAPILoopbackTests: XCTestCase {
 private final class LoopbackAPIServer {
     private let process = Process()
     let url: String
+    private let exited = DispatchSemaphore(value: 0)
 
     init(tls: Bool = false) throws {
         process.executableURL = URL(fileURLWithPath: try NativeTestSupport.executable())
@@ -71,18 +72,28 @@ private final class LoopbackAPIServer {
             lock.lock(); startup.append(data); lock.unlock()
             if data.contains(10) || data.isEmpty { ready.signal() }
         }
+        let gone = exited
+        process.terminationHandler = { _ in gone.signal() }
         try process.run()
         let started = ready.wait(timeout: .now() + 5) == .success
         output.fileHandleForReading.readabilityHandler = nil
         lock.lock(); let bytes = startup; lock.unlock()
         guard started, let port = String(data: bytes, encoding: .utf8).flatMap({ Int($0.trimmingCharacters(in: .whitespacesAndNewlines)) }) else {
-            if process.isRunning { process.terminate(); process.waitUntilExit() }
+            Self.stop(process, exited)
             throw NSError(domain: "LoopbackAPIServer", code: 1)
         }
         url = "\(tls ? "https" : "http")://127.0.0.1:\(port)"
     }
 
-    func close() {
-        if process.isRunning { process.terminate(); process.waitUntilExit() }
+    /// Not `waitUntilExit`: it spins this thread's run loop, and on a Swift
+    /// concurrency thread that has hung for good (seen on CI, with a spindump).
+    func close() { Self.stop(process, exited) }
+
+    private static func stop(_ process: Process, _ exited: DispatchSemaphore) {
+        guard process.isRunning else { return }
+        process.terminate()
+        guard exited.wait(timeout: .now() + 5) == .timedOut else { return }
+        kill(process.processIdentifier, SIGKILL)
+        _ = exited.wait(timeout: .now() + 5)
     }
 }
