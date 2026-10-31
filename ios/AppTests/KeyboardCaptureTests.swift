@@ -328,6 +328,81 @@ final class KeyboardCaptureTests: XCTestCase {
     }
 
     @MainActor
+    func testAResultKeptForLaterGoesOnceACaptureEndsOnScreen() async throws {
+        let directory = keyboardTestDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var inBackground = true
+        let capture = KeyboardTestCapture(directory: directory)
+        let service = KeyboardTestService(mode: .success, microphoneActive: { capture.microphoneActive })
+        let model = AppModel(directory: directory, credentials: MemoryCredentialStore(token: "test-token"),
+                             capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service },
+                             isInBackground: { inBackground }, releaseProcess: {})
+        model.settings.serverURL = "https://oliv.example"
+        model.settings.keepHistory = false
+        model.saveSettings()
+        try await model.startFromIntent(allowKeyboardDelivery: false)
+        await model.stopFromIntent()
+        try await Task.sleep(for: .seconds(1.8))
+        let completion = directory.appendingPathComponent("last-completion.json")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: completion.path))
+
+        // On screen with another capture running, then that capture finishes.
+        inBackground = false
+        try await model.startFromIntent(allowKeyboardDelivery: false)
+        await model.stopFromIntent()
+        XCTAssertEqual(model.phase, .result)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: completion.path))
+    }
+
+    /// A background capture whose `call` stays open: nothing may release until
+    /// it returns, whatever else finished or was cancelled meanwhile.
+    @MainActor
+    private func assertReleaseWaits(for call: HeldLiveActivity.Call, cancelling: Bool,
+                                    failing: Bool = false, line: UInt = #line) async throws {
+        let directory = keyboardTestDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        var releases = 0
+        let activity = HeldLiveActivity(hold: call, failStart: failing)
+        let capture = KeyboardTestCapture(directory: directory)
+        let service = KeyboardTestService(mode: .success, microphoneActive: { capture.microphoneActive })
+        let model = AppModel(directory: directory, credentials: MemoryCredentialStore(token: "test-token"),
+                             capture: capture, liveActivitiesEnabled: true, liveActivity: activity,
+                             clientFactory: { _ in service }, isInBackground: { true }, releaseProcess: { releases += 1 })
+        model.settings.serverURL = "https://oliv.example"
+        model.saveSettings()
+
+        // Cancelling can itself wait on the held call, so nothing here awaits
+        // it before `letGo`.
+        var cancel: Task<Void, Never>?
+        let run = Task { @MainActor in
+            do { try await model.startFromIntent(allowKeyboardDelivery: false) } catch { return }
+            if call == .cancel { cancel = Task { await model.cancel() } } else { await model.stopFromIntent() }
+        }
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !activity.isHolding, ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(5)) }
+        XCTAssertTrue(activity.isHolding, "\(call) was never called", line: line)
+        if cancelling, call != .cancel { cancel = Task { await model.cancel() } }
+        try await Task.sleep(for: .seconds(1.8))
+        XCTAssertEqual(releases, 0, "released with \(call) still running", line: line)
+
+        activity.letGo()
+        await run.value
+        await cancel?.value
+        try await Task.sleep(for: .seconds(1.8))
+        XCTAssertEqual(releases, 1, "never released after \(call) returned", line: line)
+    }
+
+    @MainActor
+    func testTheReleaseWaitsForEveryLiveActivityCall() async throws {
+        try await assertReleaseWaits(for: .start, cancelling: true)
+        try await assertReleaseWaits(for: .start, cancelling: true, failing: true)
+        try await assertReleaseWaits(for: .updateProcessing, cancelling: true)
+        try await assertReleaseWaits(for: .updateProcessing, cancelling: false)
+        try await assertReleaseWaits(for: .finish, cancelling: false)
+        try await assertReleaseWaits(for: .cancel, cancelling: true)
+    }
+
+    @MainActor
     func testLeavingTheAppAfterAnEarlierBackgroundCaptureReleasesIt() async throws {
         let directory = keyboardTestDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -824,4 +899,37 @@ private func waitForKeyboardTest(timeout: TimeInterval = 2, _ condition: @MainAc
     }
     XCTFail("Timed out waiting for explicit test operation")
     throw CancellationError()
+}
+
+/// Holds one ActivityKit call open until `letGo`.
+@MainActor
+private final class HeldLiveActivity: LiveActivityControlling {
+    enum Call { case start, updateProcessing, finish, cancel }
+    private let held: Call
+    private let failStart: Bool
+    private var waiting: CheckedContinuation<Void, Never>?
+    var isHolding: Bool { waiting != nil }
+
+    init(hold: Call, failStart: Bool) {
+        held = hold
+        self.failStart = failStart
+    }
+
+    private func pass(_ call: Call) async {
+        guard call == held, waiting == nil else { return }
+        await withCheckedContinuation { waiting = $0 }
+    }
+
+    func letGo() {
+        waiting?.resume()
+        waiting = nil
+    }
+
+    func start() async throws {
+        await pass(.start)
+        if failStart { throw CancellationError() }
+    }
+    func updateProcessing() async { await pass(.updateProcessing) }
+    func finish() async { await pass(.finish) }
+    func cancel() async { await pass(.cancel) }
 }

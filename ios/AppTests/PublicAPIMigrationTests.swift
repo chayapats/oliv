@@ -40,7 +40,57 @@ final class PublicAPIMigrationTests: XCTestCase {
         XCTAssertNil(model.message)
         XCTAssertTrue(model.isConfigured)
         XCTAssertNil(model.settings.trialExpiresAt)
+        XCTAssertNil(model.settings.trialIssuerURL)
         XCTAssertNotEqual(model.settings.serverURL, issuer)
+    }
+
+    @MainActor
+    func testAnotherSavePersistingTheDraftAddressDoesNotMoveATrialKey() async throws {
+        let directory = migrationTestDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let credentials = MemoryCredentialStore()
+        let service = PublicAPITestService()
+        let open = {
+            let model = AppModel(directory: directory, credentials: credentials,
+                capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
+                clientFactory: { _ in service },
+                requestTrialKey: { _ in TrialKey(token: "trial-key", expiresAt: Date().addingTimeInterval(86_400)) })
+            model.trialServerURL = "https://trial.example.com"
+            return model
+        }
+        let first = open()
+        await first.startTrial()
+        first.settings.serverURL = "https://other.example.com"
+        first.finishSetup() // Writes the edited address to settings.json.
+
+        let reopened = open()
+        XCTAssertEqual(reopened.settings.serverURL, "https://other.example.com")
+        XCTAssertEqual(reopened.settings.trialIssuerURL, "https://trial.example.com")
+        let binding = reopened.settings.credentialBinding
+        reopened.saveSettings()
+        XCTAssertNotNil(reopened.message)
+        XCTAssertEqual(reopened.settings.credentialBinding, binding, "not paired with the other server")
+        await reopened.cleanText("must stay here")
+        let sent = await service.counts()
+        XCTAssertEqual(sent.clean, 0)
+    }
+
+    @MainActor
+    func testATrialKeyIsNeverLeftWithoutItsIssuer() async throws {
+        let directory = migrationTestDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        // A directory here makes the settings write fail.
+        try FileManager.default.createDirectory(at: directory.appendingPathComponent("settings.json"),
+                                                withIntermediateDirectories: true)
+        let credentials = MemoryCredentialStore()
+        let model = AppModel(directory: directory, credentials: credentials,
+            capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
+            clientFactory: { _ in PublicAPITestService() },
+            requestTrialKey: { _ in TrialKey(token: "trial-key", expiresAt: Date().addingTimeInterval(86_400)) })
+        model.trialServerURL = "https://trial.example.com"
+        await model.startTrial()
+        XCTAssertFalse(model.isConfigured)
+        XCTAssertNil(try credentials.read())
     }
 
     @MainActor

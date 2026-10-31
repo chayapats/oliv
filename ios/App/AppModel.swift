@@ -19,7 +19,12 @@ final class AppModel {
     static let shared = AppModel.makeDefault()
 
     var phase: CapturePhase = .idle {
-        didSet { if !isBusy, oldValue != phase { scheduleProcessRelease() } }
+        didSet {
+            guard !isBusy, oldValue != phase else { return }
+            // A capture running when the app came on screen delayed this.
+            if Self.busyPhases.contains(oldValue), !isInBackground() { clearCompletion() }
+            scheduleProcessRelease()
+        }
     }
     var settings = AppSettings()
     var tokenInput = ""
@@ -59,7 +64,8 @@ final class AppModel {
     var trialServerURL = AppSettings.defaultServerURL
     var offersTrial: Bool { !trialServerURL.isEmpty }
     var trialHasEnded: Bool { settings.trialExpiresAt.map { $0 <= Date() } ?? false }
-    var isBusy: Bool { phase == .preparing || phase == .recording || phase == .processing }
+    private static let busyPhases: Set<CapturePhase> = [.preparing, .recording, .processing]
+    var isBusy: Bool { Self.busyPhases.contains(phase) }
     var isRecording: Bool { phase == .recording }
     var formattedElapsed: String {
         let seconds = Int(max(0, elapsed))
@@ -75,6 +81,7 @@ final class AppModel {
     @ObservationIgnored private let capture: any AudioCapturing
     @ObservationIgnored private let clientFactory: (OlivConfiguration) -> any OlivServing
     @ObservationIgnored private let liveActivitiesEnabled: Bool
+    @ObservationIgnored private let liveActivity: any LiveActivityControlling
     @ObservationIgnored private let keyboardDelivery: (any KeyboardDelivering)?
     @ObservationIgnored private var keyboardTarget: KeyboardCaptureTarget?
     @ObservationIgnored private var keyboardCaptureRequested = false
@@ -112,6 +119,7 @@ final class AppModel {
          credentials: any CredentialStoring = KeychainCredentialStore(),
          capture: (any AudioCapturing)? = nil,
          liveActivitiesEnabled: Bool = true,
+         liveActivity: (any LiveActivityControlling)? = nil,
          keyboardDelivery: (any KeyboardDelivering)? = nil,
          clientFactory: @escaping (OlivConfiguration) -> any OlivServing = { OlivClient(configuration: $0) },
          requestTrialKey: @escaping (URL) async throws -> TrialKey = { try await TrialClient.requestKey(baseURL: $0) },
@@ -126,6 +134,7 @@ final class AppModel {
         self.isInBackground = isInBackground
         self.releaseProcess = releaseProcess
         self.liveActivitiesEnabled = liveActivitiesEnabled
+        self.liveActivity = liveActivity ?? LiveActivityManager.shared
         self.keyboardDelivery = keyboardDelivery
         var installedBefore = false
         do {
@@ -257,8 +266,8 @@ final class AppModel {
             let token = entered.isEmpty ? (try credentials.read() ?? "") : entered
             // A trial key belongs to the server that issued it. Only a key
             // someone chose for the new address may go there.
-            if entered.isEmpty, settings.trialExpiresAt != nil,
-               settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines) != savedServerURL {
+            if entered.isEmpty, let issuer = settings.trialIssuer,
+               settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines) != issuer {
                 throw OlivError.invalidConfiguration(String(localized: "Enter an API key for this server. Your trial key works only with the server that issued it."))
             }
             guard let url = URL(string: settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
@@ -267,7 +276,10 @@ final class AppModel {
             _ = try OlivConfiguration(baseURL: url, token: token, allowsInsecureHTTP: settings.allowsInsecureHTTP)
             var approved = settings
             approved.requiresNewAPIKey = false
-            if !entered.isEmpty { approved.trialExpiresAt = nil }
+            if !entered.isEmpty {
+                approved.trialExpiresAt = nil
+                approved.trialIssuerURL = nil
+            }
             approved.credentialBinding = Self.credentialBinding(token: token,
                 serverURL: settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines))
             let data = try JSONEncoder().encode(approved)
@@ -327,20 +339,22 @@ final class AppModel {
         approved.allowsInsecureHTTP = false
         approved.requiresNewAPIKey = false
         approved.trialExpiresAt = key.expiresAt
+        approved.trialIssuerURL = trialServerURL
         if isInSetup { approved.finishedSetup = false }
         approved.credentialBinding = Self.credentialBinding(token: key.token, serverURL: trialServerURL)
         let data = try JSONEncoder().encode(approved)
-        let previous = try credentials.read()
-        try credentials.write(key.token)
+        // Settings first, because they name the key's issuer: a key must never
+        // sit in Keychain without it, and release builds can't delete one.
+        let settingsURL = directory.appendingPathComponent("settings.json")
+        let previousSettings = try? Data(contentsOf: settingsURL)
+        try data.write(to: settingsURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         do {
-            try data.write(to: directory.appendingPathComponent("settings.json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+            try credentials.write(key.token)
         } catch {
-            do {
-                if let previous { try credentials.write(previous) }
-            } catch {
-                // Better to ask for a new connection than to look connected.
-                hasToken = false
-                savedCredentialBinding = nil
+            if let previousSettings {
+                try? previousSettings.write(to: settingsURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+            } else {
+                try? FileManager.default.removeItem(at: settingsURL)
             }
             throw error
         }
@@ -580,7 +594,7 @@ final class AppModel {
                 intentStartStage = .liveActivity
                 if fromIntent { CaptureDiagnostics.record(event: .liveActivityStarting) }
                 do {
-                    try await trackLiveActivity { try await LiveActivityManager.shared.start() }
+                    try await trackLiveActivity { try await liveActivity.start() }
                     if fromIntent { CaptureDiagnostics.record(event: .liveActivityStarted) }
                 }
                 catch { if fromIntent { throw error } }
@@ -639,7 +653,7 @@ final class AppModel {
                 speechEndpoint = nil
                 clearKeyboardDelivery()
                 phase = .idle
-                if liveActivitiesEnabled { await trackLiveActivity { await LiveActivityManager.shared.cancel() } }
+                if liveActivitiesEnabled { await trackLiveActivity { await liveActivity.cancel() } }
             }
             throw error
         }
@@ -732,7 +746,7 @@ final class AppModel {
             // Keep the recovery file if reading, conversion or persistence failed.
             message = String(localized: "Recording stopped because automatic finish became unavailable. Nothing was inserted. Open OLIV to review the recording.")
         }
-        if liveActivitiesEnabled { await trackLiveActivity { await LiveActivityManager.shared.cancel() } }
+        if liveActivitiesEnabled { await trackLiveActivity { await liveActivity.cancel() } }
         guard operationID == captureID else { return }
         phase = .failed
     }
@@ -770,7 +784,7 @@ final class AppModel {
                 CaptureDiagnostics.record(event: .speechAnalysisFailed)
                 phase = .failed
                 message = String(localized: "Automatic finish became unavailable. The microphone is off and your audio is saved for retry. Nothing was inserted.")
-                if liveActivitiesEnabled { await trackLiveActivity { await LiveActivityManager.shared.cancel() } }
+                if liveActivitiesEnabled { await trackLiveActivity { await liveActivity.cancel() } }
                 return
             }
             await submit(item, source: .dictation, keyboardTarget: target,
@@ -779,7 +793,7 @@ final class AppModel {
             clearKeyboardDelivery()
             phase = .failed
             message = safeDescription(error)
-            if liveActivitiesEnabled { await trackLiveActivity { await LiveActivityManager.shared.cancel() } }
+            if liveActivitiesEnabled { await trackLiveActivity { await liveActivity.cancel() } }
         }
     }
 
@@ -799,7 +813,7 @@ final class AppModel {
         activeRecordID = item.id
         message = nil
         startBackgroundTask()
-        if liveActivitiesEnabled { await trackLiveActivity { await LiveActivityManager.shared.updateProcessing() } }
+        if liveActivitiesEnabled { await trackLiveActivity { await liveActivity.updateProcessing() } }
         guard operationID == id else { return }
         let task = Task { @MainActor [weak self] in
             guard let self, self.operationID == id else { return }
@@ -864,8 +878,8 @@ final class AppModel {
             self.activeRecordID = nil
             self.endBackgroundTask()
             if self.liveActivitiesEnabled {
-                if self.phase == .result { await trackLiveActivity { await LiveActivityManager.shared.finish() } }
-                else { await trackLiveActivity { await LiveActivityManager.shared.cancel() } }
+                if self.phase == .result { await trackLiveActivity { await liveActivity.finish() } }
+                else { await trackLiveActivity { await liveActivity.cancel() } }
             }
         }
         operationTask = task
@@ -1113,7 +1127,7 @@ final class AppModel {
         level = 0
         latest = nil
         message = wasProcessing && !pending.isEmpty ? String(localized: "Stopped waiting. Your recording is saved for retry.") : nil
-        if liveActivitiesEnabled { await trackLiveActivity { await LiveActivityManager.shared.cancel() } }
+        if liveActivitiesEnabled { await trackLiveActivity { await liveActivity.cancel() } }
     }
 
     private func clearKeyboardDelivery() {

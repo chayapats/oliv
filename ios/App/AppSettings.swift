@@ -31,6 +31,14 @@ struct AppSettings: Codable, Equatable {
     var requiresNewAPIKey: Bool?
     /// Set while this iPhone uses a free-trial key. The server enforces the date.
     var trialExpiresAt: Date?
+    /// Where the saved trial key came from. Separate from `serverURL`, which is
+    /// an editable draft that other saves can persist. Builds before this field
+    /// could only get a trial from the build's default server.
+    var trialIssuerURL: String?
+    var trialIssuer: String? {
+        trialIssuerURL ?? (trialExpiresAt == nil ? nil : Self.defaultServerURL)
+    }
+
     /// Nil on a new install and for anyone who connected before first-run setup
     /// existed. AppModel's init tells those two apart.
     var finishedSetup: Bool?

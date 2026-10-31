@@ -1,8 +1,17 @@
 import ActivityKit
 import Foundation
 
+/// What AppModel needs from ActivityKit, so tests can hold a call open.
 @MainActor
-final class LiveActivityManager {
+protocol LiveActivityControlling: AnyObject {
+    func start() async throws
+    func updateProcessing() async
+    func finish() async
+    func cancel() async
+}
+
+@MainActor
+final class LiveActivityManager: LiveActivityControlling {
     static let shared = LiveActivityManager()
 
     // Persist only the identifier. ActivityKit's Activity is not Sendable; obtain a fresh
