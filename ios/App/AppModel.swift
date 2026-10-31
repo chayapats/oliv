@@ -493,7 +493,10 @@ final class AppModel {
 
     private func saveCompletion() throws {
         let unsaved = latest.flatMap { entry in history.contains { $0.id == entry.id } ? nil : entry }
-        let completion = Completion(entryID: latest?.id, entry: unsaved, message: message, savedAt: Date())
+        // Passing through a background launch doesn't restart its day.
+        let earlier = (try? Data(contentsOf: completionURL)).flatMap { try? JSONDecoder().decode(Completion.self, from: $0) }
+        let savedAt = earlier.flatMap { $0.entryID == latest?.id && latest != nil ? $0.savedAt : nil } ?? Date()
+        let completion = Completion(entryID: latest?.id, entry: unsaved, message: message, savedAt: savedAt)
         guard completion.entryID != nil || completion.message != nil else { return }
         try JSONEncoder().encode(completion).write(to: completionURL, options: [
             .atomic, .completeFileProtectionUntilFirstUserAuthentication])
