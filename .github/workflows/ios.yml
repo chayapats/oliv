@@ -1,0 +1,36 @@
+name: iPhone app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+  pull_request:
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: OlivCore and simulator tests
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build tools
+        run: brew install xcodegen
+      # Only the unit tests: the keyboard, Action button and live-server
+      # schemes need a real device or manual setup (ios/README.md).
+      - name: Package and simulator tests
+        run: bash ios/Scripts/test.sh
