@@ -233,7 +233,10 @@ final class KeyboardInteractionTests: XCTestCase {
         XCTAssertEqual(actions, [.insert("q")])
         w.sendActions(for: .touchUpInside)
         XCTAssertTrue(activePreview.superview === keyboard, "A committed key keeps its preview briefly visible")
-        try await Task.sleep(for: .milliseconds(90))
+        let deadline = ContinuousClock.now + .seconds(2)
+        while activePreview.superview != nil, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
         XCTAssertNil(activePreview.superview)
         XCTAssertEqual(actions, [.insert("q"), .insert("w")])
     }

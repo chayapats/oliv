@@ -13,4 +13,4 @@ bash "$ROOT/scripts/build_dev.sh" --tests-only
 swift "$ROOT/scripts/test_native_runtime.swift" "$BUILD/native-runtime"
 xcodebuild -project "$ROOT/macos/OLIV.xcodeproj" -scheme OLIV -configuration Debug \
   -destination 'platform=macOS,arch=arm64' \
-  -derivedDataPath "$DERIVED" -parallel-testing-enabled NO test
+  -derivedDataPath "$DERIVED" -parallel-testing-enabled NO ${OLIV_XCTEST_ARGS:-} test
