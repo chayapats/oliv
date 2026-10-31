@@ -30,6 +30,10 @@ pub struct CleanResult {
     /// deterministic result, as if the guardrail had fallen back.
     #[serde(skip)]
     pub llm_error: Option<String>,
+    /// Outputs the pre-LLM correction pass wrote, which the post pass
+    /// ([`apply_replacements`]) must not correct again.
+    #[serde(skip)]
+    pub corrected: Vec<String>,
 }
 
 /// Guardrail flag used when the LLM call itself failed.
@@ -62,14 +66,12 @@ pub fn clean_ex(
     llm: &dyn Llm,
 ) -> CleanResult {
     let (mut dict_text, mut dict_hits) = apply_dictionary(text);
-    for pass in [
-        UserDictionary::apply_corrections,
-        UserDictionary::apply_numerals,
-    ] {
-        let (t, n) = pass(dict, &dict_text);
-        dict_text = t;
-        dict_hits += n;
-    }
+    let (t, n, corrected) = dict.apply_corrections_before(&dict_text, &[]);
+    dict_text = t;
+    dict_hits += n;
+    let (t, n) = dict.apply_numerals(&dict_text);
+    dict_text = t;
+    dict_hits += n;
     let mut vocab_fired = 0;
     let mut hints = Vec::new();
     if !vocab.is_empty() {
@@ -144,19 +146,22 @@ pub fn clean_ex(
         guardrail_flag: flag,
         suspect_tokens: susp,
         llm_error,
+        corrected,
     }
 }
 
 /// After cleanup: dictionary corrections merged with the legacy
-/// `replacements` table, then Thai-numeral words again (repairs what the LLM
-/// split or spelled out), then Thai spacing. Without a dictionary this is the
-/// sidecar's `apply_dictionary(text, table)` + spacing.
+/// `replacements` table, skipping what the pre-LLM pass wrote (`corrected`,
+/// empty when cleanup was off), then Thai-numeral words again (repairs what
+/// the LLM split or spelled out), then Thai spacing. Without a dictionary this
+/// is the sidecar's `apply_dictionary(text, table)` + spacing.
 pub fn apply_replacements(
     text: &str,
     dict: &UserDictionary,
     legacy: &[(String, String)],
+    corrected: &[String],
 ) -> (String, usize) {
-    let (t, a) = dict.apply_with_legacy(text, legacy);
+    let (t, a) = dict.apply_after_cleanup(text, legacy, corrected);
     let (t, b) = dict.apply_numerals(&t);
     (normalize_thai_spacing(&t), a + b)
 }
@@ -165,6 +170,7 @@ pub fn apply_replacements(
 mod tests {
     use super::*;
     use crate::llm::LlmError;
+    use oliv_text_core::user_dictionary::Entry;
 
     /// Returns the text unchanged.
     struct Echo;
@@ -176,6 +182,31 @@ mod tests {
     }
 
     const CLEAN_THAI: &str = "วันนี้อากาศดีมาก";
+
+    #[test]
+    fn a_chained_correction_applies_once() {
+        let entry = |word: &str, heard: &str| Entry {
+            word: word.to_string(),
+            correction: Some(heard.to_string()),
+            enabled: true,
+            starred: false,
+        };
+        let dict = UserDictionary::new(&[entry("docker", "foo"), entry("X", "docker")]);
+        let r = clean_ex(
+            "say foo",
+            &[],
+            &dict,
+            Prompt::V5,
+            AsrProfile::Turbo,
+            None,
+            &Echo,
+        );
+        assert_eq!(r.text, "say Docker");
+        let (t, _) = apply_replacements(&r.text, &dict, &[], &r.corrected);
+        assert_eq!(t, "say Docker");
+        // With cleanup off nothing ran before, so every correction does here.
+        assert_eq!(apply_replacements("say docker", &dict, &[], &[]).0, "say X");
+    }
 
     #[test]
     fn force_llm_runs_a_skipped_gate() {

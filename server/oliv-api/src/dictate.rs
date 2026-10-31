@@ -219,6 +219,7 @@ pub fn clean_text(text: &str, opts: &Options, llm: &dyn Llm) -> Outcome {
 
     // _clean_and_replace_segments with a single segment
     let mut seg = t;
+    let mut corrected = Vec::new();
     if opts.cleanup && !is_blank(&seg) {
         let r = clean_ex(
             &seg,
@@ -236,11 +237,16 @@ pub fn clean_text(text: &str, opts: &Options, llm: &dyn Llm) -> Outcome {
         out.gate_reason = r.gate_reason;
         out.guardrail_flag = r.guardrail_flag;
         out.cleanup_error = r.llm_error;
+        corrected = r.corrected;
     }
     // Runs with cleanup off too: the user's words are always theirs.
     if (!opts.replacements.is_empty() || !opts.dictionary.is_empty()) && !is_blank(&seg) {
-        let (s, n) =
-            crate::pipeline::apply_replacements(&seg, &opts.dictionary, &opts.replacements);
+        let (s, n) = crate::pipeline::apply_replacements(
+            &seg,
+            &opts.dictionary,
+            &opts.replacements,
+            &corrected,
+        );
         seg = s;
         out.replacements_fired = n;
     }

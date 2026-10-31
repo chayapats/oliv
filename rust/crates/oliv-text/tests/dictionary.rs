@@ -179,6 +179,50 @@ fn legacy_snippets_never_rewrite_a_dictionary_output() {
 }
 
 #[test]
+fn a_chained_correction_survives_cleanup_rewriting_the_output() {
+    let chain = opts(json!({
+        "thai_format": false,
+        "dictionary": [{"word": "docker", "correction": "foo"}, {"word": "X", "correction": "docker"}],
+    }))
+    .unwrap();
+    // Cleanup re-cased the output; `docker` already had its turn.
+    assert_eq!(
+        both("ใช้ foo x", &chain, &Fixed("ใช้ Docker x")),
+        ["ใช้ Docker x", "ใช้ Docker x"]
+    );
+    // What was really said as `docker` is still corrected, once.
+    assert_eq!(
+        both("ใช้ foo กับ docker x", &chain, &Fixed("ใช้ Docker กับ X x")),
+        ["ใช้ Docker กับ X x", "ใช้ Docker กับ X x"]
+    );
+
+    // A source that wraps an output.
+    let wraps = opts(json!({
+        "thai_format": false,
+        "dictionary": [
+            {"word": "docker", "correction": "foo"},
+            {"word": "Compose", "correction": "docker compose"},
+        ],
+    }))
+    .unwrap();
+    assert_eq!(
+        both("say foo compose", &wraps, &NoLlm),
+        ["say Docker compose", "say Docker compose"]
+    );
+
+    // A word containing its own source, re-spaced by cleanup, is not expanded.
+    let thai = opts(json!({
+        "thai_format": false,
+        "dictionary": [{"word": "ประเทศไทย", "correction": "ไทย"}],
+    }))
+    .unwrap();
+    assert_eq!(
+        both("ใน ไทย x", &thai, &Fixed("ใน ประเทศ ไทย x")),
+        ["ในประเทศไทย x", "ในประเทศไทย x"]
+    );
+}
+
+#[test]
 fn the_post_pass_protects_only_what_the_pre_pass_wrote() {
     let o = |dict: Value, replacements: Value| {
         opts(json!({"thai_format": false, "dictionary": dict, "replacements": replacements}))

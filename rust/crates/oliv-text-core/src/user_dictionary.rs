@@ -207,8 +207,10 @@ impl UserDictionary {
     /// The post-cleanup pass: corrections merged with the legacy table, one
     /// longest-match plan, except inside the exact outputs the pre-LLM pass
     /// wrote (`produced`): those are never corrected again (no `foo→bar→baz`,
-    /// no `ไทย→ประเทศไทย` twice), while anything the cleanup model newly
-    /// produced — including a different spelling of an output — is.
+    /// no `ไทย→ประเทศไทย` twice). A correction whose source overlaps one of
+    /// those outputs has had its turn, so it stays out of this pass even when
+    /// cleanup re-cased or re-spaced the output. Anything else the cleanup
+    /// model newly produced is corrected.
     pub fn apply_after_cleanup(
         &self,
         text: &str,
@@ -226,7 +228,12 @@ impl UserDictionary {
             .collect();
         guards.sort_by_key(|k| std::cmp::Reverse(k.chars.len()));
         let legacy: Vec<Key> = legacy.iter().map(|(k, v)| Key::legacy(k, v)).collect();
-        let mut rest: Vec<&Key> = self.corrections.iter().chain(&legacy).collect();
+        let mut rest: Vec<&Key> = self
+            .corrections
+            .iter()
+            .filter(|k| !overlaps_output(k, produced))
+            .chain(&legacy)
+            .collect();
         rest.sort_by_key(|k| std::cmp::Reverse(k.chars.len()));
         let keys: Vec<&Key> = guards.iter().chain(rest).collect();
         apply_keys(text, &keys)
@@ -342,6 +349,22 @@ impl Key {
             guard: true,
         }
     }
+}
+
+/// Whether applying `key` could rewrite one of `produced`: its source is
+/// inside an output or wraps one, ignoring case and spacing. A case-only
+/// correction to that same output can't chain, and repairs an LLM that undid it.
+fn overlaps_output(key: &Key, produced: &[String]) -> bool {
+    let fold = |s: &str| casefold(s).replace(char::is_whitespace, "");
+    let source = fold(&key.chars.iter().collect::<String>());
+    produced.iter().any(|p| {
+        let output = fold(p);
+        if source == output {
+            key.value != *p
+        } else {
+            output.contains(&source) || source.contains(&output)
+        }
+    })
 }
 
 fn apply_keys(text: &str, keys: &[&Key]) -> (String, usize) {
