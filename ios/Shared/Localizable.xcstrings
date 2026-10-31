@@ -3618,6 +3618,16 @@
         }
       }
     },
+    "Your Dictionary could not be read, so new words can't be saved.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "อ่านพจนานุกรมไม่ได้ จึงบันทึกคำใหม่ไม่ได้"
+          }
+        }
+      }
+    },
     "Your Dictionary could not be read, so OLIV kept the file and isn't changing it. Dictation still works.": {
       "localizations": {
         "th": {

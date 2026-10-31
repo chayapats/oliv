@@ -881,6 +881,9 @@ final class AppModel {
     /// accepted (empty, too long, or already in the Dictionary).
     @discardableResult
     func saveDictionaryEntry(id: String? = nil, word: String, correction: String?) -> String? {
+        guard dictionaryStore != nil else {
+            return String(localized: "Your Dictionary could not be read, so new words can't be saved.")
+        }
         guard let word = DictionaryEntry.clean(word) else {
             return String(localized: "Enter a word of up to \(DictionaryEntry.maxFieldLength) characters.")
         }
