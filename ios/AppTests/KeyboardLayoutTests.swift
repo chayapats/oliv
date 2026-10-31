@@ -26,8 +26,8 @@ final class KeyboardLayoutTests: XCTestCase {
         let referenceUpper = ["+ ๑ ๒ ๓ ๔ ู ฿ ๕ ๖ ๗ ๘ ๙", "๐ \" ฎ ฑ ธ ํ ๊ ณ ฯ ญ ฐ ,",
                               "ฤ ฆ ฏ โ ฌ ็ ๋ ษ ศ ซ . ฅ", "( ) ฉ ฮ ฺ ์ ? ฒ ฬ ฦ"]
         XCTAssertEqual(lower.count, 5)
-        XCTAssertEqual(lower.prefix(4).map { characters(in: $0) }, referenceLower.map { $0.unicodeScalars.split(separator: " ").map(String.init) })
-        XCTAssertEqual(upper.prefix(4).map { characters(in: $0) }, referenceUpper.map { $0.unicodeScalars.split(separator: " ").map(String.init) })
+        XCTAssertEqual(lower.prefix(4).map { self.characters(in: $0) }, referenceLower.map { $0.unicodeScalars.split(separator: " ").map(String.init) })
+        XCTAssertEqual(upper.prefix(4).map { self.characters(in: $0) }, referenceUpper.map { $0.unicodeScalars.split(separator: " ").map(String.init) })
         for rows in [lower, upper] {
             XCTAssertEqual(rows.prefix(4).map { $0.keys.count }, [12, 12, 12, 12])
             XCTAssertTrue(rows.prefix(4).allSatisfy { $0.horizontalInset == 0 && $0.keys.allSatisfy { $0.width == 1 } })
