@@ -176,6 +176,7 @@ final class AppModelTests: XCTestCase {
         let model = AppModel(directory: directory, credentials: MemoryCredentialStore(token: "test"),
                              capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "fixture-token"
         model.settings.autoCopy = false
         model.saveSettings()
         let firstStart = Task { @MainActor in await model.startInForeground() }
@@ -289,6 +290,7 @@ final class AppModelTests: XCTestCase {
                              capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
                              clientFactory: { _ in service })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "fixture-token"
         model.saveSettings()
         await model.checkConnection()
         let healthCalls = await service.healthCalls
@@ -313,6 +315,7 @@ final class AppModelTests: XCTestCase {
                              capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
                              clientFactory: { _ in ScopeLimitedService() })
         model.settings.serverURL = "https://oliv.example.com"
+        model.tokenInput = "fixture-token"
         model.saveSettings()
         await model.checkConnection()
         XCTAssertEqual(model.connectionMessage, "Connected, but this API key can't dictate. Ask the administrator to add the dictate scope.")
@@ -361,11 +364,13 @@ final class AppModelTests: XCTestCase {
             return service
         })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "fixture-bound-token"
         model.settings.autoCopy = false
         model.saveSettings()
         XCTAssertTrue(model.isConfigured)
 
         model.settings.serverURL = "https://unconfirmed.example"
+        model.tokenInput = "fixture-bound-token"
         XCTAssertFalse(model.isConfigured)
         await model.checkConnection()
         XCTAssertEqual(forwardedHosts, ["unconfirmed.example"])
@@ -404,6 +409,7 @@ final class AppModelTests: XCTestCase {
                              capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
                              clientFactory: { _ in service })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "fixture-token"
         model.settings.autoCopy = false
         model.saveSettings()
         let draft = "ส่ง draft ให้ทีม review\nข้อความต้องยังอยู่"
@@ -533,6 +539,7 @@ final class AppModelTests: XCTestCase {
         let model = AppModel(directory: directory, credentials: MemoryCredentialStore(token: "test"),
                              capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "fixture-token"
         model.settings.autoCopy = false
         XCTAssertEqual(model.history.map(\.id), [previous.id])
         XCTAssertTrue(model.pending.isEmpty)
@@ -579,6 +586,7 @@ final class AppModelTests: XCTestCase {
         let model = AppModel(directory: directory, credentials: MemoryCredentialStore(),
                              capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "fixture-token"
         XCTAssertFalse(model.hasToken)
         XCTAssertFalse(model.isConfigured)
         await model.startInForeground()
@@ -605,6 +613,7 @@ final class AppModelTests: XCTestCase {
         let model = AppModel(directory: directory, credentials: UnavailableCredentialStore(),
                              capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "fixture-token"
         XCTAssertFalse(model.hasToken)
         XCTAssertEqual(model.history.map(\.id), [history.id])
         XCTAssertEqual(model.pending.map(\.id), [pending.id])
@@ -726,6 +735,7 @@ private struct Harness {
         model = AppModel(directory: directory, credentials: credentials, capture: capture,
                          liveActivitiesEnabled: false, clientFactory: { _ in service })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "fixture-token"
         model.settings.autoCopy = false
         model.saveSettings()
         XCTAssertNil(model.message)

@@ -75,6 +75,36 @@ final class PublicAPIMigrationTests: XCTestCase {
         XCTAssertEqual(sent.clean, 0)
     }
 
+    /// Keychain survives what settings don't, like deleting and reinstalling.
+    @MainActor
+    func testAKeyWithNoKnownOriginMustBeEnteredAgain() async throws {
+        for damaged in [false, true] {
+            let directory = migrationTestDirectory()
+            defer { try? FileManager.default.removeItem(at: directory) }
+            if damaged {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                try Data("{".utf8).write(to: directory.appendingPathComponent("settings.json"))
+            }
+            let credentials = MemoryCredentialStore(token: "left-from-before")
+            let service = PublicAPITestService()
+            let model = AppModel(directory: directory, credentials: credentials,
+                capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
+                clientFactory: { _ in service })
+            model.settings.serverURL = "https://chosen.example.com"
+            model.saveSettings()
+            XCTAssertNotNil(model.message)
+            XCTAssertNil(model.settings.credentialBinding)
+            await model.cleanText("must stay here")
+            let sent = await service.counts()
+            XCTAssertEqual(sent.clean, 0)
+
+            model.tokenInput = "entered-again"
+            model.saveSettings()
+            XCTAssertNil(model.message)
+            XCTAssertTrue(model.isConfigured)
+        }
+    }
+
     @MainActor
     func testATrialKeyIsNeverLeftWithoutItsIssuer() async throws {
         let directory = migrationTestDirectory()
@@ -168,6 +198,7 @@ final class PublicAPIMigrationTests: XCTestCase {
             })
         XCTAssertEqual(model.settings.serverURL, AppSettings.defaultServerURL)
         model.settings.serverURL = "https://oliv.example.com"
+        model.tokenInput = "test-token"
         XCTAssertFalse(model.hasToken)
         XCTAssertFalse(model.isConfigured)
         await model.checkConnection()
@@ -234,6 +265,7 @@ final class PublicAPIMigrationTests: XCTestCase {
         let recordings = try PendingRecordingStore(directory: h.directory.appendingPathComponent("Pending"))
         let item = try recordings.enqueue(wav: testWAV(), options: OlivOptions(vocabulary: ["saved retry"]))
         h.model.settings.serverURL = "https://different.example"
+        h.model.tokenInput = "test-token"
         h.model.tokenInput = "different-api-key"
         h.model.saveSettings()
         XCTAssertNil(h.model.message)
@@ -307,6 +339,7 @@ private struct PublicAPIHarness {
         model = AppModel(directory: directory, credentials: credentials, capture: capture,
             liveActivitiesEnabled: false, clientFactory: { _ in service })
         model.settings.serverURL = "https://oliv.example.com"
+        model.tokenInput = "test-token"
         model.settings.autoCopy = false
         model.saveSettings()
         XCTAssertNil(model.message)
@@ -444,6 +477,7 @@ final class FreeTrialTests: XCTestCase {
                              requestTrialKey: { _ in TrialKey(token: "oliv_trial_key", expiresAt: Date().addingTimeInterval(60)) })
         model.trialServerURL = "https://oliv.example.com"
         model.settings.serverURL = "https://own.example.com"
+        model.tokenInput = "existing-key"
         model.saveSettings()
         // A directory at the settings path makes the atomic write fail.
         let settingsFile = directory.appendingPathComponent("settings.json")
@@ -464,6 +498,7 @@ final class FreeTrialTests: XCTestCase {
                              capture: FixtureAudioCapture(directory: directory), liveActivitiesEnabled: false,
                              clientFactory: { _ in PublicAPITestService() })
         first.settings.serverURL = "https://own.example.com"
+        first.tokenInput = "test-token"
         first.saveSettings()
         // An install from before setup existed has no finishedSetup value.
         first.settings.finishedSetup = nil
@@ -473,6 +508,7 @@ final class FreeTrialTests: XCTestCase {
                                 clientFactory: { _ in PublicAPITestService() })
         XCTAssertFalse(upgraded.isInSetup)
         upgraded.settings.serverURL = "https://own.example.com/edited"
+        upgraded.tokenInput = "test-token"
         XCTAssertFalse(upgraded.isInSetup)
     }
 
@@ -487,6 +523,7 @@ final class FreeTrialTests: XCTestCase {
                              requestTrialKey: { _ in await gate.wait() },
                              isInBackground: { true }, releaseProcess: { releases += 1 })
         model.settings.serverURL = "https://oliv.example.com"
+        model.tokenInput = "test-token"
         model.saveSettings()
         model.trialServerURL = "https://oliv.example.com"
         try await model.startFromIntent(allowKeyboardDelivery: false)
@@ -509,6 +546,7 @@ final class FreeTrialTests: XCTestCase {
         let trial = Task { await model.startTrial() }
         await gate.waitUntilRequested()
         model.settings.serverURL = "https://own.example.com"
+        model.tokenInput = "test-token"
         model.tokenInput = "my-own-key"
         model.saveSettings()
         await gate.finish(TrialKey(token: "oliv_trial_key", expiresAt: Date().addingTimeInterval(60)))

@@ -264,11 +264,19 @@ final class AppModel {
                 throw OlivError.invalidConfiguration(String(localized: "Enter your new individual API key. The retired shared token cannot be reused."))
             }
             let token = entered.isEmpty ? (try credentials.read() ?? "") : entered
-            // A trial key belongs to the server that issued it. Only a key
-            // someone chose for the new address may go there.
-            if entered.isEmpty, let issuer = settings.trialIssuer,
-               settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines) != issuer {
-                throw OlivError.invalidConfiguration(String(localized: "Enter an API key for this server. Your trial key works only with the server that issued it."))
+            if entered.isEmpty, !token.isEmpty {
+                // Keychain outlives settings (a reinstall, a damaged file), so a
+                // key whose pairing can't be shown has no known origin. It stays
+                // unused until someone enters it again.
+                guard savedCredentialBinding == Self.credentialBinding(token: token, serverURL: savedServerURL) else {
+                    throw OlivError.invalidConfiguration(String(localized: "Enter your API key again. OLIV can't confirm which server the saved key belongs to."))
+                }
+                // A trial key belongs to the server that issued it. Only a key
+                // someone chose for the new address may go there.
+                if let issuer = settings.trialIssuer,
+                   settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines) != issuer {
+                    throw OlivError.invalidConfiguration(String(localized: "Enter an API key for this server. Your trial key works only with the server that issued it."))
+                }
             }
             guard let url = URL(string: settings.serverURL.trimmingCharacters(in: .whitespacesAndNewlines)) else {
                 throw AppCaptureError.setupRequired

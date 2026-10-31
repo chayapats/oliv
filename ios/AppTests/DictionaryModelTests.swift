@@ -71,6 +71,7 @@ final class DictionaryModelTests: XCTestCase {
 
         await h.service.reset()
         h.model.settings.serverURL = "https://other.example"
+        h.model.tokenInput = "test-token"
         h.model.saveSettings()
         XCTAssertEqual(h.model.currentOptions.vocabulary, ["Grafana"], "until the new server confirms sync")
         await h.model.syncDictionary()
@@ -96,6 +97,7 @@ final class DictionaryModelTests: XCTestCase {
 
         await h.service.reset()
         h.model.settings.serverURL = "https://other.example"
+        h.model.tokenInput = "test-token"
         h.model.saveSettings()
         await h.service.release()
         await sync.value
@@ -184,6 +186,7 @@ private struct DictionaryHarness {
         directory = FileManager.default.temporaryDirectory.appendingPathComponent("OlivDictionary-\(UUID())")
         model = Self.model(directory: directory, credentials: credentials, service: service)
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "test-token"
         model.saveSettings()
         XCTAssertNil(model.message)
     }

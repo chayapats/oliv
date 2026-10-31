@@ -429,12 +429,23 @@ final class ClientTests: XCTestCase, @unchecked Sendable {
             attempts.increment()
             return attempts.count == 1
                 ? .response(502, Data("<html>Bad gateway</html>".utf8), headers: ["Content-Type": "text/html"])
-                : .response(200, Data(#"{"ok":true,"final":"after restart"}"#.utf8))
+                : .response(200, Data(#"{"ok":true,"revision":1,"entries":[]}"#.utf8))
         }
         defer { session.invalidateAndCancel() }
-        let reply = try await client.clean(text: "x")
-        XCTAssertEqual(reply.finalText, "after restart")
-        XCTAssertEqual(attempts.count, 2)
+        let snapshot = try await client.dictionary(ops: nil)
+        XCTAssertEqual(snapshot.revision, 1)
+        XCTAssertEqual(attempts.count, 2, "safe to repeat, whoever answered")
+
+        // A proxy may have passed this on before it lost the origin.
+        let paid = RequestCounter()
+        let (spends, session4) = try makeClient { _ in
+            paid.increment()
+            return .response(502, Data("<html>Bad gateway</html>".utf8), headers: ["Content-Type": "text/html"])
+        }
+        defer { session4.invalidateAndCancel() }
+        do { _ = try await spends.clean(text: "x"); XCTFail("Expected failure") }
+        catch let error as OlivError { XCTAssertEqual(error, .serviceUnavailable(statusCode: 502, retryAfter: nil)) }
+        XCTAssertEqual(paid.count, 1, "quota is never spent twice on a guess")
 
         let processed = RequestCounter()
         let (again, session2) = try makeClient { _ in

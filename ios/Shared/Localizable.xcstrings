@@ -957,6 +957,16 @@
         }
       }
     },
+    "Enter your API key again. OLIV can't confirm which server the saved key belongs to.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ใส่ API key อีกครั้ง OLIV ยืนยันไม่ได้ว่า key ที่บันทึกไว้เป็นของเซิร์ฟเวอร์ใด"
+          }
+        }
+      }
+    },
     "Enter your individual API key": {
       "localizations": {
         "th": {

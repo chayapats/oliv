@@ -235,12 +235,16 @@ fn answered_by_edge(status: u16, resp: &mut ureq::http::Response<ureq::Body>) ->
     if !matches!(status, 502 | 530) {
         return false;
     }
-    let text = resp
+    // A body cut short or too long proves nothing: oliv-api's error may be what
+    // was lost, and it may have charged for the request.
+    let Ok(text) = resp
         .body_mut()
         .with_config()
         .limit(16 * 1024)
         .read_to_string()
-        .unwrap_or_default();
+    else {
+        return false;
+    };
     !serde_json::from_str::<Value>(&text).is_ok_and(|v| v["code"].is_string())
 }
 

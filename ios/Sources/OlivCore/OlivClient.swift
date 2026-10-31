@@ -134,7 +134,7 @@ public struct OlivClient: Sendable {
     }
 
     private func reply(path: String, body: Data) async throws -> DictationReply {
-        let data = try await performOnce(path: path, body: body, authorized: true)
+        let data = try await performOnce(path: path, body: body, authorized: true, idempotent: false)
         let reply: DictationReply
         do { reply = try JSONDecoder().decode(DictationReply.self, from: data) }
         catch { throw OlivError.invalidResponse }
@@ -145,17 +145,27 @@ public struct OlivClient: Sendable {
     /// A request that provably never reached oliv-api (connection refused, or
     /// an edge/tunnel 502/530 that is not oliv-api's JSON error, e.g. during a
     /// server restart).
-    private struct Unreached: Error { let underlying: OlivError }
+    private struct Unreached: Error {
+        let underlying: OlivError
+        /// An edge's own error: oliv-api didn't answer, but a proxy may have
+        /// passed the request on before it lost the origin.
+        var fromEdge = false
+    }
 
     /// Wait before the single retry of an unreached request: long enough to
     /// ride out a server restart, short enough to stay unnoticed.
     static let unreachedRetryDelay: Duration = .milliseconds(500)
 
     /// `perform`, retried once if the first attempt never reached oliv-api. A
-    /// request the server may have processed is never replayed.
-    private func performOnce(path: String, body: Data?, authorized: Bool) async throws -> Data {
+    /// request the server may have processed is never replayed. Speech and
+    /// cleanup spend quota and have no duplicate protection, so an edge's error
+    /// isn't proof enough for them (`idempotent: false`); their failures keep
+    /// the recording for a retry the person chooses.
+    private func performOnce(path: String, body: Data?, authorized: Bool,
+                             idempotent: Bool = true) async throws -> Data {
         do { return try await perform(path: path, body: body, authorized: authorized) }
-        catch is Unreached {
+        catch let first as Unreached {
+            guard idempotent || !first.fromEdge else { throw first.underlying }
             try await Task.sleep(for: Self.unreachedRetryDelay)
             do { return try await perform(path: path, body: body, authorized: authorized) }
             catch let again as Unreached { throw again.underlying }
@@ -192,7 +202,8 @@ public struct OlivClient: Sendable {
                     let (prefix, complete) = try await Self.readPrefix(of: bytes)
                     let error = OlivError.serviceUnavailable(statusCode: http.statusCode,
                         retryAfter: retryHeader.map { Self.retryDate(header: $0, now: now) })
-                    throw Self.neverReachedOlivAPI(body: prefix, complete: complete) ? Unreached(underlying: error) : error
+                    throw Self.neverReachedOlivAPI(body: prefix, complete: complete)
+                        ? Unreached(underlying: error, fromEdge: true) : error
                 }
                 if (500...599).contains(http.statusCode) {
                     throw OlivError.serviceUnavailable(statusCode: http.statusCode,
@@ -248,7 +259,10 @@ public struct OlivClient: Sendable {
         var complete = true
         do {
             for try await byte in bytes {
-                guard prefix.count < 16 * 1_024 else { break }
+                guard prefix.count < 16 * 1_024 else {
+                    complete = false
+                    break
+                }
                 prefix.append(byte)
             }
         } catch {

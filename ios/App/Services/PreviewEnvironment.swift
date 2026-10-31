@@ -35,6 +35,7 @@ enum PreviewEnvironment {
             return model
         }
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "fixture-token"
         if args.contains("--keyboard-test-host") {
             // Existing handoff tests deliberately finish/cancel by explicit UI
             // actions. Only the separately named fixture emits synthetic VAD.

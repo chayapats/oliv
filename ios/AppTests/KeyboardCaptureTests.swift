@@ -185,6 +185,7 @@ final class KeyboardCaptureTests: XCTestCase {
                              capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service },
                              isInBackground: { true }, releaseProcess: { releases += 1 })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "test-token"
         model.saveSettings()
         try await model.startFromIntent(allowKeyboardDelivery: false)
         XCTAssertEqual(releases, 0, "A recording in progress must keep its process")
@@ -206,6 +207,7 @@ final class KeyboardCaptureTests: XCTestCase {
                              capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service },
                              isInBackground: { background }, releaseProcess: { releases += 1 })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "test-token"
         model.saveSettings()
         await model.startInForeground()
         await model.stopFromIntent()
@@ -233,6 +235,7 @@ final class KeyboardCaptureTests: XCTestCase {
                              liveActivitiesEnabled: false, clientFactory: { _ in service },
                              isInBackground: { true }, releaseProcess: { releases += 1 })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "test-token"
         model.saveSettings()
         try await model.startFromIntent(allowKeyboardDelivery: false)
         await model.stopFromIntent()
@@ -265,6 +268,7 @@ final class KeyboardCaptureTests: XCTestCase {
                              capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service },
                              isInBackground: { background }, releaseProcess: { releases += 1 })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "test-token"
         model.saveSettings()
         await model.startInForeground()
         background = true
@@ -284,6 +288,7 @@ final class KeyboardCaptureTests: XCTestCase {
                              capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service },
                              isInBackground: { true }, releaseProcess: { releases += 1 })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "test-token"
         model.saveSettings()
         try await model.startFromIntent(allowKeyboardDelivery: false)
         await model.stopFromIntent()
@@ -303,6 +308,7 @@ final class KeyboardCaptureTests: XCTestCase {
                              capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service },
                              isInBackground: { true }, releaseProcess: { releases += 1 })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "test-token"
         model.settings.keepHistory = false
         model.saveSettings()
         try await model.startFromIntent(allowKeyboardDelivery: false)
@@ -338,6 +344,7 @@ final class KeyboardCaptureTests: XCTestCase {
                              capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service },
                              isInBackground: { inBackground }, releaseProcess: {})
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "test-token"
         model.settings.keepHistory = false
         model.saveSettings()
         try await model.startFromIntent(allowKeyboardDelivery: false)
@@ -369,6 +376,7 @@ final class KeyboardCaptureTests: XCTestCase {
                              capture: capture, liveActivitiesEnabled: true, liveActivity: activity,
                              clientFactory: { _ in service }, isInBackground: { true }, releaseProcess: { releases += 1 })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "test-token"
         model.saveSettings()
 
         // Cancelling can itself wait on the held call, so nothing here awaits
@@ -414,6 +422,7 @@ final class KeyboardCaptureTests: XCTestCase {
                              capture: capture, liveActivitiesEnabled: false, clientFactory: { _ in service },
                              isInBackground: { background }, releaseProcess: { releases += 1 })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "test-token"
         model.saveSettings()
         try await model.startFromIntent(allowKeyboardDelivery: false)
         background = false
@@ -743,6 +752,7 @@ private struct KeyboardHarness {
                          capture: capture, liveActivitiesEnabled: false, keyboardDelivery: delivery,
                          clientFactory: { _ in server })
         model.settings.serverURL = "https://oliv.example"
+        model.tokenInput = "test-token"
         model.settings.autoCopy = false
         model.saveSettings()
     }
