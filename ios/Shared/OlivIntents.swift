@@ -36,8 +36,10 @@ struct ToggleCaptureIntent: AudioRecordingIntent, LiveActivityIntent {
     )
     static var openAppWhenRun: Bool { false }
     static var authenticationPolicy: IntentAuthenticationPolicy { .requiresLocalDeviceAuthentication }
+    #if compiler(>=6.4) // The iOS 27 SDK; CI's newest Xcode is 26.
     @available(iOS 27.0, *)
     static var allowedExecutionTargets: IntentExecutionTargets { .main }
+    #endif
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
@@ -88,8 +90,10 @@ struct QuickCaptureIntent: OpenIntent {
     static let description = IntentDescription("Open OLIV and immediately begin recording after setup is complete.")
     static var openAppWhenRun: Bool { true }
     static var authenticationPolicy: IntentAuthenticationPolicy { .requiresLocalDeviceAuthentication }
+    #if compiler(>=6.4) // The iOS 27 SDK; CI's newest Xcode is 26.
     @available(iOS 27.0, *)
     static var allowedExecutionTargets: IntentExecutionTargets { .main }
+    #endif
 
     @Parameter(title: "Screen", default: .capture)
     var target: OlivCaptureTarget
@@ -117,8 +121,10 @@ struct StopCaptureIntent: AudioRecordingIntent, LiveActivityIntent {
     static let description = IntentDescription("Finish the current recording and return its text. This never starts a new recording.")
     static var openAppWhenRun: Bool { false }
     static var authenticationPolicy: IntentAuthenticationPolicy { .requiresLocalDeviceAuthentication }
+    #if compiler(>=6.4) // The iOS 27 SDK; CI's newest Xcode is 26.
     @available(iOS 27.0, *)
     static var allowedExecutionTargets: IntentExecutionTargets { .main }
+    #endif
 
     @MainActor
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
@@ -146,8 +152,10 @@ struct CancelCaptureIntent: AudioRecordingIntent, LiveActivityIntent {
     static let description = IntentDescription("Discard the current recording without sending it for transcription.")
     static var openAppWhenRun: Bool { false }
     static var isDiscoverable: Bool { false }
+    #if compiler(>=6.4) // The iOS 27 SDK; CI's newest Xcode is 26.
     @available(iOS 27.0, *)
     static var allowedExecutionTargets: IntentExecutionTargets { .main }
+    #endif
 
     @MainActor
     func perform() async throws -> some IntentResult {
@@ -166,8 +174,10 @@ struct CopyLatestTranscriptIntent: AppIntent {
     // Foreground copying avoids relying on background pasteboard access.
     static var openAppWhenRun: Bool { true }
     static var authenticationPolicy: IntentAuthenticationPolicy { .requiresLocalDeviceAuthentication }
+    #if compiler(>=6.4) // The iOS 27 SDK; CI's newest Xcode is 26.
     @available(iOS 27.0, *)
     static var allowedExecutionTargets: IntentExecutionTargets { .main }
+    #endif
 
     @MainActor
     func perform() async throws -> some IntentResult {

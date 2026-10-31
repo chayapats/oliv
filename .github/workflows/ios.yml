@@ -30,11 +30,6 @@ jobs:
           persist-credentials: false
       - name: Build tools
         run: brew install xcodegen
-      # The app builds against the iOS 27 SDK; the image's default Xcode is older.
-      - name: Select Xcode 27
-        run: |
-          xcode="$(ls -d /Applications/Xcode_27*.app | sort -V | tail -1)"
-          echo "DEVELOPER_DIR=$xcode/Contents/Developer" >> "$GITHUB_ENV"
       # Only the unit tests: the keyboard, Action button and live-server
       # schemes need a real device or manual setup (ios/README.md).
       - name: Package and simulator tests
