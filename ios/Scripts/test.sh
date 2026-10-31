@@ -29,5 +29,5 @@ fi
 xcodebuild -project Oliv.xcodeproj -scheme Oliv \
   -destination "platform=iOS Simulator,id=$OLIV_SIMULATOR_ID" \
   -derivedDataPath build/DerivedData \
-  -test-timeouts-enabled YES -maximum-test-execution-time-allowance 60 \
+  -test-timeouts-enabled YES -maximum-test-execution-time-allowance "${OLIV_TEST_TIME_LIMIT:-60}" \
   "${args[@]}" test

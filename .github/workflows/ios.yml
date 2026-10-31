@@ -33,4 +33,6 @@ jobs:
       # Only the unit tests: the keyboard, Action button and live-server
       # schemes need a real device or manual setup (ios/README.md).
       - name: Package and simulator tests
+        env:
+          OLIV_TEST_TIME_LIMIT: '180' # The long UI tests run slowly on a hosted simulator.
         run: bash ios/Scripts/test.sh
