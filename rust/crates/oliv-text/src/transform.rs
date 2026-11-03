@@ -625,8 +625,31 @@ fn numbers(text: &str) -> Vec<String> {
 fn source_numbers(source: &str) -> HashSet<String> {
     let source = without_list_markers(source);
     let mut all: HashSet<String> = numbers(&source).into_iter().collect();
-    all.extend(numbers(&apply_thai_format(&source).0));
+    all.extend(numbers(&formatted_with_signs(&source)));
     all
+}
+
+/// "ติดลบ" right before a spoken or written number: its minus sign.
+/// (Not "ลบ" alone, which is also "delete": ลบห้าไฟล์ is five files.)
+static SPOKEN_NEGATIVE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"ติดลบ\s*([0-9]|ศูนย์|หนึ่ง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า)").unwrap());
+
+/// `apply_thai_format`, then a spoken minus written as a sign:
+/// ติดลบ สิบห้า → -15, ติดลบห้า → -5. A number said this way allows only
+/// its negative, never the unsigned value.
+fn formatted_with_signs(text: &str) -> String {
+    let formatted = apply_thai_format(text).0;
+    SPOKEN_NEGATIVE
+        .replace_all(&formatted, |c: &regex::Captures| {
+            let first = &c[1];
+            let value = if first == "ศูนย์" {
+                Some(0)
+            } else {
+                thai_small_number(first)
+            };
+            value.map_or_else(|| c[0].to_string(), |v| format!("-{v}"))
+        })
+        .into_owned()
 }
 
 /// A whole number up to 12.
@@ -667,7 +690,7 @@ fn small_numbers_allowed(source: &str) -> HashSet<String> {
     let mut allowed: HashSet<String> = HashSet::new();
     // Thai words are looked for after `apply_thai_format` has written whole
     // number phrases as digits: สามสิบ is 30, and its สาม must not allow a 3.
-    let formatted = apply_thai_format(source).0;
+    let formatted = formatted_with_signs(source);
     for (i, word) in THAI.iter().enumerate() {
         if formatted.contains(word) {
             allowed.insert(i.to_string());
@@ -1640,6 +1663,30 @@ mod tests {
         assert_eq!(
             lost_numbers("ราคา 1.50 บาท", "The price is 1.50 baht."),
             Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn a_spoken_minus_is_a_sign() {
+        let none = Vec::<String>::new();
+        assert_eq!(
+            invented_numbers("อุณหภูมิติดลบ สิบห้า องศา", "The temperature is -15 degrees."),
+            none
+        );
+        assert_eq!(
+            invented_numbers("อุณหภูมิติดลบ สิบห้า องศา", "The temperature is 15 degrees."),
+            vec!["15".to_string()]
+        );
+        assert_eq!(invented_numbers("ติดลบห้าองศา", "It's -5 degrees."), none);
+        assert_eq!(
+            invented_numbers("ติดลบห้าองศา", "It's 5 degrees."),
+            vec!["5".to_string()]
+        );
+        // ลบ alone is also "delete".
+        assert_eq!(invented_numbers("ลบไฟล์ห้าไฟล์", "Delete 5 files."), none);
+        assert_eq!(
+            check_translation("อุณหภูมิติดลบ สิบห้า องศา", "The temperature is -15 degrees."),
+            Ok(())
         );
     }
 
