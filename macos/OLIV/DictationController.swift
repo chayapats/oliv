@@ -116,6 +116,19 @@ final class DictationController {
     /// disables the undo tap. Change live via `applyUndoHotkey(_:)`.
     var undoHotkeyChord: HotkeyChord?
 
+    /// Command mode (#23) and translation (#24); see VoiceEditing.swift.
+    /// Change live via `applyVoiceEdit(_:)`.
+    var voiceEdit = VoiceEditConfiguration()
+    /// Rewrites for voice editing; nil uses the sidecar.
+    var transformer: TextTransforming?
+    var selectionReader = SelectionReader()
+    /// Voice editing runs on the on-device cleanup model, whatever the engine.
+    var cleanupModelReady: () -> Bool = { ModelState.diskInfo(RequiredModels.cleanup).present }
+    private var commandHotkey: HotkeyMonitor?
+    private var translateHotkey: HotkeyMonitor?
+    /// What the press being recorded does, frozen at press.
+    private var recordingMode: DictationMode = .dictate
+
     /// Primary chord's first key — back-compat for tests/callers.
     var hotkeyKey: HotkeyKey {
         get { hotkeyChords[0].keys[0] }
@@ -210,7 +223,7 @@ final class DictationController {
     private func installHotkey() {
         guard hotkey == nil else { return }
         let monitor = HotkeyMonitor(
-            chords: hotkeyChords,
+            chords: dictationChords,
             onPress: { [weak self] in
                 // Fires on the tap thread — hop to main (FIFO) for AppState.
                 DispatchQueue.main.async {
@@ -230,6 +243,57 @@ final class DictationController {
             NSLog("OLIV DictationController: hotkey monitor could not start (\(error)) — "
                 + "push-to-talk disabled until Input Monitoring is granted")
         }
+        installVoiceEditHotkeys()
+    }
+
+    /// The secondary shortcut, when it is set to translate.
+    private var translationChord: HotkeyChord? {
+        guard let primary = hotkeyChords.first else { return nil }
+        return VoiceEditPolicy.translationChord(voiceEdit, primary: primary,
+                                                secondary: hotkeyChords.dropFirst().first)
+    }
+
+    /// Push-to-talk chords that dictate (the translation chord has its own tap).
+    private var dictationChords: [HotkeyChord] {
+        guard let translation = translationChord else { return hotkeyChords }
+        return hotkeyChords.filter { $0 != translation }
+    }
+
+    /// (Re)install the hold-to-talk taps for translation and Command mode.
+    private func installVoiceEditHotkeys() {
+        translateHotkey?.stop()
+        translateHotkey = nil
+        commandHotkey?.stop()
+        commandHotkey = nil
+        let others = hotkeyChords + [undoHotkeyChord].compactMap { $0 }
+        for (chord, mode) in [(translationChord, DictationMode.translate),
+                              (VoiceEditPolicy.commandChord(voiceEdit, others: others), .command)] {
+            guard let chord else { continue }
+            let monitor = HotkeyMonitor(
+                chords: [chord],
+                onPress: { [weak self] in
+                    DispatchQueue.main.async { MainActor.assumeIsolated { self?.handlePress(mode: mode) } }
+                },
+                onRelease: { [weak self] in
+                    DispatchQueue.main.async { MainActor.assumeIsolated { self?.handleRelease() } }
+                })
+            do {
+                try monitor.start()
+                if mode == .command { commandHotkey = monitor } else { translateHotkey = monitor }
+            } catch {
+                NSLog("OLIV DictationController: \(mode.rawValue) hotkey could not start (\(error))")
+            }
+        }
+    }
+
+    /// Live-apply voice-editing settings: the translation chord moves between
+    /// taps, so the push-to-talk tap is rebuilt too.
+    func applyVoiceEdit(_ config: VoiceEditConfiguration) {
+        guard config != voiceEdit else { return }
+        voiceEdit = config
+        hotkey?.stop()
+        hotkey = nil
+        installHotkey()
     }
 
     /// Live-apply push-to-talk chords (Settings › General): tear the current tap
@@ -480,6 +544,10 @@ final class DictationController {
         hotkey = nil
         undoHotkey?.stop()
         undoHotkey = nil
+        commandHotkey?.stop()
+        commandHotkey = nil
+        translateHotkey?.stop()
+        translateHotkey = nil
         if appState.status != .idle {
             appState.status = .idle
         }
@@ -492,7 +560,9 @@ final class DictationController {
 
     // MARK: Transitions (main actor)
 
-    func handlePress() {
+    /// `mode` nil: a regular push-to-talk press, which translates in apps set
+    /// to translate.
+    func handlePress(mode: DictationMode? = nil) {
         // Respect the master toggle — off means the hotkey is ignored entirely.
         guard appState.dictationEnabled else { return }
         // Ignore a press we can't cleanly start from (mid-processing / already
@@ -508,6 +578,9 @@ final class DictationController {
         recordingEngine = sttEngine
         appState.activeEngineID = sttEngine
         hud?.setEngine(sttEngine)
+        recordingMode = mode ?? VoiceEditPolicy.dictationMode(bundleID: frontmostBundleID(),
+                                                              translationApps: voiceEdit.translationApps)
+        hud?.setMode(recordingMode)
         warmingGeneration &+= 1   // retires any warming-poll left over from a prior press
         let generation = warmingGeneration
         let request = CaptureStartRequest()
@@ -622,15 +695,28 @@ final class DictationController {
         // user actually dictated into — NOT at paste time (see frontmostBundleID
         // / app/dictation.py). A per-app verbatim entry passes cleanup:false so
         // the sidecar returns raw, byte-identical (verbatim bypass).
+        let frontmost = frontmostBundleID()
         let cleanup = DictationController.resolveCleanup(
             globalEnabled: cleanupEnabled,
             verbatimApps: verbatimApps,
-            frontmostBundleID: frontmostBundleID())
+            frontmostBundleID: frontmost)
+        let mode = recordingMode
+        recordingMode = .dictate
+        // Command mode / translation, frozen here like everything else.
+        let voiceJob: VoiceEditJob? = mode == .dictate ? nil : VoiceEditJob(
+            mode: mode,
+            block: VoiceEditPolicy.block(bundleID: frontmost, verbatimApps: verbatimApps),
+            transformer: transformer ?? sidecar,
+            reader: selectionReader,
+            recentPaste: lastPastedText,
+            modelReady: cleanupModelReady(),
+            undoHint: undoHotkeyChord?.displayName)
         let options = Self.dictationOptions(
             engine: engine, cleanup: cleanup, removeFillers: removeFillers,
             entries: dictionaryEntries, legacySnippets: legacySnippets,
             serverAppliesDictionary: dictionarySync?.serverAppliesDictionary == true,
-            formatCommands: formatCommands, thaiFormat: thaiFormat)
+            // A spoken instruction is never a formatting command.
+            formatCommands: formatCommands && mode != .command, thaiFormat: thaiFormat)
 
         // Off-main worker: bounded stop → transcribe → paste. Any failure here
         // is swallowed + logged; we always return to idle so the app can't get
@@ -662,8 +748,17 @@ final class DictationController {
             var failureNotice: String?
             var trialKeyRejected = false
             var dictionaryRevision: Int?
+            // Command mode reads the selection now, before transcribing, while
+            // it is certainly still there; a refusal ends the utterance early.
+            var commandTarget: SelectionCapture?
+            var voiceResult: VoiceEditResult?
+            if let job = voiceJob, job.mode == .command, !samples.isEmpty {
+                (commandTarget, voiceResult) = VoiceEditRunner.prepareCommand(job)
+            }
 
-            if samples.isEmpty {
+            if let refusal = voiceResult {
+                outcome = refusal.outcome
+            } else if samples.isEmpty {
                 // "Held the key without speaking" and "spoke into a mic that never
                 // woke up" both land here with zero samples — but only one of them
                 // is the user's doing. Collapsing them into a silent no-op is
@@ -695,7 +790,20 @@ final class DictationController {
                             sttSeconds: result.tSTT, cleanupSeconds: result.tCleanup,
                             audioSeconds: Double(samples.count) / AudioCapture.targetSampleRate)
                     }
-                    outcome = text.isEmpty ? .nothingToDo : DictationController.paste(text, with: injector)
+                    if let job = voiceJob, !text.isEmpty {
+                        // The transcript is an instruction (Command mode) or Thai
+                        // to translate; what lands is the voice-edit result.
+                        let edit = if job.mode == .command, let target = commandTarget {
+                            VoiceEditRunner.finishCommand(instruction: text, target: target, job: job, injector: injector)
+                        } else {
+                            VoiceEditRunner.finishTranslation(transcript: text, job: job, injector: injector)
+                        }
+                        voiceResult = edit
+                        pastedText = edit.pastedText
+                        outcome = edit.outcome
+                    } else {
+                        outcome = text.isEmpty ? .nothingToDo : DictationController.paste(text, with: injector)
+                    }
                 } catch {
                     if trial {
                         failureNotice = CloudTrial.notice(for: error)
@@ -739,6 +847,7 @@ final class DictationController {
             let frozenFailureNotice = failureNotice
             let frozenTrialKeyRejected = trialKeyRejected
             let frozenRevision = dictionaryRevision
+            let frozenVoiceNotice = voiceResult?.notice
             let controller = self
             await MainActor.run {
                 controller?.dictionarySync?.noteServerRevision(frozenRevision)
@@ -766,8 +875,9 @@ final class DictationController {
                 if outcome == .pastedOK, let text = frozenPastedText, !text.isEmpty {
                     controller?.lastPastedText = text
                     // An undo followed by a redictation: stage the difference
-                    // as auto-learn proposals (approval still required).
-                    if let old = controller?.lastUndoneForLearn {
+                    // as auto-learn proposals (approval still required). A
+                    // voice edit is not a redictation.
+                    if mode == .dictate, let old = controller?.lastUndoneForLearn {
                         suggestion = controller?.noteUndoThenRedictate(old: old.text, new: text)
                     }
                 }
@@ -776,6 +886,8 @@ final class DictationController {
                     if capped {
                         hud?.notice("Hit the \(Int(captureSeconds / 60))-minute recording limit — the end was cut off",
                                     systemImage: "exclamationmark.triangle.fill")
+                    } else if let voice = frozenVoiceNotice {
+                        hud?.notice(voice.text, systemImage: voice.symbol)
                     } else if let actual = frozenStats?.engineID, actual != engine {
                         hud?.notice("Used \(DictationExecution(engineID: actual).label) fallback",
                                     systemImage: "desktopcomputer")
@@ -791,7 +903,7 @@ final class DictationController {
                     hud?.notice(frozenFailureNotice ?? "Couldn’t transcribe — try again",
                                 systemImage: "exclamationmark.triangle.fill")
                 case .pasteNeedsManual:
-                    hud?.notice("Text is on the clipboard — press ⌘V",
+                    hud?.notice(frozenVoiceNotice?.text ?? "Text is on the clipboard — press ⌘V",
                                 systemImage: "doc.on.clipboard")
                 }
             }

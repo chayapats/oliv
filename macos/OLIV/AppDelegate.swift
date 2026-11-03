@@ -19,6 +19,7 @@ import Sparkle
 final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     let appState = AppState()
     let settings = OLIVSettings.shared
+    let voiceEditSettings = VoiceEditSettings.shared
     let permissions = PermissionsModel()
     let models = ModelState()
     let controller: DictationController
@@ -80,6 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         // (start() installs it after launch on the resolved keys).
         controller.hotkeyChords = settings.activeChords
         controller.undoHotkeyChord = settings.undoHotkeyChord
+        controller.voiceEdit = voiceEditSettings.configuration
         controller.sttEngine = settings.engineID
         controller.olivAPIConfiguration = settings.olivAPIConfiguration
         controller.cleanupEnabled = settings.cleanupEnabled
@@ -120,6 +122,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] status in if status == .idle { self?.flushAnnouncement(after: 3) } }
             .store(in: &observers)
+        voiceEditSettings.onChange = { [weak self] in
+            guard let self else { return }
+            self.controller.applyVoiceEdit(self.voiceEditSettings.configuration)
+        }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {

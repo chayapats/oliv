@@ -334,7 +334,7 @@ final class TextInjector {
         postCommandKey(keyCodeZ)
     }
 
-    private static func postCommandKey(_ keyCode: CGKeyCode) -> Bool {
+    static func postCommandKey(_ keyCode: CGKeyCode) -> Bool {
         guard
             let source = CGEventSource(stateID: .hidSystemState),
             let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true),

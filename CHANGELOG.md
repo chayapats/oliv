@@ -30,6 +30,17 @@ Sparkle appcast's release notes, so keep entries short and end-user readable.
 - **The same through the OLIV API.** Dictation on iPhone, and with the OLIV API
   engine on Mac, Linux and Windows, gets these cleanup fixes too once the
   server is updated.
+- **Command mode: edit selected text by voice.** Select text in any app, hold
+  the Command mode shortcut and say what to change: "ทำให้สุภาพขึ้น", "สั้นลง",
+  "สรุปเป็น bullet", "แก้คำผิด" or "เขียนเป็นอีเมล". OLIV replaces the
+  selection, and your undo shortcut puts the original back. If OLIV isn't sure
+  about an edit, your text stays as it was. It runs on your Mac, and never in
+  verbatim apps or password managers. Off by default: Settings › Voice editing.
+- **Speak Thai, type English.** Set your secondary push-to-talk shortcut, or
+  apps you choose, to translate: speak Thai, with English mixed in as usual,
+  and OLIV pastes natural English. Names, product names and code terms stay as
+  they are, and the recording pill shows "Thai → English" while it's on. Off
+  by default.
 - **Corrections that lead into each other apply once.** With rules like
   `foo → docker` and `docker → X`, a word OLIV already corrected is no longer
   corrected again after the cleanup model changes its capitals or spacing.

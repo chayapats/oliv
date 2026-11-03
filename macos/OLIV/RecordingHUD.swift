@@ -63,6 +63,8 @@ final class RecordingHUDController {
     private static let panelLevel: NSWindow.Level = .popUpMenu
 
     func setEngine(_ engineID: String) { model.engineID = engineID }
+    /// Command mode / translation label for the next pill (plain dictation shows the engine).
+    func setMode(_ mode: DictationMode) { model.mode = mode }
 
     /// Show (or re-purpose) the pill in `phase`. Idempotent: an already-visible
     /// pill just switches phase (no re-fade); recording resets the waveform.
@@ -237,6 +239,7 @@ final class HUDModel: ObservableObject {
 
     @Published var phase: HUDPhase = .recording
     @Published var engineID: String?
+    @Published var mode: DictationMode = .dictate
     @Published var reduceMotion = false
     @Published var level: Float = 0
     @Published var history: [Float] = Array(repeating: 0, count: HUDModel.barCount)
@@ -292,7 +295,11 @@ struct RecordingHUDView: View {
                 )
                 .shadow(color: .black.opacity(0.22), radius: 8, y: 2)
             VStack(spacing: 4) {
-                if model.phase != .notice, let engineID = model.engineID {
+                if model.phase != .notice, let label = model.mode.hudLabel {
+                    Label(label, systemImage: model.mode.hudSymbol)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(SettingsStyle.accent)
+                } else if model.phase != .notice, let engineID = model.engineID {
                     let execution = DictationExecution(engineID: engineID)
                     Label(execution.label, systemImage: execution.systemImage)
                         .font(.system(size: 10, weight: .medium))
@@ -323,7 +330,7 @@ struct RecordingHUDView: View {
                 WaveformBarsView(history: model.history)
             }
         case .processing:
-            ProcessingView(reduceMotion: model.reduceMotion, label: "Transcribing…")
+            ProcessingView(reduceMotion: model.reduceMotion, label: model.mode.processingLabel)
         case .notice:
             NoticeView(text: model.noticeText, systemImage: model.noticeSymbol)
         }

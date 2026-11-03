@@ -105,6 +105,8 @@ OLIV 0.2.0 removed Python from the app. Text processing and API requests use a s
 | **Speech engines** | Typhoon Whisper Turbo (default, Thai + English), Pathumma, or Whisper large-v3 for mostly-English dictation. Each downloads in Settings with a progress bar. |
 | **Text cleanup** | Restores English words, removes fillers (อืม, เอ่อ, um), formats numbers and `ๆ`, and supports spoken commands such as "ขึ้นบรรทัดใหม่" or "new paragraph" (off by default). |
 | **Dictionary** | Your names, acronyms and jargon guide recognition; add a correction to turn what you say into exact text ("อีเมลของผม" → `me@example.com`). Thai entries also fix near-miss spellings (บางแคร์ → บางแค). Star the words that matter most, import/export CSV, and with the OLIV API it syncs to your other devices. |
+| **Command mode** | Select text, hold a shortcut and say what to change: "ทำให้สุภาพขึ้น" (more polite), "สรุปเป็น bullet", "เขียนเป็นอีเมล". OLIV rewrites it on your Mac and replaces the selection; undo puts the original back. Off by default. |
+| **Speak Thai, type English** | Make your secondary shortcut, or apps you choose, turn Thai dictation into natural English. Names, product names and code terms stay as they are. Off by default. |
 | **Verbatim apps** | Paste the raw transcript, without cleanup, in apps you choose. |
 | **Audio** | Pick any microphone, cancel speaker echo, and lower other audio while you talk. Bluetooth headphones keep full playback quality. |
 | **Recent dictations** | Your last 10 results in the menu, kept in memory only. Click one to copy it again, or report one that came out wrong. |
