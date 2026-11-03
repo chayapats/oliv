@@ -623,8 +623,9 @@ fn numbers(text: &str) -> Vec<String> {
 /// Numbers the source states: written digits plus spoken Thai numbers
 /// (สามสิบ → 30) that the model may legitimately write as digits.
 fn source_numbers(source: &str) -> HashSet<String> {
-    let mut all: HashSet<String> = numbers(source).into_iter().collect();
-    all.extend(numbers(&apply_thai_format(source).0));
+    let source = without_list_markers(source);
+    let mut all: HashSet<String> = numbers(&source).into_iter().collect();
+    all.extend(numbers(&apply_thai_format(&source).0));
     all
 }
 
@@ -681,9 +682,9 @@ fn small_numbers_allowed(source: &str) -> HashSet<String> {
     allowed
 }
 
-/// `out` without the numbers of a list it makes ("1. ", "2) " at the start
-/// of a line): they number lines, they aren't amounts, and they must not
-/// stand in for one either way.
+/// Text without the numbers of a list ("1. ", "2) " at the start of a
+/// line), on either side: they number lines, they aren't amounts, and they
+/// must not stand in for one either way.
 fn without_list_markers(out: &str) -> std::borrow::Cow<'_, str> {
     LIST_MARKER.replace_all(out, "")
 }
@@ -783,7 +784,7 @@ fn invented_numbers(source: &str, out: &str) -> Vec<String> {
 fn lost_numbers(source: &str, out: &str) -> Vec<String> {
     let mut have = numbers(&without_list_markers(out));
     let mut lost = Vec::new();
-    for n in numbers(source) {
+    for n in numbers(&without_list_markers(source)) {
         match have.iter().position(|h| *h == n) {
             Some(i) => {
                 have.swap_remove(i);
@@ -1582,6 +1583,19 @@ mod tests {
                 "1. ส่งเอกสาร 1 หน้าให้ทีม\n2. แจ้งลูกค้า"
             ),
             Err(Rejection("numberInvented"))
+        );
+        // A numbered list kept as a numbered list is fine, in a translation
+        // or an edit.
+        assert_eq!(
+            lost_numbers("1. ส่งไฟล์\n2. แจ้งทีม", "1. Send the file\n2. Notify the team"),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            check_translation(
+                "1. ส่งไฟล์ให้ลูกค้า\n2. แจ้งทีมขายด้วย",
+                "1. Send the file to the client\n2. Let the sales team know"
+            ),
+            Ok(())
         );
         // …nor stand in for a number the source wrote.
         assert_eq!(
