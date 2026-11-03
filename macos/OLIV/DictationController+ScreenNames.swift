@@ -4,8 +4,9 @@ import Foundation
 
 extension DictationController {
     /// Start reading the focused window for this press when the policy
-    /// allows (opted in, on-device cleanup in this app, not a password
-    /// manager, Accessibility granted, no secure input). Returns at once.
+    /// allows (opted in, on-device cleanup in this app, not Command mode, not
+    /// a password manager, Accessibility granted, no secure input). Returns
+    /// at once; call it after `recordingMode` is set for this press.
     func startScreenCapture() {
         dropScreenCapture()
         guard screenNames, let target = ScreenContext.frontmostApp() else { return }
@@ -13,7 +14,7 @@ extension DictationController {
                                           frontmostBundleID: target.bundleID)
         let ownBundleID = Bundle.main.bundleIdentifier
         guard ScreenContext.shouldCapture(
-            enabled: screenNames, engine: sttEngine, cleanup: cleanup,
+            enabled: screenNames, engine: sttEngine, mode: recordingMode, cleanup: cleanup,
             frontmostBundleID: target.bundleID, ownBundleID: ownBundleID,
             accessibilityTrusted: ScreenContext.accessibilityTrusted(),
             secureInput: ScreenContext.secureInputActive()) else { return }

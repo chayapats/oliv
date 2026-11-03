@@ -56,7 +56,8 @@ Sparkle appcast's release notes, so keep entries short and end-user readable.
   Dictionary always wins. On a public Thai benchmark, names shown on screen
   were recognized 57% of the time instead of 43%, and a screen full of
   unrelated names changed about 1 in 2,000 dictations for the worse. Works with
-  on-device text processing, not yet with the OLIV API engine.
+  on-device text processing, not yet with the OLIV API engine or the free
+  trial.
 - **Corrections that lead into each other apply once.** With rules like
   `foo → docker` and `docker → X`, a word OLIV already corrected is no longer
   corrected again after the cleanup model changes its capitals or spacing.

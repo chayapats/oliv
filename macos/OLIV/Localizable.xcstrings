@@ -2352,6 +2352,26 @@
         }
       }
     },
+    "Names on screen" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ชื่อบนหน้าจอ"
+          }
+        }
+      }
+    },
+    "Needs Accessibility, which OLIV also uses to paste. Turn it on in System Settings › Privacy & Security › Accessibility." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ต้องใช้สิทธิ์การช่วยการเข้าถึง ซึ่ง OLIV ใช้วางข้อความอยู่แล้ว เปิดได้ที่ การตั้งค่าระบบ › ความเป็นส่วนตัวและความปลอดภัย › การช่วยการเข้าถึง"
+          }
+        }
+      }
+    },
     "Needs approval in System Settings › Login Items" : {
       "localizations" : {
         "th" : {
@@ -3356,6 +3376,26 @@
         }
       }
     },
+    "Spell names that are on screen" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สะกดชื่อตามที่เห็นบนหน้าจอ"
+          }
+        }
+      }
+    },
+    "Spell the names you can see, without adding them to the Dictionary." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สะกดชื่อที่เห็นบนจอให้ถูก โดยไม่ต้องเพิ่มลงพจนานุกรม"
+          }
+        }
+      }
+    },
     "Spoken formatting" : {
       "localizations" : {
         "th" : {
@@ -4297,6 +4337,16 @@
         }
       }
     },
+    "When you start dictating, OLIV reads the text in the window you’re typing into and uses the names and terms it finds for that one dictation. The text stays in memory on this Mac and is never saved or sent anywhere. Password fields, password managers and your verbatim apps are skipped. Your Dictionary always wins. Applies when cleanup is enabled." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เมื่อเริ่มพูด OLIV จะอ่านข้อความในหน้าต่างที่คุณกำลังพิมพ์ แล้วใช้ชื่อคนและคำเฉพาะที่เจอกับการพูดครั้งนั้นครั้งเดียว ข้อความนี้อยู่ในหน่วยความจำบน Mac เครื่องนี้เท่านั้น ไม่ถูกบันทึกหรือส่งไปที่ไหน จะข้ามช่องรหัสผ่าน แอปจัดการรหัสผ่าน และแอปที่ไม่ต้องเกลาข้อความ คำในพจนานุกรมของคุณมาก่อนเสมอ ใช้เมื่อเปิดการเกลาข้อความ"
+          }
+        }
+      }
+    },
     "When you undo a dictation and say it again within 30 seconds, OLIV suggests the difference (a notice appears, and it waits at the top of this page and in the OLIV menu). Nothing is added until you approve it." : {
       "localizations" : {
         "th" : {
@@ -4363,6 +4413,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "คำที่ OLIV เห็นว่าคุณแก้ จะไม่มีอะไรเปลี่ยนจนกว่าคุณจะอนุมัติ"
+          }
+        }
+      }
+    },
+    "Works with on-device text processing only. With OLIV API selected, cleanup runs on the server, so OLIV doesn’t read the screen." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้ได้เฉพาะเมื่อเกลาข้อความในเครื่อง ถ้าเลือก OLIV API การเกลาข้อความจะทำบนเซิร์ฟเวอร์ ดังนั้น OLIV จะไม่อ่านหน้าจอ"
           }
         }
       }

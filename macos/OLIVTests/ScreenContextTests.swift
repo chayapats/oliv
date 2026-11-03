@@ -326,9 +326,10 @@ final class ScreenContextTests: XCTestCase {
     // MARK: Policy
 
     private func allowed(enabled: Bool = true, engine: String = SidecarClient.defaultEngine,
+                         mode: DictationMode = .dictate,
                          cleanup: Bool = true, app: String? = "com.tinyspeck.slackmacgap",
                          trusted: Bool = true, secure: Bool = false) -> Bool {
-        ScreenContext.shouldCapture(enabled: enabled, engine: engine, cleanup: cleanup,
+        ScreenContext.shouldCapture(enabled: enabled, engine: engine, mode: mode, cleanup: cleanup,
                                     frontmostBundleID: app, ownBundleID: "com.oliv.app",
                                     accessibilityTrusted: trusted, secureInput: secure)
     }
@@ -338,6 +339,9 @@ final class ScreenContextTests: XCTestCase {
         XCTAssertTrue(allowed(engine: "groq-large-v3"), "Groq: the text pipeline still runs on this Mac")
         XCTAssertFalse(allowed(enabled: false), "opt-in")
         XCTAssertFalse(allowed(engine: OLIVAPIClient.engineID), "the server runs cleanup: never read the screen")
+        XCTAssertFalse(allowed(engine: CloudTrial.engineID), "the free trial: the server runs cleanup too")
+        XCTAssertTrue(allowed(mode: .translate), "names spoken in Thai to translate")
+        XCTAssertFalse(allowed(mode: .command), "a Command mode instruction edits the selection")
         XCTAssertFalse(allowed(cleanup: false), "cleanup off or a verbatim app")
     }
 

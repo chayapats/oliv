@@ -133,7 +133,7 @@ final class DictationController {
     private var commandHotkey: HotkeyMonitor?
     private var translateHotkey: HotkeyMonitor?
     /// What the press being recorded does, frozen at press.
-    private var recordingMode: DictationMode = .dictate
+    private(set) var recordingMode: DictationMode = .dictate
     /// The shortcut that started the recording: only its release ends it.
     private var recordingShortcut: HoldShortcut = .pushToTalk
     /// What the hold-to-talk taps were last built for (nil before start()).

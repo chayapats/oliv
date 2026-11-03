@@ -232,13 +232,15 @@ enum ScreenContext {
 
     /// Whether to read the screen for a dictation starting now. Only when
     /// opted in, with on-device cleanup (local engines and Groq run the text
-    /// pipeline on this Mac; the OLIV API runs it on the server), outside
-    /// verbatim apps (`cleanup` is already false there), password managers
-    /// and OLIV, with Accessibility granted and no secure input active.
-    static func shouldCapture(enabled: Bool, engine: String, cleanup: Bool,
+    /// pipeline on this Mac; the OLIV API and the free trial run it on the
+    /// server), outside verbatim apps (`cleanup` is already false there),
+    /// password managers and OLIV, with Accessibility granted and no secure
+    /// input active. Never for a Command mode instruction: what it edits is
+    /// the selection, not the words spoken.
+    static func shouldCapture(enabled: Bool, engine: String, mode: DictationMode, cleanup: Bool,
                               frontmostBundleID: String?, ownBundleID: String?,
                               accessibilityTrusted: Bool, secureInput: Bool) -> Bool {
-        guard enabled, cleanup, engine != OLIVAPIClient.engineID,
+        guard enabled, cleanup, !DictationController.isRemote(engine), mode != .command,
               accessibilityTrusted, !secureInput else { return false }
         guard let app = frontmostBundleID?.lowercased(), !app.isEmpty else { return false }
         if app == ownBundleID?.lowercased() { return false }
