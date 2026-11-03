@@ -1,5 +1,7 @@
 use serde_json::{Value, json};
 use std::io::Write;
+use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt};
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 fn run(requests: &[Value]) -> Vec<Value> {
     let mut child = Command::new(env!("CARGO_BIN_EXE_oliv-sidecar"))
@@ -87,17 +89,100 @@ while IFS= read -r line; do
 done
 "#;
 
+/// A directory only this user can enter, made fresh for one test (never an
+/// existing one another user could have planted) and removed afterwards.
+struct PrivateDir(PathBuf);
+
+impl PrivateDir {
+    fn new(prefix: &str) -> PrivateDir {
+        use std::hash::{BuildHasher, Hasher};
+        for _ in 0..16 {
+            // RandomState is seeded randomly per process; the time and pid
+            // keep names apart across processes too.
+            let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
+            hasher.write_u128(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos(),
+            );
+            hasher.write_u32(std::process::id());
+            let path = std::env::temp_dir().join(format!("{prefix}-{:016x}", hasher.finish()));
+            // Not create_dir_all: an existing directory (or symlink) is refused.
+            match std::fs::DirBuilder::new().mode(0o700).create(&path) {
+                Ok(()) => return PrivateDir(path),
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(e) => panic!("could not create {}: {e}", path.display()),
+            }
+        }
+        panic!("no fresh temporary directory for {prefix}");
+    }
+}
+
+impl Drop for PrivateDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+/// Write an executable script at `dir/name`, refusing a file (or symlink)
+/// that is already there rather than writing through it.
+fn install_helper(dir: &Path, name: &str, script: &str) -> std::io::Result<PathBuf> {
+    let path = dir.join(name);
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o700)
+        .open(&path)?;
+    file.write_all(script.as_bytes())?;
+    // On the open file, not the path: a later swap can't redirect it.
+    file.set_permissions(std::fs::Permissions::from_mode(0o700))?;
+    Ok(path)
+}
+
+#[test]
+fn helper_directory_is_fresh_and_private() {
+    let first = PrivateDir::new("oliv-ipc-test");
+    let second = PrivateDir::new("oliv-ipc-test");
+    assert_ne!(first.0, second.0);
+    for dir in [&first, &second] {
+        let meta = std::fs::symlink_metadata(&dir.0).unwrap();
+        assert!(meta.is_dir());
+        assert_eq!(meta.permissions().mode() & 0o777, 0o700);
+    }
+}
+
+#[test]
+fn helper_install_refuses_an_existing_file_or_symlink() {
+    let dir = PrivateDir::new("oliv-ipc-test");
+    let victim = dir.0.join("victim");
+    std::fs::write(&victim, "keep me").unwrap();
+    std::fs::set_permissions(&victim, std::fs::Permissions::from_mode(0o600)).unwrap();
+    std::os::unix::fs::symlink(&victim, dir.0.join("helper.sh")).unwrap();
+    std::fs::write(dir.0.join("planted.sh"), "planted").unwrap();
+    for name in ["helper.sh", "planted.sh"] {
+        let err = install_helper(&dir.0, name, SLOW_PREVIEW_HELPER).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::AlreadyExists, "{name}");
+    }
+    assert_eq!(std::fs::read_to_string(&victim).unwrap(), "keep me");
+    assert_eq!(
+        std::fs::metadata(&victim).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    assert_eq!(
+        std::fs::read_to_string(dir.0.join("planted.sh")).unwrap(),
+        "planted"
+    );
+}
+
 #[test]
 fn release_cancels_a_preview_mid_decode_so_dictate_is_not_queued_behind_it() {
     use base64::Engine;
     use std::io::{BufRead, BufReader};
-    use std::os::unix::fs::PermissionsExt;
     use std::time::{Duration, Instant};
-    let dir = std::env::temp_dir().join(format!("oliv-preview-cancel-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let helper = dir.join("helper.sh");
-    std::fs::write(&helper, SLOW_PREVIEW_HELPER).unwrap();
-    std::fs::set_permissions(&helper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let private = PrivateDir::new("oliv-preview-cancel");
+    let dir = &private.0;
+    let helper = install_helper(dir, "helper.sh", SLOW_PREVIEW_HELPER).unwrap();
     let speech: Vec<u8> = (0..16000)
         .flat_map(|i| (if i % 2 == 0 { 0.1f32 } else { -0.1 }).to_le_bytes())
         .collect();
@@ -143,7 +228,6 @@ fn release_cancels_a_preview_mid_decode_so_dictate_is_not_queued_behind_it() {
     let waited = released.elapsed();
     drop(input);
     assert!(child.wait().unwrap().success());
-    let _ = std::fs::remove_dir_all(&dir);
     assert_eq!(preview["id"], 1);
     assert_eq!(preview["skipped"], "cancelled", "{preview}");
     assert_eq!(preview["text"], "");
