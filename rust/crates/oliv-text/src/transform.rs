@@ -583,8 +583,9 @@ fn numbers(text: &str) -> Vec<String> {
     for m in NUMBER.find_iter(text) {
         let mut token = m.as_str();
         // The minus sign − is always a sign. A hyphen-minus is one too,
-        // except right after a Latin letter or a digit, where it joins words
-        // or makes a range (A-5, 2024-2025, 14:00-15:00). Thai doesn't join
+        // except right after a Latin letter or a digit (Arabic or Thai), where
+        // it joins words or makes a range (A-5, 2024-2025, ๒๕๖๗-๒๕๖๘,
+        // 14:00-15:00). Thai doesn't join
         // words with hyphens, so อุณหภูมิ-15 is minus fifteen.
         let mut sign = "";
         if let Some(rest) = token.strip_prefix('−') {
@@ -593,7 +594,7 @@ fn numbers(text: &str) -> Vec<String> {
         } else if let Some(rest) = token.strip_prefix('-') {
             token = rest;
             let before = text[..m.start()].chars().next_back();
-            if !before.is_some_and(|c| c.is_ascii_alphanumeric()) {
+            if !before.is_some_and(|c| c.is_ascii_alphanumeric() || ('๐'..='๙').contains(&c)) {
                 sign = "-";
             }
         }
@@ -1512,7 +1513,11 @@ mod tests {
             check_command("แก้คำผิด", "อุณหภูมิ -15 องศา", "อุณหภูมิ−15 องศา"),
             Ok(())
         );
-        // Hyphens and ranges are not signs.
+        // Hyphens and ranges are not signs, with Thai digits too.
+        assert_eq!(
+            lost_numbers("ปีงบ ๒๕๖๗-๒๕๖๘", "fiscal years 2567–2568"),
+            Vec::<String>::new()
+        );
         assert_eq!(
             lost_numbers("ปี 2024-2025", "for 2024–2025"),
             Vec::<String>::new()
