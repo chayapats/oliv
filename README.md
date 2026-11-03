@@ -107,7 +107,7 @@ OLIV 0.2.0 removed Python from the app. Text processing and API requests use a s
 | **Dictionary** | Your names, acronyms and jargon guide recognition; add a correction to turn what you say into exact text ("อีเมลของผม" → `me@example.com`). Thai entries also fix near-miss spellings (บางแคร์ → บางแค). Star the words that matter most, import/export CSV, and with the OLIV API it syncs to your other devices. |
 | **Verbatim apps** | Paste the raw transcript, without cleanup, in apps you choose. |
 | **Audio** | Pick any microphone, cancel speaker echo, and lower other audio while you talk. Bluetooth headphones keep full playback quality. |
-| **Recent dictations** | Your last 10 results in the menu, kept in memory only. Click one to copy it again. |
+| **Recent dictations** | Your last 10 results in the menu, kept in memory only. Click one to copy it again, or report one that came out wrong. |
 | **Optional cloud engines** | Groq or a self-hosted OLIV API, both off by default. Audio leaves your Mac only while you select one. Keys are stored in the macOS Keychain. |
 | **Auto-update** | Signed and notarized builds, with updates delivered through Sparkle. |
 
@@ -188,6 +188,7 @@ Your audio goes to Groq while this engine is selected. If Groq fails, OLIV retri
 - Cloud engines are off until you enable one, add a key and select it. The one shortcut is the free trial you can choose while the models first download; it's labelled Cloud and ends by itself when they're ready.
 - Recent dictations are kept in memory only and are cleared when you quit.
 - **Copy Diagnostics** creates a plain-text support report that never includes transcripts or API keys.
+- **Report a Wrong Result** (Mac: **Recent… ▸ Report a Wrong Result**; iPhone: History) opens a preview you can edit, then a prefilled **public** GitHub issue in your browser. The report holds what OLIV typed, the raw transcript, what you meant (if you add it), the engine and whether cleanup ran, the app and OS version, and timing. It never includes audio, your server address or API keys. OLIV sends nothing itself: the issue is posted only if you submit it on GitHub.
 - OLIV has no analytics and no telemetry. The network is used for the model download, update checks and any cloud engine you choose.
 
 ## FAQ

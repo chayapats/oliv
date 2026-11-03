@@ -12,6 +12,7 @@ Repeated Action button starts passed 12 of 12 on a physical iPhone in build 18. 
 - Public HTTPS OLIV API with an individual device key: automatic Thai/English recognition, fillers, dictionary/phonetic/vocabulary correction, selective LLM cleanup, guardrails, casing and Thai numbers/reduplication.
 - A personal Dictionary (words plus optional "when I say" corrections, star and on/off) synced with the OLIV server and your other devices; edits made offline sync later. Older servers without sync still receive it as vocabulary/replacements.
 - Durable audio before upload, original settings for retry, cancellation, interrupted-recording recovery, local history, raw/finished comparison and timing.
+- **Report a wrong result** from a result or History: an editable preview, then a prefilled public GitHub issue in Safari. OLIV sends nothing itself; see [privacy](docs/PRIVACY.md). A saved (failed) recording can be shared from its card.
 - Text cleanup using the same pipeline; failed cleanup keeps the draft.
 - App Intents, Control Center controls, Home/Lock Screen widget, Live Activity and Dynamic Island stop/cancel.
 - Optional English/Thai keyboard with no OLIV toolbar; explicit capture-to-keyboard delivery checks the original field before insertion.

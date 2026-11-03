@@ -13,6 +13,12 @@ Sparkle appcast's release notes, so keep entries short and end-user readable.
   the menu, the recording pill and Settings, never sends your Dictionary, and
   switches back to your Mac by itself (it tells you when). If the download
   stops, the trial stops too.
+- **Report a wrong result.** On the Mac, choose **Recent… ▸ Report a Wrong
+  Result**; on iPhone, use the button under a result or in History. You see
+  and edit the report first, then it opens as a prefilled GitHub issue in your
+  browser. Issues are public, so remove anything private; OLIV sends nothing
+  itself and never attaches audio. On iPhone, a recording that failed to send
+  can now be shared from its card.
 - **Corrections that lead into each other apply once.** With rules like
   `foo → docker` and `docker → X`, a word OLIV already corrected is no longer
   corrected again after the cleanup model changes its capitals or spacing.
