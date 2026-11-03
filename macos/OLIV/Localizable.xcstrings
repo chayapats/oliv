@@ -2815,6 +2815,16 @@
         }
       }
     },
+    "Preview your words in the recording indicator while you hold the key. The text OLIV types still comes from the full pass after you let go. On-device engines only." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ระหว่างกดปุ่มค้างไว้ คำที่คุณพูดจะขึ้นให้เห็นบนป้ายสถานะ ข้อความที่ OLIV พิมพ์จริงยังมาจากการถอดเสียงเต็มหลังปล่อยปุ่ม ใช้ได้เฉพาะเอนจินในเครื่อง"
+          }
+        }
+      }
+    },
     "Primary" : {
       "localizations" : {
         "th" : {
@@ -3352,6 +3362,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "แสดงสถานะขณะอัดเสียง"
+          }
+        }
+      }
+    },
+    "Show words as you speak" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แสดงคำระหว่างพูด"
           }
         }
       }

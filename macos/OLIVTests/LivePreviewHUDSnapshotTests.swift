@@ -64,6 +64,12 @@ final class LivePreviewHUDSnapshotTests: XCTestCase {
             for sample in Self.samples {
                 try render(model(phase: .recording, text: sample.text), scheme: scheme, name: "preview-\(sample.name)")
             }
+            // Command mode and translation keep their badge on the grown pill.
+            for mode in [DictationMode.command, .translate] {
+                let preview = model(phase: .recording, text: Self.samples[1].text)
+                preview.mode = mode
+                try render(preview, scheme: scheme, name: "preview-\(mode.rawValue)")
+            }
         }
     }
 }
