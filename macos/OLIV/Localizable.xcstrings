@@ -2042,6 +2042,16 @@
         }
       }
     },
+    "Instruction (heard)" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำสั่งที่ได้ยิน"
+          }
+        }
+      }
+    },
     "It opens as a GitHub issue in your browser, where anyone can read it. Remove names, numbers and anything else private first. OLIV sends nothing: the issue is posted only if you submit it on GitHub." : {
       "localizations" : {
         "th" : {
@@ -2268,6 +2278,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "คำที่ได้ยินผิด"
+          }
+        }
+      }
+    },
+    "Mode" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โหมด"
           }
         }
       }
@@ -2805,6 +2825,16 @@
         }
       }
     },
+    "Raw transcript of the instruction, before cleanup" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำสั่งที่ถอดเสียงได้ ก่อนเกลา"
+          }
+        }
+      }
+    },
     "Raw transcript, before cleanup" : {
       "localizations" : {
         "th" : {
@@ -2995,6 +3025,16 @@
         }
       }
     },
+    "Result: what OLIV typed" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ผลลัพธ์: ข้อความที่ OLIV พิมพ์"
+          }
+        }
+      }
+    },
     "Review Dictionary Suggestions (%lld)…" : {
       "localizations" : {
         "th" : {
@@ -3162,6 +3202,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ไมโครโฟนที่เลือก (ไม่ได้เชื่อมต่อ)"
+          }
+        }
+      }
+    },
+    "Selected text" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อความที่เลือก"
           }
         }
       }
@@ -3492,6 +3542,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ถอดเสียงภาษาไทย (Typhoon Whisper Turbo MLX)"
+          }
+        }
+      }
+    },
+    "Thai that was translated" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อความภาษาไทยที่แปล"
           }
         }
       }
@@ -4193,6 +4253,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ข้อความที่ OLIV พิมพ์"
+          }
+        }
+      }
+    },
+    "What you expected (optional)" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ผลที่คุณต้องการ (ไม่บังคับ)"
           }
         }
       }

@@ -231,6 +231,18 @@ final class InterfaceScreenshotTests: XCTestCase {
         draft.typed = String(repeating: "ข้อความยาวมาก ", count: 600)
         try render(ResultReportView(draft: draft, onClose: {}), size: CGSize(width: 540, height: 760),
                    name: "report-preview-truncated")
+        // A Command mode edit: selection, instruction and result, each labelled.
+        details.raw = "ทำ ให้ สุภาพ ขึ้น"
+        details.voiceEdit = TranscriptLog.VoiceEdit(
+            mode: .command, heard: "ทำให้สุภาพขึ้น", selection: "ส่งไฟล์ deck มาด่วนเลย ลูกค้าจะเอาบ่ายนี้",
+            applied: true, flag: "ok")
+        let edit = TranscriptLog.Entry(text: "รบกวนช่วยส่งไฟล์ deck มาให้หน่อยนะครับ ลูกค้าต้องการภายในบ่ายนี้ครับ",
+                                       details: details)
+        let command = ResultReportDraft(
+            report: ResultReport.mac(entry: edit, appVersion: "0.2.2", build: "19", macOSVersion: "Version 26.1"),
+            open: { _ in XCTFail("nothing opens from a render") })
+        try render(ResultReportView(draft: command, onClose: {}), size: CGSize(width: 540, height: 820),
+                   name: "report-preview-command")
     }
 
     func testMenu() throws {
