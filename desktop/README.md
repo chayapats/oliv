@@ -26,7 +26,7 @@ This is a small native Rust client. It records audio, sends it to an OLIV server
 (`oliv-api`: speech-to-text plus cleanup, see [`../server/`](../server/)) and pastes
 the reply. It does **not** run any model locally. You point it at **your own
 self-hosted OLIV server** (or one whose operator gave you a key). The macOS app in
-[`../macos/`](../macos/) is separate and runs fully on-device.
+[`../macos/`](../macos/) is separate and runs on-device by default.
 
 ## Highlights
 
