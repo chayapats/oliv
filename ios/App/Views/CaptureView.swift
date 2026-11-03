@@ -381,6 +381,9 @@ struct PendingRecordingCard: View {
                         }
                         .accessibilityLabel("Share saved recording")
                         .accessibilityIdentifier("shareRecordingButton_\(item.id)")
+                        // A retry that succeeds deletes this file; don't hand
+                        // it to a share destination that may read it later.
+                        .disabled(model.isBusy)
                     }
                     Button(role: .destructive) { confirmsDelete = true } label: {
                         Image(systemName: "trash")

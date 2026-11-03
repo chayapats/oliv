@@ -18,10 +18,10 @@ body:
     id: typed
     attributes:
       label: What OLIV typed
-      description: The finished text exactly as it was pasted.
+      description: The finished text exactly as it was pasted. Leave blank if OLIV typed nothing.
       render: text
     validations:
-      required: true
+      required: false
   - type: textarea
     id: raw
     attributes:
