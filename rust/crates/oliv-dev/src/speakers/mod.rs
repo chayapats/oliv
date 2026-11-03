@@ -960,13 +960,19 @@ fn synth(args: SynthArgs) -> Result<()> {
     check_synth_target(&out, &args.voice)?;
     let mut written = vec!["consent.json".to_owned()];
     for row in &kit {
-        written.push(format!(
-            "{}.aiff",
-            row["id"].as_str().ok_or("Kit row has no id")?
-        ));
+        let id = row["id"].as_str().ok_or("Kit row has no id")?;
+        written.push(format!("{id}.aiff"));
+        written.push(format!("{id}.part.aiff"));
     }
     ensure_private(&out, &written)?;
     std::fs::create_dir_all(&out)?;
+    // The label first: an interrupted run leaves a directory that says which
+    // voice it holds, so the next run resumes it instead of refusing it.
+    write_json(
+        &out.join("consent.json"),
+        &json!({"synthetic": true, "voice": args.voice, "date": command_line("date", &["+%F"]),
+            "mic": "none (macOS text-to-speech)", "room": "none"}),
+    )?;
     let mut made = 0;
     for row in &kit {
         let id = row["id"].as_str().ok_or("Kit row has no id")?;
@@ -974,9 +980,12 @@ fn synth(args: SynthArgs) -> Result<()> {
         if path.is_file() {
             continue;
         }
+        // Into a side file, renamed when `say` finishes: a run cut off mid-clip
+        // leaves no truncated recording that a resumed run would skip.
+        let partial = out.join(format!("{id}.part.aiff"));
         let mut child = Command::new("say")
             .args(["-v", &args.voice, "-f", "-", "-o"])
-            .arg(&path)
+            .arg(&partial)
             .stdin(Stdio::piped())
             .spawn()?;
         child
@@ -984,16 +993,12 @@ fn synth(args: SynthArgs) -> Result<()> {
             .take()
             .ok_or("say has no stdin")?
             .write_all(row["say"].as_str().unwrap_or("").as_bytes())?;
-        if !child.wait()?.success() || !path.is_file() {
+        if !child.wait()?.success() || !partial.is_file() {
             return Err(format!("say could not synthesize {id} with voice {}", args.voice).into());
         }
+        std::fs::rename(&partial, &path)?;
         made += 1;
     }
-    write_json(
-        &out.join("consent.json"),
-        &json!({"synthetic": true, "voice": args.voice, "date": command_line("date", &["+%F"]),
-            "mic": "none (macOS text-to-speech)", "room": "none"}),
-    )?;
     println!(
         "Synthesized {made} clips with {} into {}",
         args.voice,
