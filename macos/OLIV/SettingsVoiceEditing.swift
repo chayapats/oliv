@@ -36,9 +36,8 @@ struct VoiceEditingSettingsView: View {
                            isOn: $voice.commandEnabled)
             CommandShortcutField(voice: voice)
                 .disabled(!voice.commandEnabled)
-            if voice.commandEnabled, voice.commandChord != nil, commandClashes {
-                SettingsNotice(text: "This shortcut shares a key with push-to-talk or undo, so Command mode is paused. Choose a different shortcut.",
-                               icon: "exclamationmark.triangle", warning: true)
+            if bindings.commandPaused {
+                SettingsNotice(text: "The Command mode shortcut overlaps push-to-talk or undo: one of them contains all the other’s keys, so pressing one would trigger both. Command mode is paused until you choose a shortcut that doesn’t overlap.", icon: "exclamationmark.triangle", warning: true)
             }
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
                 example("ทำให้สุภาพขึ้น", "More polite")
@@ -58,10 +57,10 @@ struct VoiceEditingSettingsView: View {
         }
     }
 
-    private var commandClashes: Bool {
-        let config = VoiceEditConfiguration(commandChord: voice.commandChord)
-        let others = settings.activeChords + [settings.undoHotkeyChord].compactMap { $0 }
-        return VoiceEditPolicy.commandChord(config, others: others) == nil
+    /// The shortcuts as the controller resolves them, to say which are paused.
+    private var bindings: ShortcutBindings {
+        VoiceEditPolicy.bindings(voice.configuration, pushToTalk: settings.activeChords,
+                                 undo: settings.undoHotkeyChord)
     }
 
     // MARK: Translation
@@ -75,6 +74,9 @@ struct VoiceEditingSettingsView: View {
             if voice.translateWithSecondary, settings.hotkeySecondaryChord == nil {
                 SettingsNotice(text: "Set a secondary shortcut in Keyboard shortcuts to use translation.",
                                icon: "exclamationmark.triangle", warning: true)
+            }
+            if bindings.translationPaused {
+                SettingsNotice(text: "The secondary shortcut overlaps the primary or undo shortcut: one of them contains all the other’s keys, so pressing it would start plain dictation first. Translation is paused, and the secondary shortcut types what you say, until you choose one that doesn’t overlap.", icon: "exclamationmark.triangle", warning: true)
             }
             SettingsNotice(text: "พูดไทยปนอังกฤษได้ตามปกติ OLIV จะแปลออกมาเป็นภาษาอังกฤษที่อ่านลื่นเป็นธรรมชาติ ส่วนชื่อคน ชื่อสินค้า และศัพท์โค้ดจะคงไว้ตามเดิม คำใน Dictionary ของคุณก็ยังใช้ได้เหมือนเดิม",
                            icon: "character.bubble")

@@ -34,8 +34,10 @@ Sparkle appcast's release notes, so keep entries short and end-user readable.
   the Command mode shortcut and say what to change: "ทำให้สุภาพขึ้น", "สั้นลง",
   "สรุปเป็น bullet", "แก้คำผิด" or "เขียนเป็นอีเมล". OLIV replaces the
   selection, and your undo shortcut puts the original back. If OLIV isn't sure
-  about an edit, your text stays as it was. It runs on your Mac, and never in
-  verbatim apps or password managers. Off by default: Settings › Voice editing.
+  about an edit, your text stays as it was, and if you select something else
+  while it works, the edit waits on the clipboard. It runs on your Mac, and
+  never in verbatim apps or password managers. Off by default: Settings ›
+  Voice editing.
 - **Speak Thai, type English.** Set your secondary push-to-talk shortcut, or
   apps you choose, to translate: speak Thai, with English mixed in as usual,
   and OLIV pastes natural English. Names, product names and code terms stay as

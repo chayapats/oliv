@@ -20,8 +20,11 @@ private final class FakeAccessibility: AccessibilityProviding, @unchecked Sendab
     var context: (range: NSRange, value: String)?
     var secure = false
     var pid: pid_t? = 42
-    /// Focus moves to this process after the first capture (app switch).
-    var pidAfterCapture: pid_t?
+    /// The focused field and its window, by identity (nil: not exposed).
+    var element: NSString? = "text-field-1"
+    var window: NSString? = "window-1"
+    /// The selected range Accessibility reports; falls back to `context`.
+    var range: NSRange?
     let selects = Log<NSRange>()
     let reads = Log<Int>()
 
@@ -29,13 +32,18 @@ private final class FakeAccessibility: AccessibilityProviding, @unchecked Sendab
     func selectionContext() -> (range: NSRange, value: String)? { context }
     func select(_ range: NSRange) -> Bool {
         selects.append(range)
-        if let context { selected = (context.value as NSString).substring(with: range) }
+        if let context {
+            selected = (context.value as NSString).substring(with: range)
+            self.range = range
+        }
         return true
     }
     func focusedIsSecure() -> Bool { secure }
-    func focusedProcessID() -> pid_t? {
-        defer { if let next = pidAfterCapture { pid = next } }
-        return pid
+    func focusSnapshot() -> FocusSnapshot {
+        reads.append(1)
+        return FocusSnapshot(processID: pid, element: element.map { AXIdentity($0) },
+                             window: window.map { AXIdentity($0) },
+                             selectedRange: range ?? context?.range, selectedText: selected)
     }
 }
 
@@ -73,12 +81,16 @@ final class VoiceEditingTests: XCTestCase {
 
     /// A reader whose ⌘C makes the "app" copy `copied` (nil: copies nothing).
     private func reader(copying copied: String? = nil, extraType: (NSPasteboard.PasteboardType, Data)? = nil) -> SelectionReader {
+        reader(copying: Box(copied), extraType: extraType)
+    }
+
+    private func reader(copying box: Box<String?>, extraType: (NSPasteboard.PasteboardType, Data)? = nil) -> SelectionReader {
         let reader = SelectionReader(pasteboard: pasteboard, accessibility: ax)
         let pasteboard = self.pasteboard!
         let copies = self.copies
         reader.copyPoster = {
             copies.append(1)
-            if let copied {
+            if let copied = box.value {
                 pasteboard.clearContents()
                 pasteboard.setString(copied, forType: .string)
                 if let extraType { pasteboard.setData(extraType.1, forType: extraType.0) }
@@ -102,6 +114,17 @@ final class VoiceEditingTests: XCTestCase {
         return injector
     }
 
+    private func captured(_ result: SelectionResult) -> SelectionCapture? {
+        if case .selected(let capture) = result { return capture }
+        return nil
+    }
+
+    /// `text` selected through Accessibility in the fake's current field.
+    private func axTarget(_ text: String) -> SelectionCapture {
+        ax.selected = text
+        return SelectionCapture(text: text, source: .accessibility, focus: ax.focusSnapshot())
+    }
+
     private func job(_ mode: DictationMode = .command, block: VoiceEditPolicy.Block? = nil,
                      transformer: TextTransforming?, reader: SelectionReader? = nil,
                      recentPaste: String? = nil, modelReady: Bool = true) -> VoiceEditJob {
@@ -115,7 +138,9 @@ final class VoiceEditingTests: XCTestCase {
     func testAccessibilitySelectionIsReadWithoutTouchingTheClipboard() {
         ax.selected = "ส่งไฟล์ deck มาด่วน"
         let result = reader(copying: "should not copy").capture(recentPaste: nil)
-        XCTAssertEqual(result, .selected(SelectionCapture(text: "ส่งไฟล์ deck มาด่วน", source: .accessibility, processID: 42)))
+        XCTAssertEqual(result, .selected(SelectionCapture(text: "ส่งไฟล์ deck มาด่วน", source: .accessibility,
+                                                          focus: ax.focusSnapshot())))
+        XCTAssertEqual(captured(result)?.processID, 42)
         XCTAssertTrue(copies.all.isEmpty, "no ⌘C when Accessibility exposes the selection")
         XCTAssertEqual(pasteboard.string(forType: .string), "the user's clipboard")
     }
@@ -123,7 +148,8 @@ final class VoiceEditingTests: XCTestCase {
     func testCopyFallbackReadsTheSelectionAndRestoresTheClipboard() {
         ax.selected = nil   // e.g. an Electron app
         let result = reader(copying: "selected in Slack").capture(recentPaste: nil)
-        XCTAssertEqual(result, .selected(SelectionCapture(text: "selected in Slack", source: .copy, processID: 42)))
+        XCTAssertEqual(captured(result)?.text, "selected in Slack")
+        XCTAssertEqual(captured(result)?.source, .copy)
         XCTAssertEqual(copies.all.count, 1)
         XCTAssertEqual(pasteboard.string(forType: .string), "the user's clipboard",
                        "the user's clipboard comes back after the ⌘C fallback")
@@ -149,7 +175,9 @@ final class VoiceEditingTests: XCTestCase {
         ax.selected = ""
         ax.context = (NSRange(location: (value as NSString).length, length: 0), value)
         let result = reader(copying: "must not copy").capture(recentPaste: pasted)
-        XCTAssertEqual(result, .selected(SelectionCapture(text: pasted, source: .recentPaste, processID: 42)))
+        XCTAssertEqual(captured(result)?.text, pasted)
+        XCTAssertEqual(captured(result)?.source, .recentPaste)
+        XCTAssertEqual(captured(result)?.focus?.selectedText, pasted, "where it lives is read after selecting it")
         XCTAssertTrue(copies.all.isEmpty, "Accessibility proved nothing is selected")
         XCTAssertEqual(ax.selects.all, [NSRange(location: ("สวัสดีครับ " as NSString).length,
                                                 length: (pasted as NSString).length)])
@@ -180,7 +208,7 @@ final class VoiceEditingTests: XCTestCase {
         let transformer = FakeTransformer { _, _, _ in
             TransformResult(applied: true, text: "รบกวนส่งไฟล์ deck มาให้หน่อยครับ", flag: "ok")
         }
-        let target = SelectionCapture(text: "ส่งไฟล์ deck มาด่วน", source: .accessibility, processID: 42)
+        let target = axTarget("ส่งไฟล์ deck มาด่วน")
         let result = VoiceEditRunner.finishCommand(instruction: "ทำให้สุภาพขึ้น", target: target,
                                                    job: job(transformer: transformer), injector: injector())
         XCTAssertEqual(result.outcome, .pastedOK)
@@ -193,7 +221,7 @@ final class VoiceEditingTests: XCTestCase {
     }
 
     func testARejectedOrFailedTransformLeavesTheOriginalUntouched() {
-        let target = SelectionCapture(text: "ทำไม build พัง", source: .copy, processID: 42)
+        let target = SelectionCapture(text: "ทำไม build พัง", source: .copy, focus: ax.focusSnapshot())
         for transformer in [
             FakeTransformer { _, _, text in TransformResult(applied: false, text: text, flag: "answered") },
             FakeTransformer { _, _, _ in throw ModelDown() },
@@ -219,13 +247,90 @@ final class VoiceEditingTests: XCTestCase {
 
     func testSwitchingAppsLeavesTheEditOnTheClipboardInstead() {
         let transformer = FakeTransformer { _, _, _ in TransformResult(applied: true, text: "edited", flag: "ok") }
+        let target = axTarget("original")
         ax.pid = 99   // focus is now in another app
         let result = VoiceEditRunner.finishCommand(
-            instruction: "สั้นลง", target: SelectionCapture(text: "original", source: .accessibility, processID: 42),
-            job: job(transformer: transformer), injector: injector())
+            instruction: "สั้นลง", target: target, job: job(transformer: transformer), injector: injector())
         XCTAssertEqual(result.outcome, .pasteNeedsManual)
+        XCTAssertEqual(result.notice?.text, "You switched apps — the edit is on the clipboard")
         XCTAssertTrue(pastes.all.isEmpty, "never pasted into the other app")
         XCTAssertEqual(pasteboard.string(forType: .string), "edited")
+    }
+
+    /// The model takes a second or more; the user may select something else
+    /// in the same app meanwhile. The edit replaces only the selection it was
+    /// made for; anything else gets the edit on the clipboard.
+    func testAnEditOnlyReplacesTheSelectionItWasMadeFor() {
+        let transformer = FakeTransformer { _, _, _ in TransformResult(applied: true, text: "edited", flag: "ok") }
+        func edit(after change: (FakeAccessibility) -> Void) -> VoiceEditResult {
+            ax.pid = 42
+            ax.element = "text-field-1"
+            ax.window = "window-1"
+            ax.range = NSRange(location: 4, length: 8)
+            let target = axTarget("original")
+            change(ax)
+            return VoiceEditRunner.finishCommand(instruction: "สั้นลง", target: target,
+                                                 job: job(transformer: transformer), injector: injector())
+        }
+        let changes: [(String, (FakeAccessibility) -> Void, String)] = [
+            ("other text selected", { $0.selected = "other words"; $0.range = NSRange(location: 20, length: 11) },
+             "Your selection changed — the edit is on the clipboard"),
+            ("the same words selected elsewhere", { $0.range = NSRange(location: 40, length: 8) },
+             "Your selection changed — the edit is on the clipboard"),
+            ("another field", { $0.element = "text-field-2" },
+             "Your selection changed — the edit is on the clipboard"),
+            ("another window", { $0.window = "window-2" },
+             "Your selection changed — the edit is on the clipboard"),
+            ("no focused element", { $0.element = nil },
+             "Couldn’t confirm your selection — the edit is on the clipboard"),
+            ("selection not readable", { $0.selected = nil },
+             "Couldn’t confirm your selection — the edit is on the clipboard"),
+            ("range not readable", { $0.range = nil },
+             "Couldn’t confirm your selection — the edit is on the clipboard"),
+        ]
+        for (name, change, notice) in changes {
+            pasteboard.clearContents()
+            pasteboard.setString("the user's clipboard", forType: .string)
+            let result = edit(after: change)
+            XCTAssertEqual(result.outcome, .pasteNeedsManual, name)
+            XCTAssertEqual(result.notice?.text, notice, name)
+            XCTAssertEqual(pasteboard.string(forType: .string), "edited", "\(name): the edit waits on the clipboard")
+        }
+        XCTAssertTrue(pastes.all.isEmpty, "never pasted over something else")
+        let result = edit(after: { _ in })
+        XCTAssertEqual(result.outcome, .pastedOK, "the same selection is replaced")
+        XCTAssertEqual(pastes.all, ["edited"])
+    }
+
+    /// Apps that only answer ⌘C (Electron): the selection is copied again
+    /// right before replacing it, and the user's clipboard comes back.
+    func testACopiedSelectionIsCopiedAgainBeforeItIsReplaced() {
+        let transformer = FakeTransformer { _, _, _ in TransformResult(applied: true, text: "edited", flag: "ok") }
+        ax.selected = nil
+        let copied = Box<String?>("selected in Slack")
+        let reader = reader(copying: copied)
+        guard let target = captured(reader.capture(recentPaste: nil)) else { return XCTFail("no capture") }
+        XCTAssertEqual(target.source, .copy)
+        XCTAssertEqual(reader.verify(target), .same)
+        XCTAssertEqual(pasteboard.string(forType: .string), "the user's clipboard")
+        for (now, expected) in [("something else", TargetCheck.changed), (nil, .changed)] as [(String?, TargetCheck)] {
+            copied.value = now
+            XCTAssertEqual(reader.verify(target), expected)
+            XCTAssertEqual(pasteboard.string(forType: .string), "the user's clipboard")
+        }
+        copied.value = "something else"
+        let result = VoiceEditRunner.finishCommand(instruction: "สั้นลง", target: target,
+                                                   job: job(transformer: transformer, reader: reader),
+                                                   injector: injector())
+        XCTAssertEqual(result.outcome, .pasteNeedsManual)
+        XCTAssertTrue(pastes.all.isEmpty)
+        XCTAssertEqual(pasteboard.string(forType: .string), "edited",
+                       "the clipboard restore after re-copying never wipes the edit")
+        copied.value = "selected in Slack"
+        XCTAssertEqual(VoiceEditRunner.finishCommand(instruction: "สั้นลง", target: target,
+                                                     job: job(transformer: transformer, reader: reader),
+                                                     injector: injector()).outcome, .pastedOK)
+        XCTAssertEqual(pastes.all, ["edited"])
     }
 
     func testCommandModeRefusesVerbatimAppsAndPasswordManagersBeforeReading() {
@@ -294,20 +399,55 @@ final class VoiceEditingTests: XCTestCase {
 
     func testShortcutRouting() {
         let primary = HotkeyChord(key: .rightOption), secondary = HotkeyChord(key: .rightControl)
+        let undo = HotkeyChord.defaultUndo
         var config = VoiceEditConfiguration()
-        XCTAssertNil(VoiceEditPolicy.translationChord(config, primary: primary, secondary: secondary))
+        XCTAssertEqual(VoiceEditPolicy.bindings(config, pushToTalk: [primary, secondary], undo: undo),
+                       ShortcutBindings(dictation: [primary, secondary]))
         config.translateWithSecondary = true
-        XCTAssertEqual(VoiceEditPolicy.translationChord(config, primary: primary, secondary: secondary), secondary)
-        XCTAssertNil(VoiceEditPolicy.translationChord(config, primary: primary, secondary: nil))
-        XCTAssertNil(VoiceEditPolicy.translationChord(config, primary: primary, secondary: primary))
+        var bindings = VoiceEditPolicy.bindings(config, pushToTalk: [primary, secondary], undo: undo)
+        XCTAssertEqual(bindings.translation, secondary)
+        XCTAssertEqual(bindings.dictation, [primary])
+        XCTAssertNil(VoiceEditPolicy.bindings(config, pushToTalk: [primary], undo: undo).translation)
         config.commandChord = HotkeyChord(key: .rightCommand)
-        XCTAssertEqual(VoiceEditPolicy.commandChord(config, others: [primary, secondary]), HotkeyChord(key: .rightCommand))
-        config.commandChord = HotkeyChord(keys: [.rightOption, .rightCommand])
-        XCTAssertNil(VoiceEditPolicy.commandChord(config, others: [primary]), "shares Right Option with push-to-talk")
+        bindings = VoiceEditPolicy.bindings(config, pushToTalk: [primary, secondary], undo: undo)
+        XCTAssertEqual(bindings.command, HotkeyChord(key: .rightCommand))
+        XCTAssertFalse(bindings.commandPaused || bindings.translationPaused)
         XCTAssertEqual(VoiceEditPolicy.dictationMode(bundleID: "COM.TINYSPECK.SLACKMACGAP",
                                                      translationApps: ["com.tinyspeck.slackmacgap"]), .translate)
         XCTAssertEqual(VoiceEditPolicy.dictationMode(bundleID: "com.apple.notes",
                                                      translationApps: ["com.tinyspeck.slackmacgap"]), .dictate)
+    }
+
+    /// Pressing a shortcut that contains another one's keys fires the other
+    /// first. Such voice-editing shortcuts are paused, never half-working.
+    func testOverlappingShortcutsPauseVoiceEditing() {
+        let primary = HotkeyChord(key: .rightOption)
+        let primaryPlusCommand = HotkeyChord(keys: [.rightOption, .rightCommand])
+        let leftControl = HotkeyChord(key: .modifierKey(keyCode: 0x3B))
+        let undo = HotkeyChord.defaultUndo   // Left Control + Left Shift + Z
+        let translate = VoiceEditConfiguration(translateWithSecondary: true)
+        for (pushToTalk, why) in [([primary, primaryPlusCommand], "the secondary contains the primary"),
+                                  ([primaryPlusCommand, primary], "the primary contains the secondary"),
+                                  ([primary, leftControl], "undo contains the secondary")] {
+            let bindings = VoiceEditPolicy.bindings(translate, pushToTalk: pushToTalk, undo: undo)
+            XCTAssertNil(bindings.translation, why)
+            XCTAssertTrue(bindings.translationPaused, why)
+            XCTAssertEqual(bindings.dictation, pushToTalk, "\(why): the secondary dictates instead")
+        }
+        for (command, why) in [(primaryPlusCommand, "contains push-to-talk"),
+                               (leftControl, "is part of undo"),
+                               (HotkeyChord(key: .rightControl), "is the secondary")] {
+            let bindings = VoiceEditPolicy.bindings(VoiceEditConfiguration(commandChord: command),
+                                                    pushToTalk: [primary, HotkeyChord(key: .rightControl)], undo: undo)
+            XCTAssertNil(bindings.command, "Command mode \(why)")
+            XCTAssertTrue(bindings.commandPaused, "Command mode \(why)")
+        }
+        // Sharing a key is not overlapping: neither press completes the other.
+        XCTAssertFalse(VoiceEditPolicy.overlaps(primaryPlusCommand, HotkeyChord(keys: [.rightOption, .rightControl])))
+        let bindings = VoiceEditPolicy.bindings(
+            VoiceEditConfiguration(commandChord: HotkeyChord(keys: [.rightCommand, .rightControl])),
+            pushToTalk: [primaryPlusCommand], undo: undo)
+        XCTAssertEqual(bindings.command, HotkeyChord(keys: [.rightCommand, .rightControl]))
     }
 
     @MainActor
@@ -363,9 +503,9 @@ final class CommandModeControllerTests: XCTestCase {
         super.tearDown()
     }
 
-    private func run(_ mode: DictationMode, selection: String?, app: String = "com.apple.notes",
-                     verbatim: Set<String> = [], pastes: Log<String>, undos: Log<Int>,
-                     copies: Log<Int>) async -> DictationController {
+    private func makeController(selection: String?, app: String = "com.apple.notes",
+                                verbatim: Set<String> = [], pastes: Log<String>, undos: Log<Int>,
+                                copies: Log<Int>) -> (DictationController, AppState) {
         let worker = CaptureWorker(start: { _, _ in }, stop: {
             var stats = AudioCapture.CaptureStats()
             stats.deviceLive = true
@@ -383,6 +523,7 @@ final class CommandModeControllerTests: XCTestCase {
         controller.cleanupModelReady = { true }
         controller.frontmostBundleID = { app }
         controller.verbatimApps = verbatim
+        controller.startTap = { _ in }   // never a real event tap
         let ax = FakeAccessibility()
         ax.selected = selection
         let reader = SelectionReader(pasteboard: pasteboard, accessibility: ax)
@@ -391,7 +532,20 @@ final class CommandModeControllerTests: XCTestCase {
         reader.secureInputCheck = { false }
         reader.copyTimeout = 0.05
         controller.selectionReader = reader
+        return (controller, state)
+    }
 
+    /// Press, wait for the recording, release, wait for idle.
+    private func run(_ mode: DictationMode, selection: String?, app: String = "com.apple.notes",
+                     verbatim: Set<String> = [], pastes: Log<String>, undos: Log<Int>,
+                     copies: Log<Int>) async -> DictationController {
+        let (controller, state) = makeController(selection: selection, app: app, verbatim: verbatim,
+                                                 pastes: pastes, undos: undos, copies: copies)
+        let shortcut: HoldShortcut = switch mode {
+        case .dictate: .pushToTalk
+        case .translate: .translation
+        case .command: .command
+        }
         let started = expectation(description: "recording")
         let idle = expectation(description: "back to idle")
         var sawRecording = false
@@ -399,14 +553,91 @@ final class CommandModeControllerTests: XCTestCase {
             if status == .recording, !sawRecording { sawRecording = true; started.fulfill() }
             if status == .idle, sawRecording { idle.fulfill() }
         }
-        controller.handlePress(mode: mode)
+        controller.handlePress(shortcut)
         await fulfillment(of: [started], timeout: 2)
         // Let the capture start complete before releasing.
         try? await Task.sleep(nanoseconds: 250_000_000)
-        controller.handleRelease()
+        controller.handleRelease(shortcut)
         await fulfillment(of: [idle], timeout: 10)
         withExtendedLifetime(observation) {}
         return controller
+    }
+
+    /// Hold push-to-talk, tap the translation shortcut: its press is ignored
+    /// (already recording), and so must its release be.
+    func testOnlyTheShortcutThatStartedARecordingEndsIt() async {
+        let pastes = Log<String>(), undos = Log<Int>(), copies = Log<Int>()
+        let (controller, state) = makeController(selection: nil, pastes: pastes, undos: undos, copies: copies)
+        let idle = expectation(description: "back to idle")
+        var sawProcessing = false
+        let observation = state.$status.sink { status in
+            if status == .processing { sawProcessing = true }
+            if status == .idle, sawProcessing { idle.fulfill() }
+        }
+        controller.handlePress(.pushToTalk)
+        XCTAssertEqual(state.status, .recording)
+        try? await Task.sleep(nanoseconds: 250_000_000)
+        controller.handlePress(.translation)
+        controller.handleRelease(.translation)
+        XCTAssertEqual(state.status, .recording, "the translation shortcut's release leaves push-to-talk recording")
+        controller.handlePress(.command)
+        controller.handleRelease(.command)
+        XCTAssertEqual(state.status, .recording, "so does Command mode's")
+        controller.handleRelease(.pushToTalk)
+        XCTAssertEqual(state.status, .processing)
+        await fulfillment(of: [idle], timeout: 10)
+        withExtendedLifetime(observation) {}
+        XCTAssertEqual(pastes.all, ["Hello world."], "dictated as push-to-talk started it")
+    }
+
+    /// Every shortcut change re-checks overlaps: an undo shortcut that now
+    /// contains Command mode's key pauses Command mode at once, and freeing
+    /// it brings Command mode back, without touching anything else.
+    func testChangingUndoRechecksTheVoiceEditingShortcuts() {
+        let pastes = Log<String>(), undos = Log<Int>(), copies = Log<Int>()
+        let (controller, _) = makeController(selection: nil, pastes: pastes, undos: undos, copies: copies)
+        let rightCommand = HotkeyChord(key: .rightCommand)
+        controller.hotkeyChords = [HotkeyChord(key: .rightOption), HotkeyChord(key: .rightControl)]
+        controller.undoHotkeyChord = .defaultUndo
+        controller.voiceEdit = VoiceEditConfiguration(commandChord: rightCommand, translateWithSecondary: true)
+        controller.sidecar = nil   // nothing to warm
+        controller.start()
+        defer { controller.stop() }
+        XCTAssertEqual(controller.installedBindings?.command, rightCommand)
+        XCTAssertEqual(controller.installedBindings?.translation, HotkeyChord(key: .rightControl))
+
+        controller.applyUndoHotkey(HotkeyChord(keys: [.rightCommand, .regularKey(keyCode: 0x06, characters: "z")]))
+        XCTAssertNil(controller.installedBindings?.command, "undo now contains Command mode's key")
+        XCTAssertEqual(controller.installedBindings?.commandPaused, true)
+        XCTAssertEqual(controller.installedBindings?.translation, HotkeyChord(key: .rightControl))
+
+        controller.applyUndoHotkey(HotkeyChord(keys: [.rightControl, .regularKey(keyCode: 0x06, characters: "z")]))
+        XCTAssertEqual(controller.installedBindings?.command, rightCommand, "freed again")
+        XCTAssertNil(controller.installedBindings?.translation, "undo now contains the secondary")
+        XCTAssertEqual(controller.installedBindings?.dictation,
+                       [HotkeyChord(key: .rightOption), HotkeyChord(key: .rightControl)])
+
+        controller.applyUndoHotkey(.defaultUndo)
+        XCTAssertEqual(controller.installedBindings, ShortcutBindings(
+            dictation: [HotkeyChord(key: .rightOption)], translation: HotkeyChord(key: .rightControl),
+            command: rightCommand))
+    }
+
+    /// A secondary shortcut that contains the primary's keys never gets a
+    /// translation tap of its own (it would lose to plain dictation).
+    func testAnOverlappingTranslationShortcutIsNotInstalled() {
+        let pastes = Log<String>(), undos = Log<Int>(), copies = Log<Int>()
+        let (controller, _) = makeController(selection: nil, pastes: pastes, undos: undos, copies: copies)
+        let primary = HotkeyChord(key: .rightOption)
+        let secondary = HotkeyChord(keys: [.rightOption, .rightCommand])
+        controller.hotkeyChords = [primary, secondary]
+        controller.voiceEdit = VoiceEditConfiguration(translateWithSecondary: true)
+        controller.sidecar = nil   // nothing to warm
+        controller.start()
+        defer { controller.stop() }
+        XCTAssertNil(controller.installedBindings?.translation)
+        XCTAssertEqual(controller.installedBindings?.translationPaused, true)
+        XCTAssertEqual(controller.installedBindings?.dictation, [primary, secondary])
     }
 
     func testCommandModeReplacesTheSelectionAndUndoRestoresIt() async {

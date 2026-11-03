@@ -44,7 +44,14 @@ struct GeneralSettingsView: View {
 
 struct ShortcutsSettingsView: View {
     @EnvironmentObject private var settings: OLIVSettings
+    @ObservedObject private var voice = VoiceEditSettings.shared
     @State private var recordingSlot: HotkeySlot?
+
+    /// Voice-editing shortcuts paused by an overlap with these ones.
+    private var voiceBindings: ShortcutBindings {
+        VoiceEditPolicy.bindings(voice.configuration, pushToTalk: settings.activeChords,
+                                 undo: settings.undoHotkeyChord)
+    }
 
     var body: some View {
         SettingsPane {
@@ -68,6 +75,12 @@ struct ShortcutsSettingsView: View {
                     SettingsNotice(text: "This matches a push-to-talk shortcut. Choose a different shortcut for undo.",
                                    icon: "exclamationmark.triangle", warning: true)
                 }
+            }
+            if voiceBindings.translationPaused {
+                SettingsNotice(text: "The secondary shortcut overlaps the primary or undo shortcut: one of them contains all the other’s keys, so pressing it would start plain dictation first. Translation is paused, and the secondary shortcut types what you say, until you choose one that doesn’t overlap.", icon: "exclamationmark.triangle", warning: true)
+            }
+            if voiceBindings.commandPaused {
+                SettingsNotice(text: "The Command mode shortcut overlaps push-to-talk or undo: one of them contains all the other’s keys, so pressing one would trigger both. Command mode is paused until you choose a shortcut that doesn’t overlap.", icon: "exclamationmark.triangle", warning: true)
             }
             Text("To record a shortcut, click Record, hold any modifiers, then press a key. You can also press and release a single modifier. Escape cancels.")
                 .font(.system(size: 12)).foregroundStyle(.secondary).padding(.horizontal, 4)

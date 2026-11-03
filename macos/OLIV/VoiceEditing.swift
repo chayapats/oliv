@@ -98,22 +98,64 @@ enum VoiceEditPolicy {
         return translationApps.contains(id) ? .translate : .dictate
     }
 
-    /// The chord that translates, when it is a distinct secondary shortcut.
-    static func translationChord(_ config: VoiceEditConfiguration,
-                                             primary: HotkeyChord, secondary: HotkeyChord?) -> HotkeyChord? {
-        guard config.translateWithSecondary, let secondary, secondary != primary else { return nil }
-        return secondary
+    /// Pressing one chord also completes the other: one's keys are all part
+    /// of the other's (Right ⌥ inside Right ⌥ + Right ⌘). Two such shortcuts
+    /// can't both be hold-to-talk taps: the shorter fires first, and the
+    /// longer one's press is ignored. Sharing a key alone is fine.
+    static func overlaps(_ a: HotkeyChord, _ b: HotkeyChord) -> Bool {
+        let x = Set(a.keys.map(\.keyCode)), y = Set(b.keys.map(\.keyCode))
+        return x.isSubset(of: y) || y.isSubset(of: x)
     }
 
-    /// The Command mode chord, unless it collides with another shortcut
-    /// (both taps would fire on the same keys). Shares no key with them.
-    static func commandChord(_ config: VoiceEditConfiguration,
-                                         others: [HotkeyChord]) -> HotkeyChord? {
-        guard let chord = config.commandChord else { return nil }
-        let keys = Set(chord.keys.map(\.keyCode))
-        let clash = others.contains { !keys.isDisjoint(with: $0.keys.map(\.keyCode)) }
-        return clash ? nil : chord
+    /// Which tap each shortcut gets. A voice-editing shortcut that overlaps
+    /// another shortcut (push-to-talk, undo, or each other) is paused, and
+    /// Settings says so: the secondary shortcut then dictates like the
+    /// primary, and Command mode stays off.
+    static func bindings(_ config: VoiceEditConfiguration, pushToTalk: [HotkeyChord],
+                         undo: HotkeyChord?) -> ShortcutBindings {
+        let primary = pushToTalk.first
+        let secondary = pushToTalk.dropFirst().first
+        var result = ShortcutBindings(dictation: pushToTalk)
+        if config.translateWithSecondary, let primary, let secondary, secondary != primary {
+            let others = [primary] + [undo].compactMap { $0 }
+            if others.contains(where: { overlaps(secondary, $0) }) {
+                result.translationPaused = true
+            } else {
+                result.translation = secondary
+                result.dictation = pushToTalk.filter { $0 != secondary }
+            }
+        }
+        if let command = config.commandChord {
+            let others = pushToTalk + [undo].compactMap { $0 }
+            if others.contains(where: { overlaps(command, $0) }) {
+                result.commandPaused = true
+            } else {
+                result.command = command
+            }
+        }
+        return result
     }
+}
+
+/// The resolved hold-to-talk shortcuts (see `VoiceEditPolicy.bindings`).
+struct ShortcutBindings: Equatable {
+    /// Push-to-talk chords that dictate (or translate, in translation apps).
+    var dictation: [HotkeyChord]
+    /// The secondary shortcut, when it types English.
+    var translation: HotkeyChord?
+    /// The Command mode shortcut, when on and free of overlaps.
+    var command: HotkeyChord?
+    /// Translation is on, but the secondary shortcut overlaps another one.
+    var translationPaused = false
+    /// Command mode is on, but its shortcut overlaps another one.
+    var commandPaused = false
+}
+
+/// The hold-to-talk shortcut a press or release came from. A recording
+/// belongs to the shortcut that started it: only that shortcut's release
+/// ends it.
+enum HoldShortcut: Equatable {
+    case pushToTalk, translation, command
 }
 
 /// One `transform` reply. `text` is the original when `applied` is false.
@@ -233,12 +275,15 @@ enum VoiceEditRunner {
             return VoiceEditResult(outcome: .nothingToDo, notice: VoiceEditNotice(
                 text: "Nothing to change", symbol: "checkmark.circle"))
         }
-        // The user moved to another app while the model worked: pasting there
-        // would replace the wrong thing. Leave the edit on the clipboard.
-        if let pid = target.processID, let now = job.reader.focusedProcessID(), now != pid {
+        // The model took a while: the user may have moved to another app,
+        // field or window, or selected something else. Paste only over the
+        // exact selection that was edited; otherwise, or when that can't be
+        // confirmed, leave the edit on the clipboard (never restored over).
+        let check = job.reader.verify(target)
+        if check != .same {
             injector.inject(result.text, mode: .clipboardOnly)
-            return VoiceEditResult(outcome: .pasteNeedsManual, pastedText: result.text, notice: VoiceEditNotice(
-                text: "You switched apps — the edit is on the clipboard", symbol: "doc.on.clipboard"))
+            return VoiceEditResult(outcome: .pasteNeedsManual, pastedText: result.text,
+                                   notice: clipboardNotice(check))
         }
         let outcome = DictationController.paste(result.text, with: injector)
         let undo = job.undoHint.map { " · \($0) undoes it" } ?? ""
@@ -279,6 +324,16 @@ enum VoiceEditRunner {
         if result.flag == "noThai" { return pasteOriginal(nil) }
         return pasteOriginal(VoiceEditNotice(text: "Couldn’t translate that — pasted what you said",
                                              symbol: "exclamationmark.triangle.fill"))
+    }
+
+    /// Why an edit went to the clipboard instead of replacing the selection.
+    static func clipboardNotice(_ check: TargetCheck) -> VoiceEditNotice {
+        let text = switch check {
+        case .otherApp: "You switched apps — the edit is on the clipboard"
+        case .changed: "Your selection changed — the edit is on the clipboard"
+        case .same, .unverifiable: "Couldn’t confirm your selection — the edit is on the clipboard"
+        }
+        return VoiceEditNotice(text: text, symbol: "doc.on.clipboard")
     }
 
     static func refused(_ block: VoiceEditPolicy.Block) -> VoiceEditResult {

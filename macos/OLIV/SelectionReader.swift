@@ -17,7 +17,9 @@
 //
 // Replacement goes through TextInjector's normal paste (⌘V over the live
 // selection), so the host app's undo — and OLIV's undo-last-paste shortcut —
-// puts the original back.
+// puts the original back. Right before it, `verify` checks that the live
+// selection is still the captured one (same app, field, window, range and
+// text); if not, or if it can't tell, the edit goes to the clipboard instead.
 //
 // Testability: the Accessibility calls, the ⌘C poster and the modifier-state
 // probe are injectable; tests use a uniquely named pasteboard (never .general).
@@ -26,6 +28,24 @@ import AppKit
 import ApplicationServices
 import Carbon.HIToolbox   // IsSecureEventInputEnabled()
 
+/// An Accessibility element, compared by identity (CFEqual): the same text
+/// field read twice is equal, another field is not. Tests use strings.
+struct AXIdentity: Equatable {
+    let ref: CFTypeRef
+    init(_ ref: CFTypeRef) { self.ref = ref }
+    static func == (a: AXIdentity, b: AXIdentity) -> Bool { CFEqual(a.ref, b.ref) }
+}
+
+/// Where a selection lives: the focused element and its window, the app,
+/// and the selection as Accessibility reports it (each nil when unknown).
+struct FocusSnapshot: Equatable {
+    var processID: pid_t?
+    var element: AXIdentity?
+    var window: AXIdentity?
+    var selectedRange: NSRange?
+    var selectedText: String?
+}
+
 /// The text Command mode will edit, and where it came from.
 struct SelectionCapture: Equatable {
     enum Source: String, Equatable {
@@ -33,9 +53,25 @@ struct SelectionCapture: Equatable {
     }
     let text: String
     let source: Source
-    /// The app that owned the focused element at capture (nil if unknown),
-    /// so the replacement can refuse to land in a different app.
-    var processID: pid_t?
+    /// Where the selection was at capture, so the replacement can refuse to
+    /// land anywhere else. nil: unknown, and the edit is never pasted.
+    var focus: FocusSnapshot?
+
+    /// The app that owned the focused element at capture (nil if unknown).
+    var processID: pid_t? { focus?.processID }
+}
+
+/// Is the captured selection still the one the user has, right before the
+/// edit replaces it?
+enum TargetCheck: Equatable {
+    /// Same app, same field and window, same selection: safe to paste.
+    case same
+    /// Focus moved to another app.
+    case otherApp
+    /// Another field or window, or a different selection.
+    case changed
+    /// Accessibility can't tell (no focused element, the app not answering).
+    case unverifiable
 }
 
 enum SelectionResult: Equatable {
@@ -58,8 +94,8 @@ protocol AccessibilityProviding {
     func select(_ range: NSRange) -> Bool
     /// The focused element is a password (secure text) field.
     func focusedIsSecure() -> Bool
-    /// The process that owns the focused element.
-    func focusedProcessID() -> pid_t?
+    /// The focused element, its window, app and selection, read together.
+    func focusSnapshot() -> FocusSnapshot
 }
 
 /// Live Accessibility API, with a short messaging timeout so a hung app
@@ -111,10 +147,24 @@ struct SystemAccessibility: AccessibilityProviding {
         return attribute(element, kAXSubroleAttribute) as? String == kAXSecureTextFieldSubrole as String
     }
 
-    func focusedProcessID() -> pid_t? {
-        guard let element = focused() else { return nil }
+    func focusSnapshot() -> FocusSnapshot {
+        guard let element = focused() else { return FocusSnapshot() }
+        var snapshot = FocusSnapshot(element: AXIdentity(element))
         var pid: pid_t = 0
-        return AXUIElementGetPid(element, &pid) == .success ? pid : nil
+        if AXUIElementGetPid(element, &pid) == .success { snapshot.processID = pid }
+        if let window = attribute(element, kAXWindowAttribute),
+           CFGetTypeID(window) == AXUIElementGetTypeID() {
+            snapshot.window = AXIdentity(window)
+        }
+        if let rangeValue = attribute(element, kAXSelectedTextRangeAttribute),
+           CFGetTypeID(rangeValue) == AXValueGetTypeID() {
+            var range = CFRange()
+            if AXValueGetValue(rangeValue as! AXValue, .cfRange, &range) {   // type checked above
+                snapshot.selectedRange = NSRange(location: range.location, length: range.length)
+            }
+        }
+        snapshot.selectedText = attribute(element, kAXSelectedTextAttribute) as? String
+        return snapshot
     }
 }
 
@@ -154,22 +204,56 @@ final class SelectionReader {
     /// OLIV last pasted (nil when unknown or already undone).
     func capture(recentPaste: String?) -> SelectionResult {
         if secureInputCheck() || accessibility.focusedIsSecure() { return .secure }
-        let pid = accessibility.focusedProcessID()
+        // Where the selection lives, read once it is final (after selecting a
+        // recent paste), for `verify` to compare before replacing it.
+        func selected(_ text: String, _ source: SelectionCapture.Source) -> SelectionResult {
+            .selected(SelectionCapture(text: text, source: source, focus: accessibility.focusSnapshot()))
+        }
         let axText = accessibility.selectedText()
         if let axText, !axText.isEmpty {
-            return .selected(SelectionCapture(text: axText, source: .accessibility, processID: pid))
+            return selected(axText, .accessibility)
         }
         // Accessibility says "nothing selected" and proves it with a caret in
         // a readable value: trust it. Otherwise it may simply not know.
         let context = accessibility.selectionContext()
         let knownEmpty = axText == "" && context.map { $0.range.length == 0 } == true
         if !knownEmpty, let copied = copySelection(), !copied.isEmpty {
-            return .selected(SelectionCapture(text: copied, source: .copy, processID: pid))
+            return selected(copied, .copy)
         }
         if let recentPaste, !recentPaste.isEmpty, selectRecentPaste(recentPaste, context: context) {
-            return .selected(SelectionCapture(text: recentPaste, source: .recentPaste, processID: pid))
+            return selected(recentPaste, .recentPaste)
         }
         return .none
+    }
+
+    /// Right before replacing: is `capture`'s selection still exactly what
+    /// the user has selected? Same app, same focused element and window, the
+    /// same range, and the same text: read through Accessibility when that is
+    /// how it was captured, or copied again (⌘C, clipboard restored) when
+    /// the app only answers ⌘C. Anything else must not be pasted over.
+    func verify(_ capture: SelectionCapture) -> TargetCheck {
+        guard let was = capture.focus, let pid = was.processID, let element = was.element else {
+            return .unverifiable
+        }
+        let now = accessibility.focusSnapshot()
+        guard let nowPID = now.processID else { return .unverifiable }
+        if nowPID != pid { return .otherApp }
+        guard let nowElement = now.element else { return .unverifiable }
+        guard nowElement == element else { return .changed }
+        if let window = was.window, now.window != window { return .changed }
+        if let range = was.selectedRange {
+            guard let nowRange = now.selectedRange else { return .unverifiable }
+            guard nowRange == range else { return .changed }
+        }
+        switch capture.source {
+        case .accessibility, .recentPaste:
+            guard let text = now.selectedText else { return .unverifiable }
+            return text == capture.text ? .same : .changed
+        case .copy:
+            if secureInputCheck() || accessibility.focusedIsSecure() { return .unverifiable }
+            guard let copied = copySelection() else { return .changed }
+            return copied == capture.text ? .same : .changed
+        }
     }
 
     /// The copy fallback: ⌘C, read the text, put the user's clipboard back.
@@ -216,7 +300,4 @@ final class SelectionReader {
               accessibility.select(range) else { return false }
         return accessibility.selectedText() == text
     }
-
-    /// The app now holding focus, to compare with `SelectionCapture.processID`.
-    func focusedProcessID() -> pid_t? { accessibility.focusedProcessID() }
 }

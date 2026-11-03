@@ -128,6 +128,12 @@ final class DictationController {
     private var translateHotkey: HotkeyMonitor?
     /// What the press being recorded does, frozen at press.
     private var recordingMode: DictationMode = .dictate
+    /// The shortcut that started the recording: only its release ends it.
+    private var recordingShortcut: HoldShortcut = .pushToTalk
+    /// What the hold-to-talk taps were last built for (nil before start()).
+    private(set) var installedBindings: ShortcutBindings?
+    /// Starts a built tap. Tests replace it so no real event tap is created.
+    var startTap: (HotkeyMonitor) throws -> Void = { try $0.start() }
 
     /// Primary chord's first key — back-compat for tests/callers.
     var hotkeyKey: HotkeyKey {
@@ -223,7 +229,7 @@ final class DictationController {
     private func installHotkey() {
         guard hotkey == nil else { return }
         let monitor = HotkeyMonitor(
-            chords: dictationChords,
+            chords: shortcutBindings.dictation,
             onPress: { [weak self] in
                 // Fires on the tap thread — hop to main (FIFO) for AppState.
                 DispatchQueue.main.async {
@@ -237,7 +243,7 @@ final class DictationController {
             }
         )
         do {
-            try monitor.start()
+            try startTap(monitor)
             hotkey = monitor
         } catch {
             NSLog("OLIV DictationController: hotkey monitor could not start (\(error)) — "
@@ -246,17 +252,10 @@ final class DictationController {
         installVoiceEditHotkeys()
     }
 
-    /// The secondary shortcut, when it is set to translate.
-    private var translationChord: HotkeyChord? {
-        guard let primary = hotkeyChords.first else { return nil }
-        return VoiceEditPolicy.translationChord(voiceEdit, primary: primary,
-                                                secondary: hotkeyChords.dropFirst().first)
-    }
-
-    /// Push-to-talk chords that dictate (the translation chord has its own tap).
-    private var dictationChords: [HotkeyChord] {
-        guard let translation = translationChord else { return hotkeyChords }
-        return hotkeyChords.filter { $0 != translation }
+    /// Which tap each shortcut gets, for the current push-to-talk, undo and
+    /// voice-editing settings. Overlapping voice-editing shortcuts are paused.
+    var shortcutBindings: ShortcutBindings {
+        VoiceEditPolicy.bindings(voiceEdit, pushToTalk: hotkeyChords, undo: undoHotkeyChord)
     }
 
     /// (Re)install the hold-to-talk taps for translation and Command mode.
@@ -265,35 +264,44 @@ final class DictationController {
         translateHotkey = nil
         commandHotkey?.stop()
         commandHotkey = nil
-        let others = hotkeyChords + [undoHotkeyChord].compactMap { $0 }
-        for (chord, mode) in [(translationChord, DictationMode.translate),
-                              (VoiceEditPolicy.commandChord(voiceEdit, others: others), .command)] {
+        let bindings = shortcutBindings
+        installedBindings = bindings
+        for (chord, shortcut) in [(bindings.translation, HoldShortcut.translation),
+                                  (bindings.command, .command)] {
             guard let chord else { continue }
             let monitor = HotkeyMonitor(
                 chords: [chord],
                 onPress: { [weak self] in
-                    DispatchQueue.main.async { MainActor.assumeIsolated { self?.handlePress(mode: mode) } }
+                    DispatchQueue.main.async { MainActor.assumeIsolated { self?.handlePress(shortcut) } }
                 },
                 onRelease: { [weak self] in
-                    DispatchQueue.main.async { MainActor.assumeIsolated { self?.handleRelease() } }
+                    DispatchQueue.main.async { MainActor.assumeIsolated { self?.handleRelease(shortcut) } }
                 })
             do {
-                try monitor.start()
-                if mode == .command { commandHotkey = monitor } else { translateHotkey = monitor }
+                try startTap(monitor)
+                if shortcut == .command { commandHotkey = monitor } else { translateHotkey = monitor }
             } catch {
-                NSLog("OLIV DictationController: \(mode.rawValue) hotkey could not start (\(error))")
+                NSLog("OLIV DictationController: \(shortcut) hotkey could not start (\(error))")
             }
         }
     }
 
-    /// Live-apply voice-editing settings: the translation chord moves between
-    /// taps, so the push-to-talk tap is rebuilt too.
-    func applyVoiceEdit(_ config: VoiceEditConfiguration) {
-        guard config != voiceEdit else { return }
-        voiceEdit = config
+    /// Rebuild the hold-to-talk taps when what they should listen for has
+    /// changed: any shortcut (push-to-talk, undo, Command mode, translation)
+    /// can pause or free another. No-op before start().
+    private func refreshHoldTaps() {
+        guard let installed = installedBindings, shortcutBindings != installed else { return }
         hotkey?.stop()
         hotkey = nil
         installHotkey()
+    }
+
+    /// Live-apply voice-editing settings. The translation chord moves between
+    /// taps, so the push-to-talk tap is rebuilt too when it changes.
+    func applyVoiceEdit(_ config: VoiceEditConfiguration) {
+        guard config != voiceEdit else { return }
+        voiceEdit = config
+        refreshHoldTaps()
     }
 
     /// Live-apply push-to-talk chords (Settings › General): tear the current tap
@@ -326,6 +334,9 @@ final class DictationController {
         undoHotkey?.stop()
         undoHotkey = nil
         installUndoHotkey()
+        // Undo takes part in the overlap rules for Command mode and
+        // translation: a new undo shortcut can pause or free them.
+        refreshHoldTaps()
     }
 
     /// Install the momentary undo tap. Skips when unset, or when the chord is
@@ -351,7 +362,7 @@ final class DictationController {
             swallowsMatchedKeyEvents: true
         )
         do {
-            try monitor.start()
+            try startTap(monitor)
             undoHotkey = monitor
         } catch {
             NSLog("OLIV DictationController: undo hotkey could not start (\(error))")
@@ -548,6 +559,7 @@ final class DictationController {
         commandHotkey = nil
         translateHotkey?.stop()
         translateHotkey = nil
+        installedBindings = nil
         if appState.status != .idle {
             appState.status = .idle
         }
@@ -560,9 +572,10 @@ final class DictationController {
 
     // MARK: Transitions (main actor)
 
-    /// `mode` nil: a regular push-to-talk press, which translates in apps set
-    /// to translate.
-    func handlePress(mode: DictationMode? = nil) {
+    /// A press of `shortcut`. Push-to-talk translates in apps set to
+    /// translate; the translation and Command mode shortcuts always do their
+    /// own thing.
+    func handlePress(_ shortcut: HoldShortcut = .pushToTalk) {
         // Respect the master toggle — off means the hotkey is ignored entirely.
         guard appState.dictationEnabled else { return }
         // Ignore a press we can't cleanly start from (mid-processing / already
@@ -578,8 +591,13 @@ final class DictationController {
         recordingEngine = sttEngine
         appState.activeEngineID = sttEngine
         hud?.setEngine(sttEngine)
-        recordingMode = mode ?? VoiceEditPolicy.dictationMode(bundleID: frontmostBundleID(),
-                                                              translationApps: voiceEdit.translationApps)
+        recordingShortcut = shortcut
+        recordingMode = switch shortcut {
+        case .pushToTalk: VoiceEditPolicy.dictationMode(bundleID: frontmostBundleID(),
+                                                        translationApps: voiceEdit.translationApps)
+        case .translation: .translate
+        case .command: .command
+        }
         hud?.setMode(recordingMode)
         warmingGeneration &+= 1   // retires any warming-poll left over from a prior press
         let generation = warmingGeneration
@@ -646,10 +664,13 @@ final class DictationController {
         }
     }
 
-    func handleRelease() {
+    /// A release of `shortcut`. Only the shortcut that started the recording
+    /// ends it: holding push-to-talk and tapping the translation shortcut
+    /// (whose press was ignored) must not cut the recording short.
+    func handleRelease(_ shortcut: HoldShortcut = .pushToTalk) {
         // Only act on a release that ends an active recording. A balancing
         // release fired by stop() while already idle/processing is a no-op.
-        guard appState.status == .recording else { return }
+        guard appState.status == .recording, shortcut == recordingShortcut else { return }
         guard let request = captureRequest else { return }
         request.cancel()
         captureRequest = nil
