@@ -1,0 +1,14 @@
+# Synthetic Thai-English sentences written for benchmark/dictation-transcriber.md (public).
+# `say` is what macOS's Kanya voice reads; `reference` is the text a user wants.
+{"id": "mx901", "path": "mx901.wav", "reference": "พรุ่งนี้ต้องรีวิว pull request ของทีม backend ให้เสร็จก่อนเที่ยง", "keywords": ["pull request", "backend"]}
+{"id": "mx902", "path": "mx902.wav", "reference": "ลอง restart container ที่รัน Redis ใน Docker ให้หน่อย", "keywords": ["restart", "container", "Redis", "Docker"]}
+{"id": "mx903", "path": "mx903.wav", "reference": "ส่งลิงก์ Figma มาใน Slack ได้ไหม เดี๋ยวจะเช็ก layout ให้", "keywords": ["Figma", "Slack", "layout"]}
+{"id": "mx904", "path": "mx904.wav", "reference": "ประชุม sprint planning เลื่อนไปวันพฤหัสบดีนะครับ", "keywords": ["sprint planning"]}
+{"id": "pn901", "path": "pn901.wav", "reference": "คุณสมศักดิ์ฝากบอกว่าจะเข้าออฟฟิศที่สีลมช้าหน่อย", "keywords": ["สมศักดิ์", "สีลม"]}
+{"id": "pn902", "path": "pn902.wav", "reference": "นัดคุณวรรณวิสาที่เซ็นทรัลเวิลด์ตอนบ่ายสามโมง", "keywords": ["วรรณวิสา", "เซ็นทรัลเวิลด์"]}
+{"id": "pn903", "path": "pn903.wav", "reference": "ทีมของคุณณัฐพงษ์จะไปดูงานที่ Shopee สิงคโปร์สัปดาห์หน้า", "keywords": ["ณัฐพงษ์", "Shopee"], "vocab": ["ณัฐพงษ์", "Shopee"]}
+{"id": "nm901", "path": "nm901.wav", "reference": "ยอดขายเดือนนี้อยู่ที่ 2,350,000 บาท", "keywords": ["2,350,000"], "say": "ยอดขายเดือนนี้อยู่ที่สองล้านสามแสนห้าหมื่นบาท"}
+{"id": "nm902", "path": "nm902.wav", "reference": "โทรกลับเบอร์ 081-234-5678 ได้เลย", "keywords": ["081-234-5678"], "say": "โทรกลับเบอร์ ศูนย์แปดหนึ่ง สองสามสี่ ห้าหกเจ็ดแปด ได้เลย"}
+{"id": "nm903", "path": "nm903.wav", "reference": "ส่งงานภายในวันที่ 15 พฤศจิกายน เวลา 10.30 น.", "keywords": ["15", "10.30"], "say": "ส่งงานภายในวันที่สิบห้าพฤศจิกายน เวลาสิบนาฬิกาสามสิบนาที"}
+{"id": "fl901", "path": "fl901.wav", "reference": "วันนี้ผมอาจจะเข้าประชุมไม่ทันนะครับ", "keywords": [], "say": "เอ่อ คือว่า อืม วันนี้ผมอาจจะเข้าประชุมไม่ทันนะครับ"}
+{"id": "fl902", "path": "fl902.wav", "reference": "ไฟล์นั้นส่งให้แล้วใช่ไหม", "keywords": [], "say": "แบบว่า เอ่อ ไฟล์นั้นน่ะ ส่งให้แล้วใช่ไหม"}

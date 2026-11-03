@@ -15,6 +15,10 @@ from maintained source, tests, benchmarks and release packaging.
   DSStore and renders installer assets with AppKit. `build_dmg.sh` uses hdiutil
   to create, mount, style, verify and compress the installer without Finder
   automation. Release signing, notarization and Sparkle remain unchanged.
+- Swift `oliv-apple-dictation` (`tools/apple-dictation`, macOS 26+ at run time)
+  feeds clips to Apple's on-device `DictationTranscriber` for the
+  [comparison benchmark](../benchmark/dictation-transcriber.md). It is a
+  developer tool only; the app does not use it.
 - Frozen public golden fixtures remain independent reference outputs. They
   are not regenerated from the Rust code being tested.
 
