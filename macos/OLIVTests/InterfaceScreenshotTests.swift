@@ -267,11 +267,15 @@ final class InterfaceScreenshotTests: XCTestCase {
         try render(RecentMenuPreview(), size: CGSize(width: 640, height: 200), name: "menu-recent")
     }
 
+    /// The HUD's fixed canvas (room for the grown live-preview pill and its
+    /// shadow) plus the 10 pt padding the renders add.
+    private static let hudSize = CGSize(width: HUDLayout.canvas.width + 20, height: HUDLayout.canvas.height + 20)
+
     func testRecordingHUD() throws {
         let model = HUDModel()
         model.engineID = "typhoon-turbo-mlx"
         for i in 0..<HUDModel.barCount { model.push(level: Float(abs(sin(Double(i) / 3))) * 0.8) }
-        let size = CGSize(width: 240, height: 76)
+        let size = Self.hudSize
         for phase in [HUDPhase.warming, .recording, .processing] {
             model.phase = phase
             try render(RecordingHUDView(model: model).padding(10), size: size, name: "hud-\(phase)")
@@ -333,12 +337,12 @@ final class InterfaceScreenshotTests: XCTestCase {
     }
 
     /// What the README's images are made of: the HUD in each mode, frame by
-    /// frame (a made-up speech level, no microphone), its processing and
-    /// notice states with the symbols the app uses, the trial card at
-    /// Setup's width, and a report for the current version.
+    /// frame (a made-up speech level, no microphone), with live-preview text,
+    /// its processing and notice states with the symbols the app uses, the
+    /// trial card at Setup's width, and a report for the current version.
     func testReadmeArt() async throws {
         let model = HUDModel()
-        let size = CGSize(width: 240, height: 76)
+        let size = Self.hudSize
         // A speech-like level: syllable bursts under a slower phrase envelope.
         func level(_ n: Int) -> Float {
             let t = Double(n) / 30
@@ -368,7 +372,37 @@ final class InterfaceScreenshotTests: XCTestCase {
                            name: "readme-hud-\(name)-proc-\(frame)", transparent: true)
             }
         }
+        // Live preview: public demo clip mx08 (docs/audio/mx08.mp3) held for its
+        // 4.46 s and replayed through oliv-sidecar's `preview` the way the app
+        // paces it (0.2 s ticks, 1 s of audio first, one in flight, each start
+        // spaced by its cost / 0.3), on 3 November 2026. Each text is what that
+        // preview returned, shown from when it returned; none was still running
+        // at release. The final pass then pasted
+        // "เดี๋ยวผม forward email นัดหมายให้ใส่ไว้ใน calendar ด้วยนะ".
+        let previews: [(at: Double, text: String)] = [
+            (1.49, "เดี๋ยวผมฟ้องกันครับ"),
+            (3.34, "เดี๋ยวผม forward อีเมล นัดหมายให้ ใส่ไว้ในขั้น"),
+        ]
         model.mode = .dictate
+        model.engineID = "typhoon-turbo-mlx"
+        model.resetHistory()
+        model.phase = .recording
+        var n = 0
+        for _ in 0..<HUDModel.barCount { model.push(level: 0.03) }
+        for frame in 0..<56 {   // 4.46 s at 12.5 frames a second
+            let t = Double(frame) / 12.5
+            for _ in 0..<3 { model.push(level: level(n)); n += 1 }
+            model.previewText = LivePreview.tail(previews.last { $0.at <= t }?.text ?? "")
+            try render(RecordingHUDView(model: model).padding(10), size: size,
+                       name: "readme-hud-live-rec-\(String(format: "%02d", frame))", transparent: true)
+        }
+        model.previewText = ""
+        model.phase = .processing
+        for frame in 0..<6 {
+            try render(RecordingHUDView(model: model).padding(10), size: size,
+                       name: "readme-hud-live-proc-\(frame)", transparent: true)
+        }
+
         model.phase = .notice
         let undo = HotkeyChord.defaultUndo.displayName
         let notices: [(String, String, String)] = [
