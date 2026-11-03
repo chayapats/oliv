@@ -13,7 +13,9 @@
 //     -only-testing:OLIVTests/InterfaceScreenshotTests
 //
 // (HF_HOME points the Models page at an empty folder, so no local paths or
-// model sizes appear in the pictures.)
+// model sizes appear in the pictures.) Add TEST_RUNNER_OLIV_SCREENSHOT_APPEARANCE=dark
+// for dark mode; file names then start with `<language>-dark-`. testReadmeArt
+// renders the real HUD frames and windows the README's images are built from.
 
 import AppKit
 import SwiftUI
@@ -42,6 +44,11 @@ final class InterfaceScreenshotTests: XCTestCase {
 
     private var language: String { Bundle.main.preferredLocalizations.first ?? "en" }
 
+    private var dark: Bool { ProcessInfo.processInfo.environment["OLIV_SCREENSHOT_APPEARANCE"] == "dark" }
+
+    /// `<language>-` or `<language>-dark-`.
+    private var prefix: String { dark ? "\(language)-dark-" : "\(language)-" }
+
     /// Settings with a few Dictionary words, a waiting suggestion and the OLIV
     /// API filled in with a placeholder server (never a real one).
     private func sampleSettings() -> OLIVSettings {
@@ -61,15 +68,22 @@ final class InterfaceScreenshotTests: XCTestCase {
 
     /// `scrolledToEnd` scrolls every scroll view to its end first (the Setup
     /// window is a fixed 520×560 with a scrolling middle).
-    private func render<V: View>(_ view: V, size: CGSize, name: String, scrolledToEnd: Bool = false) throws {
+    /// `transparent` leaves out the window background (the HUD floats over
+    /// other windows).
+    private func render<V: View>(_ view: V, size: CGSize, name: String, scrolledToEnd: Bool = false,
+                                 transparent: Bool = false) throws {
         let root = view
             .environment(\.locale, Locale(identifier: language))
             .frame(width: size.width, height: size.height)
-            .background(Color(nsColor: .windowBackgroundColor))
+            .background(transparent ? Color.clear : Color(nsColor: .windowBackgroundColor))
         let hosting = NSHostingView(rootView: root)
         hosting.frame = CGRect(origin: .zero, size: size)
         let window = NSWindow(contentRect: hosting.frame, styleMask: [.titled], backing: .buffered, defer: false)
-        window.appearance = NSAppearance(named: .aqua)
+        window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        if transparent {
+            window.isOpaque = false
+            window.backgroundColor = .clear
+        }
         window.contentView = hosting
         hosting.layoutSubtreeIfNeeded()
         // Let onAppear, timers and async layout settle before drawing.
@@ -87,7 +101,7 @@ final class InterfaceScreenshotTests: XCTestCase {
         let rep = try XCTUnwrap(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
         hosting.cacheDisplay(in: hosting.bounds, to: rep)
         let png = try XCTUnwrap(rep.representation(using: .png, properties: [:]))
-        try png.write(to: outputDir.appendingPathComponent("\(language)-\(name).png"))
+        try png.write(to: outputDir.appendingPathComponent("\(prefix)\(name).png"))
         window.contentView = nil
     }
 
@@ -317,21 +331,103 @@ final class InterfaceScreenshotTests: XCTestCase {
             try render(RecordingHUDView(model: model).padding(10), size: size, name: "hud-notice-\(name)")
         }
     }
+
+    /// What the README's images are made of: the HUD in each mode, frame by
+    /// frame (a made-up speech level, no microphone), its processing and
+    /// notice states with the symbols the app uses, the trial card at
+    /// Setup's width, and a report for the current version.
+    func testReadmeArt() async throws {
+        let model = HUDModel()
+        let size = CGSize(width: 240, height: 76)
+        // A speech-like level: syllable bursts under a slower phrase envelope.
+        func level(_ n: Int) -> Float {
+            let t = Double(n) / 30
+            let phrase = 0.55 + 0.45 * sin(t * 1.7)
+            let syllable = max(0, sin(t * 11.0) * 0.8 + sin(t * 23.0 + 1) * 0.35)
+            return Float(min(1, max(0.04, phrase * syllable)))
+        }
+        let modes: [(String, DictationMode, String)] = [
+            ("dictate", .dictate, "typhoon-turbo-mlx"), ("trial", .dictate, CloudTrial.engineID),
+            ("command", .command, "typhoon-turbo-mlx"), ("translate", .translate, "typhoon-turbo-mlx"),
+        ]
+        for (name, mode, engine) in modes {
+            model.mode = mode
+            model.engineID = engine
+            model.resetHistory()
+            model.phase = .recording
+            var n = 0
+            for _ in 0..<HUDModel.barCount { model.push(level: 0.03) }
+            for frame in 0..<36 {
+                for _ in 0..<3 { model.push(level: level(n)); n += 1 }
+                try render(RecordingHUDView(model: model).padding(10), size: size,
+                           name: "readme-hud-\(name)-rec-\(String(format: "%02d", frame))", transparent: true)
+            }
+            model.phase = .processing
+            for frame in 0..<6 {
+                try render(RecordingHUDView(model: model).padding(10), size: size,
+                           name: "readme-hud-\(name)-proc-\(frame)", transparent: true)
+            }
+        }
+        model.mode = .dictate
+        model.phase = .notice
+        let undo = HotkeyChord.defaultUndo.displayName
+        let notices: [(String, String, String)] = [
+            ("edited", String(localized: "Edited · \(undo) undoes it"), "wand.and.stars"),
+            ("models-ready", String(localized: "Models ready — dictating on this Mac again"), "desktopcomputer"),
+        ]
+        for (name, text, symbol) in notices {
+            model.noticeText = text
+            model.noticeSymbol = symbol
+            try render(RecordingHUDView(model: model).padding(10), size: size,
+                       name: "readme-hud-notice-\(name)", transparent: true)
+        }
+
+        // The trial card at Setup's width, offered and on.
+        let offered = sampleTrial()
+        let active = sampleTrial()
+        await active.start()
+        for (name, trial) in [("offer", offered), ("on", active)] {
+            try render(CloudTrialOfferView(trial: trial, offered: true, onStart: {}, onStop: {}).padding(16),
+                       size: CGSize(width: 520, height: 260), name: "readme-trial-\(name)")
+        }
+
+        // The wrong-result preview, filled from a real result: public demo clip
+        // hx206 in the 28 October 2026 benchmark run (0.2.2, Typhoon + Gemma),
+        // shown as 0.2.3 would report it.
+        var details = TranscriptLog.Details(raw: "เก็บเวคเทอร์ไว้ในพายโคน แล้วต่อกับแหล่งเชนทำแร็ก",
+                                            engineID: "typhoon-turbo-mlx", cleanup: true)
+        details.llmRan = true
+        details.gateReason = "suspect-tokens+loan-compound"
+        details.guardrailFlag = "ok"
+        details.sttSeconds = 0.548
+        details.cleanupSeconds = 0.513
+        details.audioSeconds = 4.6
+        let typed = "เก็บ vector ไว้ใน PyTorch แล้วต่อกับแหล่ง chain ทำ rack"
+        let entry = TranscriptLog.Entry(text: typed, details: details)
+        let report = ResultReport.mac(entry: entry, appVersion: "0.2.3", build: "20",
+                                      macOSVersion: ProcessInfo.processInfo.operatingSystemVersionString)
+        let draft = ResultReportDraft(report: report, open: { _ in XCTFail("nothing opens from a render") })
+        draft.meant = "เก็บ vector ไว้ใน Pinecone แล้วต่อกับ LangChain ทำ RAG"
+        try render(ResultReportView(draft: draft, onClose: {}), size: CGSize(width: 540, height: 720),
+                   name: "readme-report-preview")
+        try render(RecentMenuPreview(items: [typed, "migrate database จาก MySQL ไป PostgreSQL แล้วอัปเดต Connection String"]),
+                   size: CGSize(width: 640, height: 200), name: "readme-menu-recent", transparent: true)
+    }
 }
 
 /// The Recent submenu with its Report a Wrong Result submenu open.
 private struct RecentMenuPreview: View {
+    var items = ["ประชุมกับทีม Grafana พรุ่งนี้บ่ายสอง", "ส่งไฟล์ให้หน่อยนะ"]
+
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             menu {
-                item(Text(verbatim: "ประชุมกับทีม Grafana พรุ่งนี้บ่ายสอง"))
-                item(Text(verbatim: "ส่งไฟล์ให้หน่อยนะ"))
+                ForEach(items, id: \.self) { item(Text(verbatim: $0)) }
                 Divider().padding(.vertical, 5)
                 item(Text("Report a Wrong Result"), trailing: "›")
             }
             menu {
-                item(Text(verbatim: "ประชุมกับทีม Grafana พรุ่งนี้บ่ายสอง"))
-                item(Text(verbatim: "ส่งไฟล์ให้หน่อยนะ"))
+                ForEach(items, id: \.self) { item(Text(verbatim: $0)) }
             }
             .padding(.top, 62)
         }
