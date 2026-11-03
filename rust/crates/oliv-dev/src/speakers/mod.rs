@@ -131,8 +131,8 @@ pub struct SynthArgs {
 
 #[derive(Args)]
 pub struct FleursArgs {
-    #[arg(long)]
-    pub model_dir: PathBuf,
+    #[arg(long, required_unless_present = "manifest_out")]
+    pub model_dir: Option<PathBuf>,
     /// Output of scripts/fetch_fleurs_th.sh. Default: $OLIV_FLEURS_DIR or
     /// ~/.cache/oliv-bench/fleurs-th.
     #[arg(long)]
@@ -153,6 +153,11 @@ pub struct FleursArgs {
     /// Accept a test.tsv that differs from the pinned revision (fixtures only).
     #[arg(long)]
     pub allow_unpinned: bool,
+    /// Only write the sampled recordings as an `eval` manifest (absolute audio
+    /// paths; pass `--audio-root /`) to this ignored file, and run nothing:
+    /// the same clips for engines outside the sidecar.
+    #[arg(long)]
+    pub manifest_out: Option<PathBuf>,
 }
 
 pub fn main(task: Task) -> Result<()> {
@@ -1110,6 +1115,10 @@ fn fleurs(args: FleursArgs) -> Result<()> {
     if let Some((_, audio)) = rows.iter().find(|(_, a)| !a.is_file()) {
         return Err(format!("Missing FLEURS audio {}", audio.display()).into());
     }
+    if let Some(path) = &args.manifest_out {
+        return write_manifest(path, &rows);
+    }
+    let model_dir = args.model_dir.as_ref().ok_or("--model-dir is required")?;
     ensure_private(&args.out, &["results.json".to_owned()])?;
     let jobs: Vec<(String, &Value, PathBuf)> = rows
         .iter()
@@ -1142,7 +1151,7 @@ fn fleurs(args: FleursArgs) -> Result<()> {
         &pipeline,
         &args.runtime_dir,
         &args.tools_dir,
-        &args.model_dir,
+        model_dir,
         &jobs,
     )?;
     let mut genders: BTreeMap<&str, usize> = BTreeMap::new();
@@ -1161,6 +1170,31 @@ fn fleurs(args: FleursArgs) -> Result<()> {
     let results = json!({"kind":"fleurs","meta":meta,"clips":clips});
     write_json(&args.out.join("results.json"), &results)?;
     render(&results, &args.out)
+}
+
+/// Manifest rows (`id`, absolute `path`, `reference`, ...) in an ignored file.
+pub(crate) fn write_manifest(path: &Path, rows: &[(Value, PathBuf)]) -> Result<()> {
+    let dir = match path.parent() {
+        Some(p) if !p.as_os_str().is_empty() => p,
+        _ => Path::new("."),
+    };
+    let name = path
+        .file_name()
+        .ok_or("--manifest-out needs a file name")?
+        .to_string_lossy()
+        .into_owned();
+    ensure_private(dir, &[name])?;
+    std::fs::create_dir_all(dir)?;
+    let mut text = String::new();
+    for (row, audio) in rows {
+        let mut row = row.clone();
+        row["path"] = audio.to_string_lossy().as_ref().into();
+        text.push_str(&serde_json::to_string(&row)?);
+        text.push('\n');
+    }
+    std::fs::write(path, text)?;
+    println!("Wrote {} manifest rows to {}", rows.len(), path.display());
+    Ok(())
 }
 
 #[cfg(test)]

@@ -32,6 +32,30 @@ pub enum Task {
     Score(ScoreArgs),
     /// Compare two scored runs over identical (utterance, condition) pairs.
     Compare(CompareArgs),
+    /// Write one condition's pairs as an `eval`-format manifest (`id` =
+    /// utterance, absolute `path`, `reference`, the list as `vocab`) for
+    /// engines run outside the sidecar; score their `{utt_id, condition,
+    /// text}` rows with `score --hyps`. The file quotes CC-BY-NC transcripts:
+    /// keep it under the ignored benchmark/eval_results/.
+    Manifest(ManifestArgs),
+}
+
+#[derive(Args)]
+pub struct ManifestArgs {
+    #[arg(long)]
+    pub data_dir: Option<PathBuf>,
+    /// One upstream condition (`none` = every selected utterance, no list).
+    #[arg(long, default_value = "none")]
+    pub condition: String,
+    /// Deterministic subset size in utterances (0 = all), as `run --limit`.
+    #[arg(long, default_value_t = 0)]
+    pub limit: usize,
+    #[arg(long, default_value = "2026")]
+    pub seed: String,
+    #[arg(long)]
+    pub out: PathBuf,
+    #[arg(long)]
+    pub allow_unpinned: bool,
 }
 
 #[derive(Args)]
@@ -138,6 +162,34 @@ pub fn main(task: Task) -> Result<()> {
                 (None, Some(hyps)) => report::score_hyps(&data, &hyps, &args.out.unwrap()),
                 _ => Err("Pass --run DIR or --hyps FILE --out DIR".into()),
             }
+        }
+        Task::Manifest(args) => {
+            let data = Dataset::load(&data_dir(args.data_dir)?, !args.allow_unpinned)?;
+            let conditions = parse_conditions(&args.condition)?;
+            let selected = data.select(args.limit, &args.seed);
+            let mut text = String::new();
+            for (u, condition) in data.pairs(&selected, &conditions) {
+                let mut row = json!({"id": u.id, "utt_id": u.id, "condition": condition,
+                    "path": data.root.join("audio").join(format!("{}.wav", u.id)),
+                    "reference": u.text, "split": u.split});
+                if let Some(list) = data.list(&u.id, &condition) {
+                    row["vocab"] = json!(list.entries);
+                }
+                text.push_str(&serde_json::to_string(&row)?);
+                text.push('\n');
+            }
+            if let Some(dir) = args.out.parent() {
+                std::fs::create_dir_all(dir)?;
+            }
+            std::fs::write(&args.out, &text)?;
+            println!(
+                "{} utterances, {} rows for {}; wrote {}",
+                selected.len(),
+                text.lines().count(),
+                args.condition,
+                args.out.display()
+            );
+            Ok(())
         }
         Task::Compare(args) => {
             let shard = args.shard.as_deref().map(report::parse_shard).transpose()?;

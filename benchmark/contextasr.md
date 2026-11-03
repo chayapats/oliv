@@ -57,6 +57,14 @@ build/native-tools/oliv-dev contextasr compare --baseline $D/base_full --candida
 | `--stt-replay FILE` | replay transcripts by utterance from an earlier decode (the STT cache, or a run's `details.jsonl`) without loading the STT model |
 | `--llm-cache FILE` | with `--stt-replay`: run the text pipeline in-process and reuse cleanup-model replies cached by prompt (greedy decoding), so unchanged text doesn't run Gemma again |
 
+`contextasr manifest --condition C [--limit N --seed S] --out FILE` writes one
+condition's pairs (same subset as `run`) as an `eval`-format manifest, with the
+list as `vocab`, for engines that run outside the sidecar, such as
+[Apple's DictationTranscriber](dictation-transcriber.md). Score their
+`{utt_id, condition, text}` rows with `score --hyps`, or replay them through
+OLIV's text pipeline with `run --stt-replay`. The file quotes transcripts;
+keep it under `benchmark/eval_results/`.
+
 `none` sends no vocabulary. Other conditions send the frozen list for that
 (utterance, condition) as `vocabulary`, in list order, and nothing else, so no
 reference text or other utterance's list can leak. Runs are resumable: an

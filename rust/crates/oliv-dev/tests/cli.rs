@@ -278,6 +278,140 @@ fn contextasr_scores_upstream_hyps_and_compares_identical_pairs() {
     assert!(!r.status.success());
 }
 
+fn read_rows(path: &PathBuf) -> Vec<Value> {
+    std::fs::read_to_string(path)
+        .unwrap()
+        .lines()
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect()
+}
+
+#[test]
+fn contextasr_manifest_lists_one_conditions_pairs_with_their_list() {
+    let f = Fixture::new();
+    let root = contextasr_fixture(&f);
+    let manifest = |condition: &str| {
+        let out = f.0.join(format!("manifest_{condition}.jsonl"));
+        let status = tool()
+            .args([
+                "contextasr",
+                "manifest",
+                "--allow-unpinned",
+                "--condition",
+                condition,
+            ])
+            .arg("--data-dir")
+            .arg(&root)
+            .arg("--out")
+            .arg(&out)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        read_rows(&out)
+    };
+    let none = manifest("none");
+    assert_eq!(none.len(), 2);
+    assert!(none.iter().all(|r| r.get("vocab").is_none()));
+    assert_eq!(
+        none[0]["path"],
+        root.join("audio/b-1-1.wav").to_string_lossy().as_ref()
+    );
+    assert_eq!(none[0]["reference"], "เรียกแกร็บไปสยาม");
+    // bias@0 has no list for the entity-free utterance, so no pair either.
+    let bias = manifest("bias@0");
+    assert_eq!(bias.len(), 1);
+    assert_eq!(bias[0]["utt_id"], "b-1-1");
+    assert_eq!(bias[0]["condition"], "bias@0");
+    assert_eq!(bias[0]["vocab"], json!(["Grab"]));
+    let dis = manifest("dis@50");
+    assert_eq!(dis[1]["vocab"], json!(["Netflix", "สยาม"]));
+    // Rows an outside engine writes back ({utt_id, condition, text, raw}) score.
+    let hyps = f.0.join("apple/hyps.jsonl");
+    std::fs::create_dir_all(hyps.parent().unwrap()).unwrap();
+    let lines: Vec<String> = bias
+        .iter()
+        .map(|r| json!({"utt_id":r["utt_id"],"condition":r["condition"],"text":"เรียก Grab ไปสยาม","raw":"เรียก Grab ไปสยาม"}).to_string())
+        .collect();
+    std::fs::write(&hyps, lines.join("\n")).unwrap();
+    let scored = score_hyps(&root, &hyps, &f.0.join("apple"), false);
+    assert!(
+        scored.status.success(),
+        "{}",
+        String::from_utf8_lossy(&scored.stderr)
+    );
+    assert!(
+        tool()
+            .args([
+                "contextasr",
+                "manifest",
+                "--allow-unpinned",
+                "--condition",
+                "bias@7",
+                "--out"
+            ])
+            .arg(f.0.join("x.jsonl"))
+            .arg("--data-dir")
+            .arg(&root)
+            .status()
+            .unwrap()
+            .code()
+            != Some(0)
+    );
+}
+
+#[test]
+fn fleurs_manifest_out_writes_multi_reader_clips_and_runs_nothing() {
+    let f = Fixture::new();
+    let data = f.0.join("fleurs");
+    std::fs::create_dir_all(data.join("test")).unwrap();
+    let rows = [
+        ("7", "a.wav", "ทำงาน"),
+        ("7", "b.wav", "ทำงาน"),
+        ("9", "c.wav", "เดี่ยว"),
+    ];
+    let tsv: Vec<String> = rows
+        .iter()
+        .map(|(s, file, text)| format!("{s}\t{file}\t{text}\traw\tt r\t1\tFEMALE"))
+        .collect();
+    std::fs::write(data.join("test.tsv"), tsv.join("\n")).unwrap();
+    for (_, file, _) in rows {
+        std::fs::write(data.join("test").join(file), b"").unwrap();
+    }
+    let out = f.0.join("m/fleurs.jsonl");
+    let run = tool()
+        .args(["speakers", "fleurs", "--allow-unpinned", "--sentences", "0"])
+        .arg("--data-dir")
+        .arg(&data)
+        .arg("--runtime-dir")
+        .arg(f.0.join("no-runtime"))
+        .arg("--manifest-out")
+        .arg(&out)
+        .output()
+        .unwrap();
+    assert!(
+        run.status.success(),
+        "{}",
+        String::from_utf8_lossy(&run.stderr)
+    );
+    let manifest = read_rows(&out);
+    // Sentence 9 has one reader and is not sampled; no --model-dir was needed.
+    assert_eq!(manifest.len(), 2);
+    assert_eq!(manifest[0]["id"], "fleurs-a");
+    assert_eq!(manifest[0]["bucket"], "fleurs");
+    assert_eq!(
+        manifest[0]["path"],
+        data.join("test/a.wav").to_string_lossy().as_ref()
+    );
+    // Without --manifest-out the LaBSE snapshot is still required.
+    let needs = tool()
+        .args(["speakers", "fleurs", "--allow-unpinned", "--data-dir"])
+        .arg(&data)
+        .output()
+        .unwrap();
+    assert!(!needs.status.success());
+    assert!(String::from_utf8_lossy(&needs.stderr).contains("--model-dir"));
+}
+
 #[test]
 fn contextasr_rejects_duplicate_and_unknown_hypotheses() {
     let f = Fixture::new();
