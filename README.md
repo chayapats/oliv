@@ -8,7 +8,7 @@
 # OLIV: Thai speech-to-text and voice typing for Mac
 
 **Hold a key, speak Thai mixed with English, and OLIV types it into any app.**<br>
-Offline dictation for Apple Silicon. Free and open source.
+On-device dictation for Apple Silicon Macs. Free, open source, no account.
 
 [![Latest release](https://img.shields.io/github/v/release/chayapats/oliv?color=57761f&label=release)](https://github.com/chayapats/oliv/releases/latest) [![macOS 14+ on Apple Silicon](https://img.shields.io/badge/macOS%2014%2B-Apple%20Silicon-241f11?logo=apple)](#install) [![MIT license](https://img.shields.io/github/license/chayapats/oliv?color=57761f)](LICENSE) [![Downloads](https://img.shields.io/github/downloads/chayapats/oliv/total?color=57761f)](https://github.com/chayapats/oliv/releases) [![Greptile: The War on Bugs](https://www.greptile.com/badge.svg)](https://www.greptile.com/?utm_source=oss_badge&utm_medium=readme&utm_campaign=greptile_for_open_source)
 
@@ -20,43 +20,55 @@ Offline dictation for Apple Silicon. Free and open source.
 
 <br>
 
-<p align="center">
-  <img src="docs/img/readme/demo.gif" alt="Demo in dark mode: in a Terminal running Claude Code, the user holds right Option and says, in Thai, that the build fails because a dependency version doesn't match. OLIV pastes the prompt with build, fail, dependency and version spelled in English, and Claude Code fixes package.json. A second spoken request, commit code แล้ว push ขึ้น repo เลย, makes Claude Code commit and push." width="100%">
-</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/demo.gif">
+  <img src="docs/img/readme/demo-light.gif" alt="Demo: in a Terminal running Claude Code, the user holds Right Option. OLIV's recording pill shows On-device · Typhoon and a waveform while they say, in Thai, that the build fails because the dependency version doesn't match. On release the pill shows Transcribing…, then OLIV pastes ตัว build fail เพราะ dependency version ไม่ตรง with build, fail, dependency and version in English. Claude Code fixes package.json. A second request, commit code แล้ว push ขึ้น repo เลย, makes Claude Code commit and push." width="100%">
+</picture>
 
 ## The problem
 
-Thai speakers who work in tech mix languages constantly: *"ตัว build fail เพราะ dependency version ไม่ตรง"*. Most Thai speech-to-text spells those English words out in Thai script, so you get:
+Thai speakers who work in tech mix languages all the time: *"ตัว build fail เพราะ dependency version ไม่ตรง"*. Most Thai speech-to-text spells the English words out in Thai script:
 
 ```text
 ตัวบิวท์เฟลล์เพราะดิเพนเดนซี่เวอร์ชั่นไม่ตรง
 ```
 
-Then you fix every word by hand. OLIV turns the English words back into English, leaves the Thai alone, and pastes the result at your cursor. Speech recognition and cleanup run locally on your Mac by default.
+Then you fix every word by hand. OLIV turns those words back into English, leaves your Thai alone, and pastes the result at your cursor. By default, speech recognition and cleanup run on your Mac.
 
 ## Highlights
 
-- 🇹🇭 **Built for Thai + English.** Uses [Typhoon Whisper Turbo](https://huggingface.co/typhoon-ai/typhoon-whisper-turbo), a Thai fine-tune of Whisper, plus a cleanup pass that restores English tech words.
-- 🔒 **Local by default.** After a one-time model download, dictation works offline. Your audio stays on your Mac unless you turn on a cloud engine yourself.
+- 🇹🇭 **Built for Thai + English.** [Typhoon Whisper Turbo](https://huggingface.co/typhoon-ai/typhoon-whisper-turbo), a Thai fine-tune of Whisper, plus a cleanup step that restores English tech words.
+- 🔒 **Local by default.** After a one-time model download, dictation works offline and your audio stays on your Mac.
 - ⚡ **About a second.** Median 1.0 s from releasing the key to text, measured on an M4 Pro.
 - ⌨️ **Works in any app.** Slack, VS Code, Terminal with Claude Code, Notes, a browser: OLIV pastes wherever your cursor is.
-- 📖 **Learns your words.** Add names and jargon to your Dictionary and OLIV spells them your way, even when the speech model gets a Thai name slightly wrong.
-- 🔢 **Formats Thai.** `สี่สิบห้า` becomes `45`, `สองจุดสี่จุดหนึ่ง` becomes `2.4.1`, and `มากมาก` becomes `มากๆ`.
-- 🎧 **Ignores your music.** Echo cancellation subtracts what your Mac is playing, so songs don't turn into text.
-- 🆓 **Free, MIT-licensed, no account.** No subscription and no telemetry.
+- ✍️ **Edit by voice.** Select text and say "ทำให้สุภาพขึ้น", or speak Thai and get English. Both run on your Mac. *(new in 0.2.3)*
+- 📖 **Learns your words.** Names and jargon in your Dictionary come out spelled your way.
+- 🌏 **Thai interface.** On a Mac set to Thai, OLIV's menus, Settings and notices are in Thai. *(new in 0.2.3)*
+- 🆓 **Free and MIT-licensed.** No subscription, no account, no telemetry.
+
+## What's new in 0.2.3
+
+- **[Voice editing](#voice-editing).** *Command mode* rewrites the text you select from a spoken instruction. *Speak Thai, type English* translates your dictation. Both are off by default.
+- **[Dictate while the models download](#first-run-download-or-free-trial).** An opt-in free trial through the OLIV server while the 5 GB download runs. It ends by itself.
+- **[Report a wrong result](#recent-dictations-and-wrong-result-reports).** Preview a report, edit it, then open it as a GitHub issue. OLIV sends nothing itself.
+- **[Thai interface](#thai-interface)** on Macs set to Thai.
+- **Cleanup leaves your Thai alone.** It no longer rewrites a misheard name into unrelated Thai words, changes a number, or puts Korean, Lao or Russian letters into your text. The OLIV server gets the same guards once it's updated.
+- **Volume comes back** when headphones connect or drop out while you dictate.
+
+Every release is in the [changelog](CHANGELOG.md).
 
 ## How it works
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/pipeline-dark.png">
-  <img src="docs/img/readme/pipeline-light.png" alt="Pipeline: hold a key and speak, Typhoon Whisper Turbo transcribes on MLX, the Rust core fixes known words, Gemma E2B restores English words, and the text is pasted at the cursor. All of it runs on the Mac." width="100%">
+  <img src="docs/img/readme/pipeline-light.png" alt="How OLIV works. Dictation, all on the Mac: hold a key and speak; Typhoon Whisper Turbo transcribes on MLX; the Rust core fixes known words, numbers and your Dictionary; Gemma E2B restores English words while guards keep your Thai; the text is pasted at the cursor. Voice editing, also on the Mac and off by default: Command mode takes selected text and a spoken instruction such as ทำให้สุภาพขึ้น, Gemma E2B rewrites it and guardrails check it, and it replaces the selection; Thai to English transcribes and cleans your Thai, Gemma E2B translates it, and English is pasted. Example: raw speech-to-text ตัวบิวท์เฟลล์เพราะดิเพนเดนซี่เวอร์ชั่นไม่ตรง becomes ตัว build fail เพราะ dependency version ไม่ตรง." width="100%">
 </picture>
 
-1. **Speak.** Hold the push-to-talk key (Right ⌥ by default). A small waveform pill shows that OLIV is listening, and your words appear in it as you speak.
+1. **Speak.** Hold the push-to-talk key (Right ⌥ by default). A small pill shows that OLIV is listening and which engine it's using.
 2. **Transcribe.** Typhoon Whisper Turbo runs on the GPU with [MLX](https://github.com/ml-explore/mlx).
-3. **Fix known words.** A Rust core applies a built-in dictionary, sound-alike matching, number and `ๆ` formatting, and your personal Dictionary.
-4. **Restore English.** A small on-device language model ([Gemma E2B](https://huggingface.co/mlx-community/gemma-4-e2b-it-4bit)) changes Thai-spelled jargon back to English and leaves everything else as you said it.
-5. **Paste.** The text appears at your cursor with ⌘V. Per-app verbatim mode skips cleanup for terminals and password managers.
+3. **Fix known words.** A Rust core applies a built-in dictionary, sound-alike matching, number and `ๆ` formatting, and your Dictionary.
+4. **Restore English.** A small on-device language model, [Gemma E2B](https://huggingface.co/mlx-community/gemma-4-e2b-it-4bit), turns Thai-spelled jargon back into English. Guards put back Thai the model rewrote, such as a changed number or a Thai name spelled in English.
+5. **Paste.** The text appears at your cursor. In apps you mark as verbatim, OLIV pastes the raw transcript.
 
 ## How accurate is it?
 
@@ -65,96 +77,148 @@ Then you fix every word by hand. OLIV turns the English words back into English,
   <img src="docs/img/readme/chart-light.png" alt="Bar chart of phrases with the right meaning on 194 everyday Thai–English clips. OLIV: 77% speech model only, 98% with cleanup. Whisper large-v3 on the Mac: 84% then 90%. Groq-hosted Whisper large-v3: 85% then 91%. Pathumma: 60% then 88%. All measured with OLIV 0.2.2 cleanup." width="100%">
 </picture>
 
-| Test set | Meaning match | Clips |
-|---|---:|---:|
-| **Held out** (new jargon, never used for tuning) | **~95%** | 40 |
-| Everyday speech (tuning set) | ~98% | 194 |
-| Confirmation | ~97% | 30 |
+Measured on OLIV 0.2.2 on 28 October 2026 (M4 Pro), with every engine run one after another:
 
-- **The cleanup step makes the difference.** On the held-out set, accuracy drops to 60% without it.
-- **OLIV's raw speech model is not the strongest.** Whisper large-v3 transcribes slightly better before cleanup. OLIV wins on the full pipeline while staying local and about half the size. All results were re-measured on 0.2.2 (28 October 2026).
-- **Names are tested on a public benchmark too.** On [Thai ContextASR Bench](https://huggingface.co/datasets/wayu-ai/thai-contextasr-bench) (2,062 utterances from many voices), OLIV 0.2.2 recognizes 63% of the names and terms on a supplied list, up from 46% before. See the [method and results](benchmark/contextasr.md).
-- **These numbers have limits.** "Meaning match" is LaBSE semantic similarity of at least 0.80, not word-for-word accuracy. All clips were recorded by one speaker (the developer). On FLEURS Thai, read by many speakers, 95% of recordings kept their meaning, though the exact wording varied with the voice ([details](benchmark/speakers.md)). Recordings by other people on their own Macs and in noisy rooms are still to come. Names and numbers can be wrong even when the meaning counts as a match, so check before you send.
+| Test set | Meaning match | Without cleanup | Clips |
+|---|---:|---:|---:|
+| Everyday speech (tuning set) | 98% | 77% | 194 |
+| **Held out** (new jargon, never used for tuning) | **95%** | 60% | 40 |
+| Confirmation | 97% | – | 30 |
 
-The [interactive benchmark](https://chayapats.github.io/oliv/) includes failures, playable audio and the full method.
+- **Cleanup is what makes the difference.** On the held-out set, accuracy is 60% without it.
+- **OLIV's speech model alone is not the strongest.** Whisper large-v3 transcribes better before cleanup. OLIV leads on the full pipeline while staying on the Mac.
+- **0.2.3's cleanup guards don't move these numbers.** Replaying the same transcripts, all three sets score the same ([details](https://github.com/chayapats/oliv/pull/39)).
+- **Names on a public benchmark.** On [Thai ContextASR Bench](https://huggingface.co/datasets/wayu-ai/thai-contextasr-bench) (2,062 utterances, many voices), OLIV recognizes 63% of the names and terms on a supplied list, up from 46% before 0.2.2 ([method](benchmark/contextasr.md)).
+- **Other voices.** On FLEURS Thai (237 recordings of 80 sentences, read by several people), 95.4% kept their meaning with 0.2.2's cleanup and 96.2% with 0.2.3's guards, replayed on the same transcripts. The exact wording varies with the voice ([details](benchmark/speakers.md)).
 
-## What's new
+**Limits.** "Meaning match" is LaBSE similarity of at least 0.80, not word-for-word accuracy. Every clip in the private sets above was recorded by one speaker, the developer, on one Mac. Recordings by other people on their own Macs and in noisy rooms are still to come ([#18](https://github.com/chayapats/oliv/issues/18)). Names and numbers can be wrong even when the meaning counts as a match, so check before you send.
 
-**0.2.2: your Dictionary understands Thai spellings.** Thai names and terms in your Dictionary now fix near-miss spellings (บางแคร์ → บางแค, พงศ์ → พงษ์), and a name you add in English replaces its Thai spelling (คลองเตย → Khlong Toei). Long lists cause fewer wrong substitutions, and dictation with an empty Dictionary is unchanged.
+The [interactive benchmark](https://chayapats.github.io/oliv/) has failures, playable audio and the full method.
 
-**0.2.1: one Dictionary, synced.** Vocabulary and Replacements are now a single Dictionary with stars, on/off switches, search and CSV import/export. With the OLIV API it syncs across your devices, and OLIV can suggest words you keep correcting. Nothing is added until you approve it.
-
-**0.2.0: native Rust and MLX.**
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/native-dark.png">
-  <img src="docs/img/readme/native-light.png" alt="OLIV 0.2.0: download 123 MB to 26 MB, installed app 356 MiB to 85 MiB, worker start-up 44.8 ms to 3.5 ms, median speech-to-text 1.12 s to 0.87 s." width="100%">
-</picture>
-
-OLIV 0.2.0 removed Python from the app. Text processing and API requests use a shared Rust core, and Whisper and Gemma run on native MLX in Swift. Accuracy stayed on par with 0.1.x (mean WER 12.34% vs 12.58% on the main corpus). It also brought a redesigned Settings window, faster push-to-talk start-up and the opt-in OLIV API engine. See the [changelog](CHANGELOG.md) for every release and the [migration notes](docs/native-runtime-migration.md).
-
-## Features
-
-<p align="center">
-  <img src="docs/img/readme/settings.png" alt="The redesigned OLIV Settings window in light and dark mode, showing the Dictation engine and Text cleanup pages" width="100%">
-</p>
+## On the Mac
 
 | Feature | What it does |
 |---|---|
-| **Push-to-talk** | Primary and optional secondary shortcut, presets or any key you record. A separate shortcut undoes the last paste. |
+| **Push-to-talk** | A primary and an optional secondary shortcut: presets or any key you record. A separate shortcut (Control-Shift-Z by default) undoes the last paste. |
 | **Speech engines** | Typhoon Whisper Turbo (default, Thai + English), Pathumma, or Whisper large-v3 for mostly-English dictation. Each downloads in Settings with a progress bar. |
-| **Text cleanup** | Restores English words, removes fillers (อืม, เอ่อ, um), formats numbers and `ๆ`, and supports spoken commands such as "ขึ้นบรรทัดใหม่" or "new paragraph" (off by default). |
-| **Dictionary** | Your names, acronyms and jargon guide recognition; add a correction to turn what you say into exact text ("อีเมลของผม" → `me@example.com`). Thai entries also fix near-miss spellings (บางแคร์ → บางแค). Star the words that matter most, import/export CSV, and with the OLIV API it syncs to your other devices. |
-| **Command mode** | Select text, hold a shortcut and say what to change: "ทำให้สุภาพขึ้น" (more polite), "สรุปเป็น bullet", "เขียนเป็นอีเมล". OLIV rewrites it on your Mac and replaces the selection; undo puts the original back. Off by default. |
-| **Speak Thai, type English** | Make your secondary shortcut, or apps you choose, turn Thai dictation into natural English. Names, product names and code terms stay as they are. Off by default. |
-| **Names on screen** | Optional, off by default. When you start dictating, OLIV reads the window you're typing into and spells the names and terms it shows, for that dictation only. Password fields, password managers and verbatim apps are skipped, and your Dictionary always wins. Works with on-device text processing, not yet with the OLIV API engine or the free trial. |
-| **Live preview** | Your words appear in the recording pill while you hold the key, so you know early if OLIV misheard. On-device engines only; the pasted text still comes from the full pass after you let go. You can turn it off in Settings › General. |
+| **Text cleanup** | Restores English words, removes fillers (อืม, เอ่อ, um), and formats Thai: `สี่สิบห้า` → `45`, `สองจุดสี่จุดหนึ่ง` → `2.4.1`, `มากมาก` → `มากๆ`. Spoken commands such as "ขึ้นบรรทัดใหม่" or "new paragraph" are off by default. |
+| **Dictionary** | Your names, acronyms and jargon guide recognition. Add a correction to turn what you say into exact text ("อีเมลของผม" → `me@example.com`). Thai entries also fix near-miss spellings (บางแคร์ → บางแค). Star, search, switch entries on and off, and import or export CSV. With the OLIV API it syncs to your other devices. |
+| **Voice editing** | [Command mode and Speak Thai, type English](#voice-editing). Off by default. |
 | **Verbatim apps** | Paste the raw transcript, without cleanup, in apps you choose. |
-| **Audio** | Pick any microphone, cancel speaker echo, and lower other audio while you talk. Bluetooth headphones keep full playback quality. |
-| **Recent dictations** | Your last 10 results in the menu, kept in memory only. Click one to copy it again, or report one that came out wrong. |
-| **Optional cloud engines** | Groq or a self-hosted OLIV API, both off by default. Audio leaves your Mac only while you select one. Keys are stored in the macOS Keychain. |
-| **English or Thai** | The menu, Settings, setup and notices follow your Mac's language: Thai on a Mac set to Thai, English otherwise. |
-| **Auto-update** | Signed and notarized builds, with updates delivered through Sparkle. |
-
-## Install
-
-1. **[Download OLIV.dmg](https://github.com/chayapats/oliv/releases/latest/download/OLIV.dmg)** (27 MB, signed and notarized by Apple).
-2. Open it and drag **OLIV** into **Applications**.
-3. Launch OLIV and allow **Microphone** and **Accessibility** access. Accessibility lets OLIV paste into other apps.
-4. On first run, OLIV downloads its models from Hugging Face, about **5 GB** once:
-   - Speech: [`chayapats/typhoon-whisper-turbo-mlx`](https://huggingface.co/chayapats/typhoon-whisper-turbo-mlx), about 1.5 GB (an MLX conversion of SCB 10X's Typhoon)
-   - Cleanup: [`mlx-community/gemma-4-e2b-it-4bit`](https://huggingface.co/mlx-community/gemma-4-e2b-it-4bit), about 3.3 GB
-
-   Don't want to wait? In Setup, **Try it now through the OLIV server** starts a free trial: until the download finishes, your recordings are sent to the OLIV server for transcription (your Dictionary isn't). When the models are ready, OLIV switches back to your Mac and tells you. It's off unless you choose it, and only builds that come with a server (like the DMG above) offer it.
-5. Hold **Right ⌥ Option**, speak, and let go.
-
-**Requirements:** an Apple Silicon Mac (M1 or newer) with macOS 14 Sonoma or later. The OLIV API engine needs an internet connection and an API key instead of local models.
-
-## Three ways to run OLIV
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/setup-paths-dark.png">
-  <img src="docs/img/readme/setup-paths-light.png" alt="Three ways to run OLIV. One, on your Mac (default): Typhoon, the Rust core and Gemma all run on the Mac, no internet needed, audio goes nowhere, about 5 GB download, 98% meaning match. Two, your own OLIV server: Mac, Linux and Windows send audio to your GPU server, no model download on clients, needs Linux with an NVIDIA GPU. Three, Groq for speech-to-text: audio goes to Groq, optional Gemma cleanup on the Mac, 91% with cleanup or 85% without, needs a Groq API key." width="100%">
-</picture>
+| **Audio** | Pick any microphone, cancel speaker echo so music doesn't turn into text, and lower other audio while you talk. Both are on by default. |
+| **Recent dictations** | Your last 10 results in the menu, kept in memory only. Click one to copy it again, or [report one that came out wrong](#recent-dictations-and-wrong-result-reports). |
+| **Cloud engines** | Groq or an OLIV server, both off until you add a key and select one. Keys are stored in the macOS Keychain. |
+| **Updates** | Signed and notarized builds, updated through Sparkle. |
 
 All settings live in the menu bar: click the OLIV icon, then **Settings…**.
 
-### 1. On your Mac (default, offline)
+### Recent dictations and wrong-result reports
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/setup-local-dark.png">
-  <img src="docs/img/readme/setup-local-light.png" alt="OLIV Settings, Dictation engine page: 1, the Dictation engine item in the sidebar; 2, Typhoon Whisper Turbo selected, marked Default and Downloaded; 3, the banner Audio stays on this Mac." width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/report-wrong-result-dark.png">
+  <img src="docs/img/readme/report-wrong-result-light.png" alt="Report a wrong result. The menu bar's Recent submenu with Report a Wrong Result open, listing two recent results. Next to it, the report preview: a notice that the report will be public, editable fields What OLIV typed (เก็บ vector ไว้ใน PyTorch แล้วต่อกับแหล่ง chain ทำ rack), Raw transcript (เก็บเวคเทอร์ไว้ในพายโคน แล้วต่อกับแหล่งเชนทำแร็ก) and What you meant to say (เก็บ vector ไว้ใน Pinecone แล้วต่อกับ LangChain ทำ RAG), then the mode (Dictation), engine, cleanup codes, app and macOS version and timing, a note that no audio is included, and Cancel and Open in Browser buttons." width="100%">
 </picture>
 
-1. Open **Dictation engine**.
-2. Keep **Typhoon Whisper Turbo** selected. It's the default, so a fresh install needs no changes.
-3. Check that the banner says **Audio stays on this Mac.** Leave **Text cleanup** on for the full 98%.
+OLIV has no telemetry, so a wrong result you don't report is one nobody hears about. Choose **Recent… ▸ Report a Wrong Result** and pick the result. A preview shows exactly what the report holds; edit it, add what you meant, then **Open in Browser** to get a prefilled GitHub issue. The example above is a real miss from the public benchmark clips.
 
-After the one-time model download (about 5 GB), dictation works without internet and your audio is never uploaded.
+### Thai interface
 
-### 2. Your own OLIV server
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/thai-interface-dark.png">
+  <img src="docs/img/readme/thai-interface-light.png" alt="OLIV in Thai on a Mac set to Thai: the Settings window on the General page (ทั่วไป) with a Thai sidebar, the menu bar menu in Thai, and recording pills labelled โหมดคำสั่ง, ไทย → อังกฤษ and คลาวด์ · ทดลองใช้ OLIV ฟรี." width="100%">
+</picture>
 
-For developers and teams. Run speech-to-text and cleanup on a Linux machine with an NVIDIA GPU, then point your Mac, Linux and Windows computers at it. Set up the server with [server/README.md](server/README.md) and create a key for each device with `oliv-keys`. Then, on the Mac:
+On a Mac set to Thai, the menu, Settings, Setup, recording notices and error messages are in Thai, with the same words as the iPhone app. Macs set to any other language get English. Diagnostics and wrong-result reports stay in English so they read the same from every Mac.
+
+## Voice editing
+
+New in 0.2.3 and off by default: turn it on in **Settings ▸ Voice editing**. Both modes run on your Mac with the cleanup model, Gemma E2B: the rewrite and the translation happen on the Mac, and selected text is never uploaded. With a cloud engine selected, the cloud transcribes what you say and the edit still runs on the Mac, so the cleanup model must be downloaded.
+
+### Command mode: edit selected text by voice
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/command-mode-dark.gif">
+  <img src="docs/img/readme/command-mode-light.gif" alt="Command mode demo in a chat app. The draft ส่งไฟล์ deck มาด่วนเลย ลูกค้าจะเอาบ่ายนี้ is selected. The user holds Right Command and says ทำให้สุภาพขึ้น (make it more polite); OLIV's pill shows Command mode with a waveform, then Editing…. The selection is replaced by กรุณาส่งไฟล์ deck มาโดยด่วนนะคะ ลูกค้าต้องการภายในบ่ายนี้ค่ะ and the pill says Edited · Left Control + Left Shift + Z undoes it." width="100%">
+</picture>
+
+Select text in any app, hold the Command mode shortcut (Right ⌘ by default) and say what to change: "ทำให้สุภาพขึ้น", "สั้นลง", "สรุปเป็น bullet", "แก้คำผิด", "เขียนเป็นอีเมล", "ทางการขึ้น". OLIV replaces the selection, and the undo shortcut puts the original back.
+
+- With nothing selected, it edits the text OLIV just pasted, in apps that let OLIV read it.
+- If a guardrail rejects the edit (a lost term or number, an answer instead of an edit, the wrong language), your text stays as it was.
+- If you switch apps or change the selection while OLIV works, the edit goes to the clipboard instead.
+- It never reads password fields and never runs in verbatim apps or password managers.
+
+### Speak Thai, type English
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/thai-to-english-dark.gif">
+  <img src="docs/img/readme/thai-to-english-light.gif" alt="Speak Thai, type English demo in a chat with Ken from the Tokyo team, who asks whether to use Redis or Kafka for the queue. The user holds their translation shortcut and says in Thai ผมไม่แน่ใจว่าควรใช้ Redis หรือ Kafka สำหรับ queue ตัวนี้ คุณคิดว่ายังไงครับ; the pill shows Thai → English, then Translating…. OLIV pastes: I'm not sure whether I should use Redis or Kafka for this queue. What do you think?" width="100%">
+</picture>
+
+Turn on **Secondary shortcut types English**, or add apps under **Always translate in these apps**. Speak Thai with your usual English mixed in, and OLIV pastes natural English. Names, product names and code terms stay as they are, and your Dictionary still applies. If OLIV isn't confident in a translation, it pastes what you said instead.
+
+### How well it works
+
+Measured on 3 November 2026 with Gemma E2B on an M4 Pro, on 77 invented public cases ([method and cases](benchmark/voice-edit.md)):
+
+| | Command mode | Speak Thai, type English |
+|---|---:|---:|
+| Follows the instruction | 78% (31 of 40) | 100% (37 of 37) |
+| Terms, names and numbers kept (applied edits) | 100% | 96% |
+| Tricky cases handled (questions, "ignore previous instructions", empty or too-long input) | 8 of 8 | 5 of 5 |
+| Median time for the edit, typical text, quiet machine | 0.9 s | 0.6 s |
+
+Add about a second to transcribe what you say. "Shorter" often trims only a little, and nothing checks Thai names yet: one translation dropped a name. The text in both demos above is the recorded output for benchmark cases c01 and t16.
+
+## First run: download or free trial
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/first-run-dark.png">
+  <img src="docs/img/readme/first-run-light.png" alt="First run, optional free trial. One: in Setup's Models step, with both models not downloaded yet, the box Dictate now, while the models download explains that recordings go to the OLIV server until the download finishes, with the button Try it now through the OLIV server highlighted. Two: the box now reads Cloud · Dictating through the OLIV server, with the trial's end date, its limits and a Stop using the OLIV server button, and the recording pill reads Cloud · OLIV free trial. Three: after the download the pill says Models ready — dictating on this Mac again, and later dictations show On-device · Typhoon. Chips: off unless you choose it; only in builds that come with a server, like the DMG; a short-lived key with a daily limit." width="100%">
+</picture>
+
+OLIV needs about 5 GB of models before it can dictate on your Mac. You have two choices in Setup:
+
+- **Wait for the download** (the default). Nothing leaves your Mac.
+- **Try it now through the OLIV server.** Until the download finishes, your recordings go to the OLIV server for transcription and cleanup. The pill, the menu and Settings show **Cloud · OLIV free trial** the whole time. Your Dictionary is never sent. When the models are ready, OLIV switches back to your Mac, tells you, and deletes the trial key. If the download stops, the trial stops too.
+
+The trial is a short-lived key with a small daily limit. It is off unless you press the button, and only builds that come with a server, such as the DMG, offer it. Builds from source don't.
+
+## iPhone app and keyboard
+
+[`ios/`](ios/README.md) is a native iPhone client for an OLIV server: speak Thai and English, get the same cleanup, and use the text where you're writing.
+
+- **Start with one press.** Put **Toggle OLIV** on the Action button or in Control Center. OLIV records, finishes after a 1.5-second pause by default, and shows a Live Activity you can stop from the Lock Screen or Dynamic Island.
+- **OLIV keyboard (optional).** An English/Thai keyboard that inserts the new result into the field you were typing in, if that field hasn't changed. Or keep Apple's keyboard and paste.
+- **Dictionary sync.** The same Dictionary as your Mac and other devices, through your OLIV server.
+- **Free trial or your own server.** Setup can start a free trial on the OLIV server, or you can connect your own server with an API key.
+- **Report a wrong result** from any result or from History, with the same preview-first flow as the Mac.
+
+**Status: public beta on TestFlight.** [Join the beta](https://testflight.apple.com/join/SSYXfbej) on iOS 18 or later. The current TestFlight listing asks for an API key from an OLIV server's operator. The setup free trial and Report a wrong result are on `main` and reach testers with the next build that passes Apple's beta review.
+
+## Ways to run OLIV
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/ways-to-run-dark.png">
+  <img src="docs/img/readme/ways-to-run-light.png" alt="Four ways to run OLIV. One, on your Mac (default): Typhoon, the Rust core and Gemma run on the Mac, no internet needed, audio goes nowhere, about 5 GB download once, 98% meaning match, needs an Apple Silicon Mac. Two, free trial (temporary): while the models download, dictation labelled Cloud goes to the OLIV server run by the developer; your Dictionary is never sent; it ends when the models are ready; needs the DMG build. Three, your own OLIV server: Mac, Linux, Windows and iPhone send audio to your GPU server, no model download on clients, Dictionary synced across devices, needs Linux with an NVIDIA GPU. Four, Groq for speech-to-text: audio goes to Groq, optional Gemma cleanup on the Mac, about 3.3 GB download or none, 91% meaning match with cleanup and 85% without, needs a Groq API key." width="100%">
+</picture>
+
+| | Your audio goes to | Model download on the Mac | Meaning match |
+|---|---|---|---:|
+| **On your Mac** (default) | Nowhere | About 5 GB, once | 98% |
+| **Free trial** (only while the models download) | The OLIV server | Runs in the background | – |
+| **Your own OLIV server** | Your server | None | – |
+| **Groq** | Groq | About 3.3 GB for cleanup, or none | 91% with cleanup, 85% without |
+
+Meaning match is on the 194 everyday clips. The OLIV server runs the same two models, converted for NVIDIA GPUs; its accuracy isn't published here.
+
+### On your Mac (default)
+
+Nothing to set up: Typhoon Whisper Turbo is selected and **Settings ▸ Dictation engine** says **Audio stays on this Mac.** Keep **Text cleanup** on for the full accuracy.
+
+### Your own OLIV server
+
+For developers and teams. Run speech-to-text and cleanup on a Linux machine with an NVIDIA GPU, then point your Mac, Linux, Windows and iPhone clients at it. Set up the server with [server/README.md](server/README.md) and create a key for each device with `oliv-keys`. Then, on the Mac:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/setup-server-dark.png">
@@ -167,9 +231,9 @@ For developers and teams. Run speech-to-text and cleanup on a Linux machine with
 4. Click **Check connection**.
 5. In **Dictation engine**, choose **OLIV API**.
 
-The Mac downloads no models in this mode. Audio goes only to your server and to whatever terminates TLS in front of it, and your Dictionary syncs across the devices whose keys you link with `oliv-keys profile link` (each key has its own Dictionary until linked; see [server/docs/DICTIONARY.md](server/docs/DICTIONARY.md)). On Linux and Windows, use the [OLIV desktop client](desktop/README.md).
+The Mac downloads no speech models in this mode (voice editing still needs the cleanup model). Your Dictionary syncs across the devices whose keys you link with `oliv-keys profile link` ([server/docs/DICTIONARY.md](server/docs/DICTIONARY.md)). On Linux and Windows, use the [desktop client](desktop/README.md).
 
-### 3. Groq for speech-to-text
+### Groq for speech-to-text
 
 Groq runs Whisper large-v3 in the cloud. OLIV can still clean up the text on your Mac.
 
@@ -182,39 +246,58 @@ Groq runs Whisper large-v3 in the cloud. OLIV can still clean up the text on you
 2. Paste the key. It's stored in the macOS Keychain.
 3. In **Dictation engine**, choose **Groq**.
 4. In **Text cleanup**, choose how much OLIV does after Groq:
-   - **On (91% meaning match):** Gemma runs on your Mac (about 3.3 GB download), restores English words, formats Thai numbers and applies your whole Dictionary.
-   - **Off (85%):** no model to download. Only Dictionary entries with **Correct a misspelling** are applied. Plain Dictionary words are sent to Groq as recognition hints.
+   - **On (91%):** Gemma runs on your Mac (about 3.3 GB download), restores English words, formats Thai numbers and applies your whole Dictionary.
+   - **Off (85%):** no model to download. Only Dictionary entries with a correction are applied; plain Dictionary words are sent to Groq as recognition hints.
 
-Your audio goes to Groq while this engine is selected. If Groq fails, OLIV retries once on Typhoon Whisper Turbo, but only if that model is downloaded.
+If Groq fails, OLIV retries once on Typhoon Whisper Turbo, but only if that model is downloaded.
+
+## Install
+
+1. **[Download OLIV.dmg](https://github.com/chayapats/oliv/releases/latest/download/OLIV.dmg)** (about 27 MB, signed and notarized by Apple).
+2. Open it and drag **OLIV** into **Applications**.
+3. Launch OLIV and allow **Microphone** and **Accessibility**. Accessibility lets OLIV paste into other apps.
+4. Setup downloads the models from Hugging Face, about **5 GB** once. To dictate before it finishes, see the [free trial](#first-run-download-or-free-trial).
+   - Speech: [`chayapats/typhoon-whisper-turbo-mlx`](https://huggingface.co/chayapats/typhoon-whisper-turbo-mlx), about 1.5 GB (an MLX conversion of SCB 10X's Typhoon)
+   - Cleanup: [`mlx-community/gemma-4-e2b-it-4bit`](https://huggingface.co/mlx-community/gemma-4-e2b-it-4bit), about 3.3 GB
+5. Hold **Right ⌥ Option**, speak, and let go.
+
+**Requirements:** an Apple Silicon Mac (M1 or newer) with macOS 14 Sonoma or later.
 
 ## Privacy
 
-- With the default on-device engines, audio is processed on your Mac and is never uploaded.
-- Cloud engines are off until you enable one, add a key and select it. The one shortcut is the free trial you can choose while the models first download; it's labelled Cloud and ends by itself when they're ready.
-- Recent dictations are kept in memory only and are cleared when you quit.
-- **Names on screen** (off by default) reads the focused window's text through Accessibility when you start dictating. The text is used for that one dictation, kept in memory only, never saved or logged, and never leaves your Mac, even with a cloud engine.
-- **Copy Diagnostics** creates a plain-text support report that never includes transcripts or API keys.
-- **Report a Wrong Result** (Mac: **Recent… ▸ Report a Wrong Result**; iPhone: History) opens a preview you can edit, then a prefilled **public** GitHub issue in your browser. The report holds what OLIV typed, the raw transcript, what you meant (if you add it), the engine and whether cleanup ran, the app and OS version, and timing. It never includes audio, your server address or API keys. OLIV sends nothing itself: the issue is posted only if you submit it on GitHub.
-- OLIV has no analytics and no telemetry. The network is used for the model download, update checks and any cloud engine you choose.
+What leaves your Mac depends on the engine you choose:
+
+| Mode | What leaves your Mac | Where it goes |
+|---|---|---|
+| **On-device engines** (default) | No audio and no text | – |
+| **Free trial** (opt-in, while the models download) | Your recordings | The OLIV server run by the developer, through its tunnel provider. Your Dictionary is never sent. |
+| **OLIV API** | Your recordings and your Dictionary | Your server, and whatever terminates TLS in front of it |
+| **Groq** | Your recordings and your Dictionary words, as recognition hints | Groq |
+| **Voice editing** | Nothing: selected text is edited and translated on the Mac | – |
+
+- Cloud engines are off until you add a key and select one. The free trial is the one exception you can opt into in Setup; it's labelled Cloud and ends by itself.
+- The OLIV server keeps audio and text in memory only. Its usage log records key, route, status and timings ([server privacy](server/README.md#data-and-privacy)).
+- Recent dictations are kept in memory and cleared when you quit.
+- **Report a Wrong Result** opens a preview you can edit, then a prefilled **public** GitHub issue in your browser. It holds what OLIV typed, the raw transcript, what you meant (if you add it), the engine, the cleanup steps, the app and macOS version, and timing. A report about a Command mode edit or a translation also holds the text you selected (or the Thai that was translated) and what you asked for. It never includes audio, your server address, API keys or your Dictionary. OLIV sends nothing itself: the issue exists only if you submit it.
+- **Copy Diagnostics** creates a plain-text support report without transcripts or API keys.
+- No analytics and no telemetry. The network is used for the model download, update checks, and any cloud engine or trial you choose.
+
+## Linux and Windows
+
+The [OLIV desktop client](desktop/README.md) runs on Linux (Hyprland/Wayland) and Windows 10/11. Hold Right Shift, speak, let go. It has no models of its own: it needs an [OLIV server](server/README.md) you run on a GPU machine, or a key from someone who runs one.
 
 ## FAQ
 
 <details>
 <summary><b>Is OLIV a free alternative to Wispr Flow or Superwhisper for Thai?</b></summary>
 
-Yes. It's free, open source and focused on Thai mixed with English. On our 264-clip Thai–English set, OLIV led [Wispr Flow](https://chayapats.github.io/oliv/oliv-vs-wispr.html) on overall meaning match (97% vs 93%) and returned text slightly sooner after the key was released (median 1.0 s vs 1.4 s). Wispr was ahead on heavy jargon (100% vs 98%). One speaker, tested once on 28 October 2026.
+Yes. It's free, open source and focused on Thai mixed with English. On our 264-clip Thai–English set, OLIV led [Wispr Flow](https://chayapats.github.io/oliv/oliv-vs-wispr.html) on overall meaning match (97% vs 93%) and returned text slightly sooner after the key was released (median 1.0 s vs 1.4 s). Wispr was ahead on dense jargon (100% vs 98%). One speaker, tested once, on 28 October 2026.
 </details>
 
 <details>
 <summary><b>Does it work offline?</b></summary>
 
-Yes. After the one-time model download, the default engines need no internet connection.
-</details>
-
-<details>
-<summary><b>Does it work on Intel Macs, Windows or Linux?</b></summary>
-
-The Mac app needs Apple Silicon because it runs models with Apple's MLX. On Windows 10/11 and Linux (Hyprland), use the [OLIV desktop client](desktop/README.md) with an [OLIV server](server/README.md) you run on a GPU machine, or one whose operator gives you a key.
+Yes. After the one-time model download, dictation and voice editing need no internet connection.
 </details>
 
 <details>
@@ -226,7 +309,13 @@ Yes. Typhoon Whisper Turbo handles Thai, English and mixed speech. For mostly-En
 <details>
 <summary><b>Why does OLIV need Accessibility permission?</b></summary>
 
-To paste text into the app you're using. OLIV doesn't read your screen.
+To paste into the app you're using. In Command mode it also reads the text you selected, only while you use the Command mode shortcut, and never from a password field.
+</details>
+
+<details>
+<summary><b>Does it work on Intel Macs?</b></summary>
+
+No. The Mac app runs its models with Apple's MLX, which needs Apple Silicon.
 </details>
 
 ## Build from source
@@ -240,22 +329,20 @@ bash scripts/build_app.sh   # → build/OLIV.app
 bash scripts/test.sh        # Rust, native runtime and Swift tests
 ```
 
-Repository layout:
+Source builds have no default server, so they don't offer the free trial.
 
 | Path | What it is |
 |---|---|
 | `macos/` | The Mac app: Swift UI and on-device MLX inference |
-| `rust/` | Shared crates, including `oliv-text-core`, the text pipeline every OLIV client and the server use |
-| `server/` | Self-hostable OLIV server: run STT + cleanup on your own GPU machine and point clients at it ([server/README.md](server/README.md)) |
-| `desktop/` | Linux (Hyprland/Wayland) and Windows client for an OLIV server ([desktop/README.md](desktop/README.md)) |
-| `ios/` | iPhone app and OLIV keyboard for an OLIV server, in TestFlight beta ([ios/README.md](ios/README.md)) |
-| `benchmark/` | Native evaluation tools |
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [benchmark/README.md](benchmark/README.md) to run the benchmark on your own recordings.
+| `rust/` | Shared crates, including `oliv-text-core`, the text pipeline the Mac app and the server share |
+| `server/` | Self-hostable OLIV server for your own GPU machine ([server/README.md](server/README.md)) |
+| `desktop/` | Linux and Windows client for an OLIV server ([desktop/README.md](desktop/README.md)) |
+| `ios/` | iPhone app and OLIV keyboard, in TestFlight beta ([ios/README.md](ios/README.md)) |
+| `benchmark/` | Evaluation tools and published results ([benchmark/README.md](benchmark/README.md)) |
 
 ## Contributing
 
-Issues and pull requests are welcome, in Thai or English. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Report security issues privately as described in [SECURITY.md](SECURITY.md).
+Issues and pull requests are welcome, in Thai or English. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Report security issues privately as described in [SECURITY.md](SECURITY.md). To measure OLIV on your own recordings, see [benchmark/README.md](benchmark/README.md).
 
 If OLIV saves you time, a ⭐ helps other Thai speakers find it.
 
@@ -264,6 +351,6 @@ If OLIV saves you time, a ⭐ helps other Thai speakers find it.
 - **Code:** [MIT](LICENSE) © 2026 Chayapat Sriwattanachote.
 - **Speech model:** Typhoon Whisper Turbo by [SCB 10X](https://huggingface.co/typhoon-ai/typhoon-whisper-turbo) (MIT), based on OpenAI Whisper. OLIV ships [an MLX conversion](https://huggingface.co/chayapats/typhoon-whisper-turbo-mlx); credit for the model goes to the original authors.
 - **Cleanup model:** Gemma, under its own upstream license.
-- **Libraries:** [MLX Swift](https://github.com/ml-explore/mlx-swift), [Sparkle](https://sparkle-project.org) and the Rust crates listed in `rust/Cargo.lock`. Their licenses ship inside the app.
+- **Libraries:** [MLX Swift](https://github.com/ml-explore/mlx-swift), [Sparkle](https://sparkle-project.org) and the Rust crates in `rust/Cargo.lock`. Their licenses ship inside the app.
 
 Third-party names such as Groq, Whisper and Wispr Flow belong to their owners. Comparisons use our own Thai–English dictation set and were run once.
