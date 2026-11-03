@@ -137,6 +137,53 @@ fn score_hyps(root: &PathBuf, hyps: &PathBuf, out: &PathBuf, pinned: bool) -> st
 }
 
 #[test]
+fn contextasr_replay_refuses_a_missing_file_or_transcript() {
+    let f = Fixture::new();
+    let root = contextasr_fixture(&f);
+    let run = |replay: &PathBuf| {
+        tool()
+            .args([
+                "contextasr",
+                "run",
+                "--allow-unpinned",
+                "--pipeline",
+                "vocab",
+            ])
+            .args(["--conditions", "none", "--data-dir"])
+            .arg(&root)
+            .arg("--runtime-dir")
+            .arg(f.0.join("no-runtime"))
+            .arg("--stt-replay")
+            .arg(replay)
+            .arg("--out")
+            .arg(f.0.join("out"))
+            .output()
+            .unwrap()
+    };
+    let absent = run(&f.0.join("absent.jsonl"));
+    assert!(!absent.status.success());
+    assert!(String::from_utf8_lossy(&absent.stderr).contains("--stt-replay file not found"));
+
+    let partial = f.0.join("partial.jsonl");
+    std::fs::write(
+        &partial,
+        json!({"utt_id":"b-1-1","raw":"เรียกแกร็บไปสยาม"}).to_string(),
+    )
+    .unwrap();
+    let missing = run(&partial);
+    assert!(!missing.status.success());
+    let stderr = String::from_utf8_lossy(&missing.stderr);
+    assert!(
+        stderr.contains("1 of 2 selected utterances: c-1-1"),
+        "{stderr}"
+    );
+    assert!(
+        !f.0.join("out").exists(),
+        "nothing is written for an incomplete replay"
+    );
+}
+
+#[test]
 fn contextasr_scores_upstream_hyps_and_compares_identical_pairs() {
     let f = Fixture::new();
     let root = contextasr_fixture(&f);

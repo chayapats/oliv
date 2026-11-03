@@ -2,8 +2,10 @@
 //! `dictate` text path (silence gate, request options, `local::clean`) over
 //! replayed transcripts, with cleanup-model replies cached by prompt. Gemma
 //! decodes greedily, so one prompt has one reply; conditions that leave the
-//! text unchanged reuse it instead of holding the shared GPU again. The cache
-//! quotes transcripts: keep it under the ignored `benchmark/eval_results/`.
+//! text unchanged reuse it instead of holding the shared GPU again. A reply
+//! is reused only for the same model revision and inference helper (both are
+//! in the key). The cache quotes transcripts: keep it under the ignored
+//! `benchmark/eval_results/`.
 use crate::Result;
 use crate::worker::Worker;
 use oliv_pipeline::{
@@ -19,7 +21,33 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-/// Cleanup-model replies by sha256 of the prompt, appended as JSONL.
+/// What produces a cleanup reply: the model snapshot the helper loads and
+/// the helper binary (generation settings live in it). Part of every cache
+/// key, so a reply from another model or helper is never reused.
+#[derive(Clone, Debug, PartialEq)]
+pub struct LlmIdentity {
+    pub model_repo: String,
+    /// The snapshot revision (`refs/main`); None when it can't be found, and
+    /// then the cache is not used at all.
+    pub model_revision: Option<String>,
+    pub helper_sha256: String,
+}
+impl LlmIdentity {
+    const KEY_VERSION: &str = "oliv-contextasr-llm-v2";
+    fn key(&self, content: &str) -> Option<String> {
+        let revision = self.model_revision.as_ref()?;
+        let fields = json!([
+            Self::KEY_VERSION,
+            self.model_repo,
+            revision,
+            self.helper_sha256,
+            content
+        ]);
+        Some(super::sha256_hex(fields.to_string().as_bytes()))
+    }
+}
+
+/// Cleanup-model replies by sha256 of (model, helper, prompt), appended as JSONL.
 pub struct LlmCache {
     path: PathBuf,
     entries: HashMap<String, String>,
@@ -54,6 +82,7 @@ impl LlmCache {
 /// The cleanup model behind the cache; the helper starts on the first miss.
 pub struct CachedLlm {
     runtime_dir: PathBuf,
+    identity: LlmIdentity,
     worker: RefCell<Option<Worker>>,
     cache: RefCell<LlmCache>,
     pub hits: Cell<usize>,
@@ -61,9 +90,10 @@ pub struct CachedLlm {
     seconds: Cell<f64>,
 }
 impl CachedLlm {
-    pub fn new(runtime_dir: &Path, cache: LlmCache) -> Self {
+    pub fn new(runtime_dir: &Path, cache: LlmCache, identity: LlmIdentity) -> Self {
         Self {
             runtime_dir: runtime_dir.into(),
+            identity,
             worker: RefCell::new(None),
             cache: RefCell::new(cache),
             hits: Cell::new(0),
@@ -75,7 +105,12 @@ impl CachedLlm {
 impl Llm for CachedLlm {
     fn generate(&self, req: &Request) -> std::result::Result<String, LlmError> {
         let content = req.content();
-        let key = super::sha256_hex(content.as_bytes());
+        let key = self.identity.key(&content).ok_or_else(|| {
+            LlmError(format!(
+                "Unknown {} revision: cached cleanup replies can't be tied to a model",
+                self.identity.model_repo
+            ))
+        })?;
         if let Some(g) = self.cache.borrow().entries.get(&key) {
             self.hits.set(self.hits.get() + 1);
             return Ok(g.clone());
@@ -179,4 +214,55 @@ pub fn dictate(request: &Value, pcm: &[u8], llm: &CachedLlm) -> std::result::Res
     reply["t_cleanup"] = json!(start.elapsed().as_secs_f64());
     reply["t_llm"] = json!(llm.seconds.get() - before);
     Ok(reply)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn identity(revision: Option<&str>, helper: &str) -> LlmIdentity {
+        LlmIdentity {
+            model_repo: "mlx-community/gemma-4-e2b-it-4bit".into(),
+            model_revision: revision.map(str::to_owned),
+            helper_sha256: helper.into(),
+        }
+    }
+
+    #[test]
+    fn a_reply_cached_for_another_model_or_helper_is_not_reused() {
+        let dir = std::env::temp_dir().join(format!("oliv-dev-llm-cache-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("llm.jsonl");
+        let _ = std::fs::remove_file(&path);
+        let request = Request {
+            prompt: Prompt::V2,
+            text: "เรียกแกร็บไปสยาม",
+            hints: &[],
+        };
+        let cached = identity(Some("rev-a"), "helper-a");
+        LlmCache::open(&path)
+            .unwrap()
+            .insert(cached.key(&request.content()).unwrap(), "cached reply")
+            .unwrap();
+        // `dir` holds no inference helper: a miss fails to start it.
+        let llm = |identity| CachedLlm::new(&dir, LlmCache::open(&path).unwrap(), identity);
+
+        let same = llm(cached.clone());
+        assert_eq!(same.generate(&request).unwrap(), "cached reply");
+        assert_eq!((same.hits.get(), same.misses.get()), (1, 0));
+
+        for other in [
+            identity(Some("rev-b"), "helper-a"),
+            identity(Some("rev-a"), "helper-b"),
+        ] {
+            let changed = llm(other);
+            assert!(changed.generate(&request).is_err(), "not the cached reply");
+            assert_eq!((changed.hits.get(), changed.misses.get()), (0, 1));
+        }
+
+        let unknown = llm(identity(None, "helper-a"));
+        assert!(unknown.generate(&request).is_err());
+        assert_eq!((unknown.hits.get(), unknown.misses.get()), (0, 0));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

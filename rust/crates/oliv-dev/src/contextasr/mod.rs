@@ -82,7 +82,10 @@ pub struct RunArgs {
     pub screen_noise: Option<PathBuf>,
     /// Replay transcripts from an earlier decode (`utt_id` + `raw` rows, e.g.
     /// the STT cache or a run's details.jsonl) instead of decoding: no STT
-    /// model is loaded, so `--pipeline vocab` runs on the CPU alone.
+    /// model is loaded, so `--pipeline vocab` runs on the CPU alone. Every
+    /// selected utterance needs a transcript or a `no_speech: true` record
+    /// (STT caches record no-speech decodes; older ones don't, so replay a
+    /// run's details.jsonl instead).
     #[arg(long)]
     pub stt_replay: Option<PathBuf>,
     /// With `--stt-replay`: run the text pipeline in this process and reuse
@@ -418,11 +421,31 @@ impl SttCache {
                 if let Ok(v) = serde_json::from_str::<Value>(line)
                     && let Some(key) = v["key"].as_str()
                 {
-                    entries.insert(key.to_owned(), v);
+                    Self::keep(&mut entries, key.to_owned(), v);
                 }
             }
         }
         Ok(Self { path, entries })
+    }
+    /// A no-speech record never displaces a transcript for the same key.
+    fn keep(entries: &mut HashMap<String, Value>, key: String, value: Value) {
+        if value["no_speech"] != true || !entries.contains_key(&key) {
+            entries.insert(key, value);
+        }
+    }
+    /// A cached decode to reuse. No-speech records are never reused: the
+    /// gate drops the decoded text, so the audio is decoded again.
+    fn transcript(&self, key: &str) -> Option<&Value> {
+        self.entries.get(key).filter(|v| v["no_speech"] != true)
+    }
+    /// The row for one decode. A no-speech decode is recorded as such, so a
+    /// later `--stt-replay` of this cache knows it was decoded.
+    fn row(utt_id: &str, reply: &Value) -> Value {
+        if reply["no_speech"] == true {
+            json!({"utt_id":utt_id,"no_speech":true,"gate_reason":reply["gate_reason"],"t_stt":reply["t_stt"]})
+        } else {
+            json!({"utt_id":utt_id,"raw":reply["raw"],"redecoded":reply["stt_redecoded"],"t_stt":reply["t_stt"]})
+        }
     }
     fn insert(&mut self, key: String, value: Value) -> Result<()> {
         let mut file = std::fs::OpenOptions::new()
@@ -432,7 +455,7 @@ impl SttCache {
         let mut row = value.clone();
         row["key"] = key.clone().into();
         writeln!(file, "{}", serde_json::to_string(&row)?)?;
-        self.entries.insert(key, value);
+        Self::keep(&mut self.entries, key, value);
         Ok(())
     }
 }
@@ -466,15 +489,52 @@ pub fn read_jsonl(path: &Path) -> Result<Vec<Value>> {
         .collect()
 }
 
-/// `--stt-replay` rows: the first `raw` per utterance.
-fn replay_transcripts(path: &Path) -> Result<HashMap<String, Value>> {
-    let mut out = HashMap::new();
+/// `--stt-replay` rows: per utterance, the first transcript (`raw`), else an
+/// explicit no-speech record (`no_speech: true`, replayed as ""). Every
+/// selected utterance needs one: a missing transcript is an incomplete
+/// replay, never silence.
+fn replay_transcripts(path: &Path, selected: &[&Utterance]) -> Result<HashMap<String, Value>> {
+    if !path.is_file() {
+        return Err(format!("--stt-replay file not found: {}", path.display()).into());
+    }
+    let mut out: HashMap<String, Value> = HashMap::new();
     for row in read_jsonl(path)? {
-        if let (Some(id), Some(raw)) = (row["utt_id"].as_str(), row.get("raw"))
-            && raw.is_string()
-        {
-            out.entry(id.to_owned()).or_insert_with(|| raw.clone());
+        let Some(id) = row["utt_id"].as_str() else {
+            continue;
+        };
+        match row.get("raw") {
+            Some(raw) if raw.is_string() => {
+                // A transcript outranks a no-speech record for the same utterance.
+                if out.get(id).is_none_or(|kept| kept["no_speech"] == true) {
+                    out.insert(id.to_owned(), json!({"raw": raw}));
+                }
+            }
+            _ if row["no_speech"] == true => {
+                out.entry(id.to_owned())
+                    .or_insert_with(|| json!({"raw": "", "no_speech": true}));
+            }
+            _ => {}
         }
+    }
+    let missing: Vec<&str> = selected
+        .iter()
+        .map(|u| u.id.as_str())
+        .filter(|id| !out.contains_key(*id))
+        .collect();
+    if !missing.is_empty() {
+        let shown = missing
+            .iter()
+            .take(20)
+            .copied()
+            .collect::<Vec<_>>()
+            .join(", ");
+        let more = if missing.len() > 20 { ", …" } else { "" };
+        return Err(format!(
+            "--stt-replay has no transcript or no-speech record for {} of {} selected utterances: {shown}{more} (STT caches from before no-speech records skip silent clips; replay a run's details.jsonl instead)",
+            missing.len(),
+            selected.len()
+        )
+        .into());
     }
     Ok(out)
 }
@@ -513,12 +573,12 @@ fn run(args: RunArgs) -> Result<()> {
             .collect(),
         None => Vec::new(),
     };
-    let replay = match &args.stt_replay {
-        Some(path) => Some(replay_transcripts(path)?),
-        None => None,
-    };
     let uses_llm = args.pipeline == "full" || args.pipeline == "app";
     let selected = data.select(args.limit, &args.seed);
+    let replay = match &args.stt_replay {
+        Some(path) => Some(replay_transcripts(path, &selected)?),
+        None => None,
+    };
     let pairs = data.pairs(&selected, &conditions);
     let mut split_counts: BTreeMap<&str, usize> = BTreeMap::new();
     for u in &selected {
@@ -594,6 +654,27 @@ fn run(args: RunArgs) -> Result<()> {
         .open(args.out.join("hyps.jsonl"))?;
     if !todo.is_empty() {
         let inference_sha = env["inference_sha256"].as_str().unwrap().to_owned();
+        let llm = match &args.llm_cache {
+            Some(path) => {
+                let identity = replay::LlmIdentity {
+                    model_repo: CLEANUP_REPO.into(),
+                    model_revision: env["cleanup_revision"].as_str().map(str::to_owned),
+                    helper_sha256: inference_sha.clone(),
+                };
+                if uses_llm && identity.model_revision.is_none() {
+                    return Err(format!(
+                        "--llm-cache: no {CLEANUP_REPO} snapshot revision (refs/main) under HF_HOME, so cached replies can't be tied to a model"
+                    )
+                    .into());
+                }
+                Some(replay::CachedLlm::new(
+                    &args.runtime_dir,
+                    replay::LlmCache::open(path)?,
+                    identity,
+                ))
+            }
+            None => None,
+        };
         let engine_rev = env["engine_revision"].clone();
         let prompt_dependent = oliv_pipeline::stt::uses_initial_prompt(&args.engine);
         let mut cache = if args.no_cache {
@@ -617,13 +698,6 @@ fn run(args: RunArgs) -> Result<()> {
             &run_path,
             serde_json::to_vec_pretty(&json!({"label":label,"config":config,"environment":env}))?,
         )?;
-        let llm = match &args.llm_cache {
-            Some(path) => Some(replay::CachedLlm::new(
-                &args.runtime_dir,
-                replay::LlmCache::open(path)?,
-            )),
-            None => None,
-        };
         let mut current: Option<(String, String, String, Vec<u8>)> = None; // (id, pcm_b64, audio sha, pcm)
         let mut failures = 0;
         for (n, (u, condition)) in todo.iter().enumerate() {
@@ -661,11 +735,15 @@ fn run(args: RunArgs) -> Result<()> {
                 ]))?
                 .as_bytes(),
             );
-            let mut cached = cache.as_ref().and_then(|c| c.entries.get(&key)).cloned();
+            let mut cached = cache.as_ref().and_then(|c| c.transcript(&key)).cloned();
             if let Some(replay) = &replay {
-                // The STT cache skips no-speech decodes: replay those as empty.
-                let raw = replay.get(&u.id).cloned().unwrap_or_else(|| json!(""));
-                cached = Some(json!({"raw": raw, "t_stt": Value::Null, "redecoded": Value::Null}));
+                // Checked up front: every selected utterance has a row.
+                let row = replay
+                    .get(&u.id)
+                    .ok_or_else(|| format!("--stt-replay has no row for {}", u.id))?;
+                cached = Some(
+                    json!({"raw": row["raw"], "t_stt": Value::Null, "redecoded": Value::Null}),
+                );
             }
             if let Some(hit) = &cached {
                 request["stt_text"] = hit["raw"].clone();
@@ -726,10 +804,8 @@ fn run(args: RunArgs) -> Result<()> {
                         row["stt_cached"] = true.into();
                     } else {
                         row["stt_cached"] = false.into();
-                        if let Some(c) = cache.as_mut()
-                            && reply["no_speech"] != true
-                        {
-                            c.insert(key, json!({"utt_id":u.id,"raw":reply["raw"],"redecoded":reply["stt_redecoded"],"t_stt":reply["t_stt"]}))?;
+                        if let Some(c) = cache.as_mut() {
+                            c.insert(key, SttCache::row(&u.id, &reply))?;
                         }
                     }
                 }
@@ -796,6 +872,83 @@ mod tests {
         assert_eq!(pipeline_fields("app").unwrap()["thai_format"], true);
         assert!(pipeline_fields("llm").is_err());
     }
+    fn utterance(id: &str) -> Utterance {
+        Utterance::from_json(&json!({"utt_id":id,"text":"วันนี้อากาศดี","split":"real","entities":[]}))
+            .unwrap()
+    }
+
+    #[test]
+    fn replay_needs_a_transcript_or_no_speech_record_for_every_utterance() {
+        let dir = std::env::temp_dir().join(format!("oliv-dev-replay-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let (a, b, c) = (utterance("a-1"), utterance("b-1"), utterance("c-1"));
+        let selected = [&a, &b, &c];
+
+        let absent = replay_transcripts(&dir.join("absent.jsonl"), &selected).unwrap_err();
+        assert!(absent.to_string().contains("not found"), "{absent}");
+
+        let path = dir.join("replay.jsonl");
+        let rows = [
+            json!({"utt_id":"a-1","raw":"สวัสดี"}),
+            json!({"utt_id":"b-1","no_speech":true,"gate_reason":"empty"}),
+            json!({"utt_id":"a-1","raw":"ignored: the first transcript wins"}),
+        ];
+        let lines: Vec<String> = rows.iter().map(Value::to_string).collect();
+        std::fs::write(&path, lines.join("\n")).unwrap();
+        let missing = replay_transcripts(&path, &selected)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            missing.contains("1 of 3") && missing.contains("c-1"),
+            "{missing}"
+        );
+        assert!(
+            !missing.contains("a-1") && !missing.contains("b-1"),
+            "{missing}"
+        );
+
+        // A details.jsonl row: no-speech, with the sidecar's empty raw.
+        let full = format!(
+            "{}\n{}",
+            lines.join("\n"),
+            json!({"utt_id":"c-1","raw":"","no_speech":true})
+        );
+        std::fs::write(&path, full).unwrap();
+        let replay = replay_transcripts(&path, &selected).unwrap();
+        assert_eq!(replay["a-1"]["raw"], "สวัสดี");
+        assert_eq!(replay["b-1"]["raw"], "");
+        assert_eq!(replay["c-1"]["raw"], "");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn stt_cache_records_no_speech_decodes_but_never_reuses_them() {
+        let dir = std::env::temp_dir().join(format!("oliv-dev-stt-cache-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let mut cache = SttCache::open(&dir, "engine").unwrap();
+        let spoken = json!({"raw":"สวัสดี","stt_redecoded":false,"t_stt":0.4});
+        let silent = json!({"raw":"","no_speech":true,"gate_reason":"empty","t_stt":0.3});
+        cache
+            .insert("k1".into(), SttCache::row("a-1", &spoken))
+            .unwrap();
+        cache
+            .insert("k2".into(), SttCache::row("b-1", &silent))
+            .unwrap();
+        // Another pipeline's gate may drop the same decode: the transcript stays.
+        cache
+            .insert("k1".into(), SttCache::row("a-1", &silent))
+            .unwrap();
+        assert_eq!(cache.transcript("k1").unwrap()["raw"], "สวัสดี");
+        let reopened = SttCache::open(&dir, "engine").unwrap();
+        assert_eq!(reopened.transcript("k1").unwrap()["raw"], "สวัสดี");
+        assert!(reopened.transcript("k2").is_none(), "decoded again");
+        // ...but a replay of this cache knows b-1 was decoded.
+        let (a, b) = (utterance("a-1"), utterance("b-1"));
+        let replay = replay_transcripts(&dir.join("engine.jsonl"), &[&a, &b]).unwrap();
+        assert_eq!(replay["b-1"]["raw"], "");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn sha256_matches_known_vector() {
         assert_eq!(
