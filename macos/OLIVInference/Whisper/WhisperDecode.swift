@@ -20,19 +20,81 @@ extension WhisperModel {
     /// Thrown when `shouldStop` asks a live preview to give up mid-decode.
     struct Stopped: Error {}
 
+    /// How a live preview runs the encoder, and where its time went.
+    final class PreviewEncode {
+        /// The encoder runs on at least this many seconds…
+        let floorSeconds: Double
+        /// …and on the audio plus this much (zero) tail, whichever is longer,
+        /// never more than Whisper's 30 s window. 30 / 0 is the full window.
+        let tailSeconds: Double
+        private(set) var melSeconds = 0.0
+        private(set) var encodeSeconds = 0.0
+        private(set) var decodeSeconds = 0.0
+        /// Encoder input frames of the last segment (3000 = the full window).
+        private(set) var encodedFrames = 0
+        /// Tokens decoded (text and timestamps), and whether a guard below cut
+        /// the decode short.
+        private(set) var tokens = 0
+        private(set) var stoppedRepeat = false
+        private(set) var stoppedLimit = false
+
+        func tokenLimit(audioFrames: Int) -> Int { PreviewDecodeGuard.tokenLimit(audioFrames: audioFrames) }
+
+        func decoded(tokens count: Int, repeated: Bool, limited: Bool) {
+            tokens += count
+            stoppedRepeat = stoppedRepeat || repeated
+            stoppedLimit = stoppedLimit || limited
+        }
+
+        init(floorSeconds: Double, tailSeconds: Double) {
+            self.floorSeconds = floorSeconds
+            self.tailSeconds = tailSeconds
+        }
+
+        /// Encoder input frames for `content` frames of audio.
+        func frames(content: Int) -> Int {
+            PreviewDecodeGuard.encoderFrames(content: content, floorSeconds: floorSeconds, tailSeconds: tailSeconds)
+        }
+
+        var isFullWindow: Bool { floorSeconds >= Double(WhisperAudioConfig.chunkLengthSeconds) }
+
+        func add(mel: Double = 0, encode: Double = 0, decode: Double = 0) {
+            melSeconds += mel; encodeSeconds += encode; decodeSeconds += decode
+        }
+
+        func encoded(frames: Int) { encodedFrames = frames }
+    }
+
     /// Compute one spectrogram for the entire capture, then seek by Whisper's
     /// timestamp boundaries. Each recording owns its tokens and KV cache.
     /// Live previews pass `shouldStop`: it is polled between groups of encoder
     /// layers, between the decoder passes and after each token. Without it
     /// (the final transcription) the computation is exactly as before.
+    ///
+    /// `preview` (live previews only) runs the encoder on the audio there is
+    /// instead of a 30 s window padded with silence (see PreviewEncode), and
+    /// records where the time went. Without it the window is 30 s, as Whisper
+    /// was trained, and nothing is measured.
     func transcribe(_ samples: [Float], language requested: String?, initialPrompt: String?, fallback: Bool,
-                    shouldStop: (() -> Bool)? = nil) throws -> Transcript {
+                    shouldStop: (() -> Bool)? = nil, preview: PreviewEncode? = nil) throws -> Transcript {
         let stop = { if let shouldStop, shouldStop() { throw Stopped() } }
         guard let tokenizer else { throw RuntimeError.invalidModel }
         if let requested, tokenizer.resolveLanguage(requested) == nil { throw RuntimeError.invalidLanguage }
-        let padded = MLX.padded(MLXArray(samples), widths: [.init((0, WhisperAudioConfig.chunkLengthSamples))])
+        let clock = ContinuousClock()
+        var started = clock.now
+        func lap() -> Double {
+            let now = clock.now
+            defer { started = now }
+            let elapsed = started.duration(to: now)
+            return Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
+        }
+        // A short encode needs only enough silence after the audio for the last
+        // frames' FFT to see zeros, as they do in the 30 s window.
+        let padFrames = preview.map { $0.isFullWindow ? 3000 : 100 } ?? 3000
+        let padded = MLX.padded(MLXArray(samples), widths: [.init((0, padFrames * WhisperAudioConfig.hopLength))])
         let mel = WhisperAudio.logMelSpectrogram(padded, nMels: config.numMelBins).transposed(1, 0)
-        let contentFrames = max(0, mel.shape[0] - 3000)
+        if let preview { eval(mel); preview.add(mel: lap()) }
+        let contentFrames = max(0, mel.shape[0] - padFrames)
         var language = requested
         var allTokens = initialPrompt.map { tokenizer.inner.encode(" " + $0.trimmingCharacters(in: .whitespacesAndNewlines), special: false) } ?? []
         let initialCount = allTokens.count
@@ -42,10 +104,13 @@ extension WhisperModel {
             try stop()
             let segmentSize = min(3000, contentFrames - seek)
             var features = mel[seek..<(seek + segmentSize)]
-            if segmentSize < 3000 { features = MLX.padded(features, widths: [.init((0, 3000 - segmentSize)), .init((0, 0))]) }
+            let window = preview.map { $0.frames(content: segmentSize) } ?? 3000
+            if segmentSize < window { features = MLX.padded(features, widths: [.init((0, window - segmentSize)), .init((0, 0))]) }
             let input = features.asType(.float16).expandedDimensions(axis: 0)
+            if preview != nil { _ = lap() }
             let encoder = try shouldStop.map { try model.encoder(input, group: 4, shouldStop: $0) } ?? model.encoder(input)
             eval(encoder)
+            if let preview { preview.add(encode: lap()); preview.encoded(frames: window) }
             try stop()
             if language == nil {
                 var cache = (0..<config.decoderLayers).map { _ in WhisperLayerCache() }
@@ -63,7 +128,8 @@ extension WhisperModel {
             }
             var candidate: Decoded?
             for temperature: Float in fallback ? [0, 0.2, 0.4, 0.6, 0.8, 1] : [0] {
-                let result = try decode(encoder: encoder, prefix: prefix, temperature: temperature, stop: stop)
+                let result = try decode(encoder: encoder, prefix: prefix, temperature: temperature, stop: stop,
+                                        preview: preview.map { ($0, $0.tokenLimit(audioFrames: segmentSize)) })
                 candidate = result
                 let text = tokenizer.decode(tokens: result.tokens)
                 let compressed = try (Data(text.utf8) as NSData).compressed(using: .zlib)
@@ -73,6 +139,7 @@ extension WhisperModel {
             guard let result = candidate else { break }
             if result.noSpeechProbability > 0.6 && result.avgLogprob <= -1 {
                 seek += segmentSize
+                if let preview { preview.add(decode: lap()) }
                 continue
             }
             let tokens = result.tokens
@@ -102,11 +169,15 @@ extension WhisperModel {
             allTokens += accepted
             if result.temperature > 0.5 { promptReset = allTokens.count }
             Memory.clearCache()
+            if let preview { preview.add(decode: lap()) }
         }
         return Transcript(text: tokenizer.decode(tokens: Array(allTokens.dropFirst(initialCount))), avgLogprob: scores.isEmpty ? -10 : scores.reduce(0, +) / Double(scores.count), language: language ?? "en")
     }
 
-    private func decode(encoder: MLXArray, prefix: [Int], temperature: Float, stop: () throws -> Void) throws -> Decoded {
+    /// `preview` (live previews only) bounds the decode: at most `limit`
+    /// tokens, and a repeated run of text tokens ends it (see PreviewEncode).
+    private func decode(encoder: MLXArray, prefix: [Int], temperature: Float, stop: () throws -> Void,
+                        preview: (encode: PreviewEncode, limit: Int)? = nil) throws -> Decoded {
         let tokenizer = tokenizer!
         var caches = (0..<config.decoderLayers).map { _ in WhisperLayerCache() }
         var hidden = model.decoder(tokens: MLXArray(prefix.map(Int32.init)).expandedDimensions(axis: 0), startPosition: 0, encoderHidden: encoder, caches: &caches)
@@ -122,19 +193,26 @@ extension WhisperModel {
         mask[tokenizer.endOfTextId] = -.infinity
         let firstMask = MLXArray(mask)
         var tokens = [Int](), total: Float = 0
-        let limit = min(config.maxTargetPositions / 2, config.maxTargetPositions - prefix.count)
+        let limit = min(config.maxTargetPositions / 2, config.maxTargetPositions - prefix.count, preview?.limit ?? .max)
+        var repeated = false, ended = false
         for step in 0..<max(1, limit) {
             var filtered = logits + (step == 0 ? firstMask : regularMask)
             filtered = timestampRules(filtered, tokens: tokens, tokenizer: tokenizer)
             try stop()
             let next = temperature == 0 ? filtered.argMax().item(Int.self) : categorical(filtered / temperature).item(Int.self)
             total += (filtered[next] - filtered.logSumExp()).item(Float.self)
-            if next == tokenizer.endOfTextId { break }
+            if next == tokenizer.endOfTextId { ended = true; break }
             tokens.append(next)
+            if preview != nil, let start = PreviewDecodeGuard.repeatStart(tokens, timestampBegin: tokenizer.timestampBeginId) {
+                tokens.removeSubrange(start...)
+                repeated = true
+                break
+            }
             hidden = model.decoder(tokens: MLXArray([Int32(next)]).expandedDimensions(axis: 0), startPosition: prefix.count + step, encoderHidden: encoder, caches: &caches)
             logits = model.decoder.projectToVocab(hidden[0, -1]).asType(.float32)
             eval(logits)
         }
+        preview?.encode.decoded(tokens: tokens.count, repeated: repeated, limited: !ended && !repeated)
         return Decoded(tokens: tokens, avgLogprob: Double(total) / Double(tokens.count + 1), noSpeechProbability: noSpeech, temperature: temperature)
     }
 

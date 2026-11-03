@@ -109,8 +109,12 @@ actor ModelRuntime {
             _ = try await loadWhisper(selected)
             return ["ok": true]
         case "stt":
+            let parsing = ContinuousClock.now
             let samples = try Self.audio(request)
-            if let seq = request["preview_seq"] as? Int { return preview(samples, engine: selected, seq: seq) }
+            if let seq = request["preview_seq"] as? Int {
+                return preview(samples, engine: selected, seq: seq, request: request,
+                               audioSeconds: Self.seconds(since: parsing))
+            }
             let model = try await loadWhisper(selected)
             let result = try model.transcribe(samples, language: request["language"] as? String,
                 initialPrompt: request["initial_prompt"] as? String, fallback: selected != "mlx-large-v3")
@@ -167,22 +171,50 @@ actor ModelRuntime {
         }
     }
 
+    /// Previews encode at least this much audio (seconds)…
+    static let previewFloorSeconds = 10.0
+    /// …or the audio plus this much silence, whichever is longer. Measured in
+    /// #46: mid-sentence previews were about as close to the final as with
+    /// the full 30 s window, at about 30% of the encoder's time; 6–8 s floors
+    /// were faster but further off.
+    static let previewTailSeconds = 2.0
+
     /// Live preview: greedy, no temperature fallback, no prompt, and only on
-    /// the engine already in memory — a preview never loads a model. A cancel
-    /// (see PreviewCancellation) stops it between tokens.
-    private func preview(_ samples: [Float], engine selected: String, seq: Int) -> [String: Any] {
+    /// the engine already in memory — a preview never loads a model. The
+    /// encoder runs on the audio there is, not a 30 s window (PreviewEncode).
+    /// A cancel (see PreviewCancellation) stops it between tokens.
+    /// `preview_floor` / `preview_tail` override the window (evaluation only;
+    /// a floor of 30 is the full window every final pass uses).
+    private func preview(_ samples: [Float], engine selected: String, seq: Int, request: [String: Any],
+                         audioSeconds: Double) -> [String: Any] {
         let cancellation = PreviewCancellation.shared
         guard engine == selected, let whisper else { return ["ok": true, "text": "", "skipped": "notLoaded"] }
+        let encode = WhisperModel.PreviewEncode(
+            floorSeconds: (request["preview_floor"] as? Double).map { min(30, max(0, $0)) } ?? Self.previewFloorSeconds,
+            tailSeconds: (request["preview_tail"] as? Double).map { min(30, max(0, $0)) } ?? Self.previewTailSeconds)
+        var reply: [String: Any] = ["ok": true]
         do {
             let result = try whisper.transcribe(samples, language: nil, initialPrompt: nil, fallback: false,
-                                                shouldStop: { cancellation.isCancelled(seq) })
-            return ["ok": true, "text": result.text]
+                                                shouldStop: { cancellation.isCancelled(seq) }, preview: encode)
+            reply["text"] = result.text
         } catch {
             // Cancelled, or a decode failure: either way nothing to show, and
             // the helper (with its loaded models) must stay up for the release.
             if cancellation.isCancelled(seq) { Memory.clearCache() }
-            return ["ok": true, "text": "", "skipped": cancellation.isCancelled(seq) ? "cancelled" : "failed"]
+            reply["text"] = ""
+            reply["skipped"] = cancellation.isCancelled(seq) ? "cancelled" : "failed"
         }
+        // Where the time went; never any text.
+        reply["timings"] = ["audio": audioSeconds, "mel": encode.melSeconds, "encode": encode.encodeSeconds,
+                            "decode": encode.decodeSeconds, "frames": Double(encode.encodedFrames),
+                            "tokens": Double(encode.tokens), "repeat": encode.stoppedRepeat ? 1 : 0,
+                            "limit": encode.stoppedLimit ? 1 : 0]
+        return reply
+    }
+
+    static func seconds(since start: ContinuousClock.Instant) -> Double {
+        let elapsed = start.duration(to: .now)
+        return Double(elapsed.components.seconds) + Double(elapsed.components.attoseconds) / 1e18
     }
 
     static func audio(_ request: [String: Any]) throws -> [Float] {

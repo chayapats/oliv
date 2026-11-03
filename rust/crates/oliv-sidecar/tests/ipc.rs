@@ -89,6 +89,20 @@ while IFS= read -r line; do
 done
 "#;
 
+/// A model helper whose preview hears "ดีพลอย เสร็จแล้ว" (deploy, spelled in
+/// Thai) and keeps the request it got, for the light-cleanup test.
+const SPELLED_PREVIEW_HELPER: &str = r#"#!/bin/bash
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+  case "$line" in
+    *'"preview_seq"'*)
+      printf '%s\n' "$line" | sed 's/"pcm_b64":"[^"]*"/"pcm_b64":""/' > "$(dirname "$0")/request"
+      printf '{"id":%s,"ok":true,"text":"ดีพลอย เสร็จแล้ว","timings":{"encode":0.05}}\n' "$id" ;;
+    *) printf '{"id":%s,"ok":false}\n' "$id" ;;
+  esac
+done
+"#;
+
 /// A directory only this user can enter, made fresh for one test (never an
 /// existing one another user could have planted) and removed afterwards.
 struct PrivateDir(PathBuf);
@@ -234,4 +248,54 @@ fn release_cancels_a_preview_mid_decode_so_dictate_is_not_queued_behind_it() {
     assert_eq!(dictate["id"], 2);
     assert_eq!(dictate["final"], "final words", "{dictate}");
     assert!(waited < Duration::from_secs(5), "dictate waited {waited:?}");
+}
+
+#[test]
+fn previews_get_the_light_cleanup_and_pass_the_encode_window_through() {
+    use base64::Engine;
+    use std::io::{BufRead, BufReader};
+    let private = PrivateDir::new("oliv-preview-clean");
+    let dir = &private.0;
+    let helper = install_helper(dir, "helper.sh", SPELLED_PREVIEW_HELPER).unwrap();
+    let speech: Vec<u8> = (0..16000)
+        .flat_map(|i| (if i % 2 == 0 { 0.1f32 } else { -0.1 }).to_le_bytes())
+        .collect();
+    let pcm = base64::engine::general_purpose::STANDARD.encode(speech);
+    let mut child = Command::new(env!("CARGO_BIN_EXE_oliv-sidecar"))
+        .env("OLIV_INFERENCE_EXECUTABLE", &helper)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut input = child.stdin.take().unwrap();
+    let mut output = BufReader::new(child.stdout.take().unwrap());
+    let mut reply = || {
+        let mut line = String::new();
+        output.read_line(&mut line).unwrap();
+        serde_json::from_str::<Value>(&line).unwrap()
+    };
+    let preview = json!({"id":1,"cmd":"preview","engine":"typhoon-turbo-mlx","preview_seq":1,
+        "pcm_b64":pcm,"light_cleanup":true,"include_raw":true,"preview_floor":8.0,"cleanup":true});
+    writeln!(input, "{preview}").unwrap();
+    let cleaned = reply();
+    let seen: Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("request")).unwrap()).unwrap();
+    // Raw, as before: no light cleanup asked for.
+    let mut raw = preview.clone();
+    raw["id"] = json!(2);
+    raw["preview_seq"] = json!(2);
+    raw.as_object_mut().unwrap().remove("light_cleanup");
+    raw.as_object_mut().unwrap().remove("include_raw");
+    writeln!(input, "{raw}").unwrap();
+    let plain = reply();
+    drop(input);
+    assert!(child.wait().unwrap().success());
+    assert_eq!(cleaned["text"], "deploy เสร็จแล้ว", "{cleaned}");
+    assert_eq!(cleaned["raw"], "ดีพลอย เสร็จแล้ว", "{cleaned}");
+    assert_eq!(cleaned["timings"]["encode"], 0.05, "{cleaned}");
+    assert!(cleaned["t_sidecar"].as_f64().is_some(), "{cleaned}");
+    assert_eq!(seen["preview_floor"], 8.0, "{seen}");
+    assert_eq!(seen["cmd"], "stt", "{seen}");
+    assert_eq!(plain["text"], "ดีพลอย เสร็จแล้ว", "{plain}");
+    assert!(plain.get("raw").is_none(), "{plain}");
 }

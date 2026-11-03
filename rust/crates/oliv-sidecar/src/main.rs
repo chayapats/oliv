@@ -413,12 +413,37 @@ const PREVIEW_ENGINES: [&str; 3] = ["typhoon-turbo-mlx", "pathumma-mlx", "mlx-la
 /// One Whisper window: a preview transcribes only the newest audio.
 const PREVIEW_MAX_SAMPLES: usize = audio::RATE * 30;
 
-/// Live preview while the key is held: speech-to-text only (no cleanup model,
-/// dictionary or English re-decode), greedy, on the newest audio, with the
-/// engine that is already loaded. The app shows it and never pastes it; the
-/// final `dictate` after release is unchanged. `preview_seq` lets the app
-/// cancel it out of band (`cancel_preview`), even mid-decode.
+/// A preview's light cleanup: the dictate pipeline's deterministic steps
+/// (built-in dictionary, the user's Dictionary and words, numbers, ๆ, fillers)
+/// with the cleanup model left out, so it takes milliseconds and never touches
+/// the GPU. `None` when the text is no speech (a hallucination or too long for
+/// the audio). Options are the dictate request's own (`cleanup`,
+/// `dictionary`, `vocabulary`, ...), so a verbatim app stays verbatim.
+fn light_clean(
+    request: &Value,
+    text: &str,
+    duration: Option<f64>,
+) -> Result<Option<String>, String> {
+    let opts = local_options(request)?;
+    let out = local::clean(
+        text,
+        duration,
+        &opts,
+        request["format_commands"] == true,
+        &DisabledLlm,
+    );
+    Ok((!out.outcome.no_speech).then(|| out.outcome.final_text.trim().to_string()))
+}
+
+/// Live preview while the key is held: speech-to-text on the newest audio,
+/// greedy, with the engine that is already loaded (no cleanup model, no
+/// English re-decode). `light_cleanup: true` adds the deterministic cleanup
+/// (see `light_clean`). The app shows it and never pastes it; the final
+/// `dictate` after release is unchanged. `preview_seq` lets the app cancel it
+/// out of band (`cancel_preview`), even mid-decode. `include_raw: true` also
+/// returns the text before cleanup (evaluation).
 fn preview(request: &Value, engine: &str, inference: &Inference) -> Result<Value, String> {
+    let handled = Instant::now();
     if !PREVIEW_ENGINES.contains(&engine) {
         return Err("previewUnavailable".into());
     }
@@ -437,21 +462,45 @@ fn preview(request: &Value, engine: &str, inference: &Inference) -> Result<Value
     if audio::is_silent(&samples) {
         return Ok(skipped("silent", 0.0));
     }
+    let mut stt =
+        json!({"cmd":"stt","engine":engine,"pcm_b64":request["pcm_b64"],"preview_seq":seq});
+    for field in ["preview_floor", "preview_tail"] {
+        if let Some(value) = request.get(field).filter(|v| v.is_number()) {
+            stt[field] = value.clone();
+        }
+    }
     let start = Instant::now();
-    let reply = inference.request(
-        json!({"cmd":"stt","engine":engine,"pcm_b64":request["pcm_b64"],"preview_seq":seq}),
-        Duration::from_secs(30),
-        &request["id"],
-    )?;
+    let reply = inference.request(stt, Duration::from_secs(30), &request["id"])?;
     let t_stt = start.elapsed().as_secs_f64();
+    // Timings only: how long each stage took, never any text.
+    let finish = |mut value: Value| {
+        value["timings"] = reply["timings"].clone();
+        value["t_sidecar"] = json!(handled.elapsed().as_secs_f64());
+        value
+    };
     if let Some(reason) = reply["skipped"].as_str() {
-        return Ok(skipped(reason, t_stt));
+        return Ok(finish(skipped(reason, t_stt)));
     }
-    let text = hallucination::strip_cjk(reply["text"].as_str().unwrap_or(""));
-    if hallucination::text_hallucination(&text) {
-        return Ok(skipped("noSpeech", t_stt));
+    let raw = hallucination::strip_cjk(reply["text"].as_str().unwrap_or(""));
+    if hallucination::text_hallucination(&raw) {
+        return Ok(finish(skipped("noSpeech", t_stt)));
     }
-    Ok(json!({"ok":true,"engine":engine,"text":text.trim(),"t_stt":t_stt}))
+    let start = Instant::now();
+    let text = if request["light_cleanup"] == true {
+        let duration = Some(samples.len() as f64 / audio::RATE as f64);
+        match light_clean(request, &raw, duration)? {
+            Some(text) => text,
+            None => return Ok(finish(skipped("noSpeech", t_stt))),
+        }
+    } else {
+        raw.trim().to_string()
+    };
+    let mut value = json!({"ok":true,"engine":engine,"text":text,"t_stt":t_stt,
+        "t_clean":start.elapsed().as_secs_f64()});
+    if request["include_raw"] == true {
+        value["raw"] = json!(raw.trim());
+    }
+    Ok(finish(value))
 }
 
 /// Whisper initial prompt using the same engine policy as the app.
@@ -716,6 +765,27 @@ mod tests {
                 .flat_map(|s| s.to_le_bytes())
                 .collect::<Vec<_>>(),
         )
+    }
+
+    #[test]
+    fn light_clean_runs_the_deterministic_steps_without_the_model() {
+        // A built-in spelling (ดีพลอย → deploy) and the user's own entry; no
+        // helper is configured, so the cleanup model can't have run.
+        let request = json!({"dictionary":[{"word":"Grafana","correction":"กราฟาน่า"}]});
+        let text = light_clean(&request, "ดีพลอย แล้วเช็ค กราฟาน่า", Some(3.0))
+            .unwrap()
+            .unwrap();
+        assert!(text.contains("deploy"), "{text}");
+        assert!(text.contains("Grafana"), "{text}");
+        assert!(!text.contains("ดีพลอย"), "{text}");
+        // A verbatim app (cleanup off) keeps the built-in spelling as heard.
+        let verbatim = light_clean(&json!({"cleanup":false}), "ดีพลอย แล้วเช็ค", Some(3.0))
+            .unwrap()
+            .unwrap();
+        assert!(verbatim.contains("ดีพลอย"), "{verbatim}");
+        // Far too much text for the audio is no speech, as in dictate.
+        let long = "ดีพลอย ".repeat(80);
+        assert_eq!(light_clean(&json!({}), &long, Some(0.5)).unwrap(), None);
     }
 
     #[test]
