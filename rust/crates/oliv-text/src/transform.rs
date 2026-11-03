@@ -628,10 +628,44 @@ fn source_numbers(source: &str) -> HashSet<String> {
     all
 }
 
-/// A whole number up to 12, which an output may add: "three" and "3", list
-/// numbering, "9 a.m." or 09:00 for เก้าโมง.
+/// A whole number up to 12.
 fn is_small(key: &str) -> bool {
     !key.contains(':') && key.len() <= 2 && key.parse::<u32>().is_ok_and(|v| v <= 12)
+}
+
+static LIST_MARKER: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?m)^[ \t]*([0-9]{1,2})[.)][ \t]").unwrap());
+static ENGLISH_SMALL: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b").unwrap()
+});
+
+/// Small numbers an output may add without the source writing them: ones
+/// the source says in words ("three" → 3; ห้า → 5, which `apply_thai_format`
+/// leaves as a word) and the numbers of a list the output makes ("1. …").
+/// Any other new number is invented, however small: a summary turning
+/// 1.2 ล้าน into 5 ล้าน changed the amount.
+fn small_numbers_allowed(source: &str, out: &str) -> HashSet<String> {
+    const THAI: [&str; 9] = ["หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า"];
+    const ENGLISH: [&str; 12] = [
+        "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
+        "twelve",
+    ];
+    let mut allowed: HashSet<String> = HashSet::new();
+    for (i, word) in THAI.iter().enumerate() {
+        if source.contains(word) {
+            allowed.insert((i + 1).to_string());
+        }
+    }
+    for m in ENGLISH_SMALL.find_iter(source) {
+        let word = m.as_str().to_lowercase();
+        if let Some(i) = ENGLISH.iter().position(|w| *w == word) {
+            allowed.insert((i + 1).to_string());
+        }
+    }
+    for c in LIST_MARKER.captures_iter(out) {
+        allowed.insert(number_key(&c[1]));
+    }
+    allowed
 }
 
 /// A Thai clock-time phrase after `apply_thai_format`, which writes numbers
@@ -737,12 +771,17 @@ fn invented_numbers(source: &str, out: &str) -> Vec<String> {
     let have = source_numbers(source);
     let have_decimal: HashSet<String> = have.iter().map(|n| decimal_form(n)).collect();
     let times = spoken_times(source);
+    let small = small_numbers_allowed(source, out);
     let mut invented: Vec<String> = numbers(out)
         .into_iter()
         .filter(|n| {
+            // A negative the source writes, restated without its sign
+            // ("3 million in the red" for −3 ล้าน), invents nothing; whether
+            // the sign survived is `lost_numbers`'s question.
             !have.contains(n)
+                && !have.contains(&format!("-{n}"))
                 && !have_decimal.contains(&decimal_form(n))
-                && !is_small(n)
+                && !(is_small(n) && small.contains(n))
                 && !times.contains(n)
         })
         .collect();
@@ -1503,6 +1542,35 @@ mod tests {
             invented_numbers("ห้าโมง", "at 2026"),
             vec!["2026".to_string()]
         );
+    }
+
+    #[test]
+    fn small_numbers_need_a_reason() {
+        let none = Vec::<String>::new();
+        // A summary must not change an amount, however small the new one.
+        assert_eq!(
+            invented_numbers("ยอดขายเดือนนี้ 1.2 ล้านบาท", "ยอดขาย 5 ล้านบาท"),
+            vec!["5".to_string()]
+        );
+        assert_eq!(
+            check_command(
+                "สั้นลง",
+                "ยอดขายเดือนนี้ 1.2 ล้านบาท ประชุมสรุปบ่ายนี้",
+                "ยอดขาย 5 ล้านบาท"
+            ),
+            Err(Rejection("numberInvented"))
+        );
+        // Said in words, or numbering a list: fine.
+        assert_eq!(invented_numbers("ส่งมาห้าไฟล์", "sent 5 files"), none);
+        assert_eq!(
+            invented_numbers("we need three people", "ต้องการ 3 คน"),
+            none
+        );
+        assert_eq!(
+            invented_numbers("ส่งไฟล์ แก้สไลด์ นัดลูกค้า", "1. ส่งไฟล์\n2. แก้สไลด์\n3. นัดลูกค้า"),
+            none
+        );
+        assert_eq!(invented_numbers("ตีหนึ่งถึงตีสาม", "01:00–03:00"), none);
     }
 
     #[test]
