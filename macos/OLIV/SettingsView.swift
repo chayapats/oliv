@@ -6,28 +6,28 @@ enum SettingsPage: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .general: return "General"
-        case .shortcuts: return "Keyboard shortcuts"
-        case .audio: return "Audio & microphone"
-        case .engines: return "Dictation engine"
-        case .cleanup: return "Text cleanup"
-        case .voiceEditing: return "Voice editing"
-        case .dictionary: return "Dictionary"
-        case .cloud: return "Cloud services"
-        case .models: return "Models & storage"
+        case .general: return String(localized: "General")
+        case .shortcuts: return String(localized: "Keyboard shortcuts")
+        case .audio: return String(localized: "Audio & microphone")
+        case .engines: return String(localized: "Dictation engine")
+        case .cleanup: return String(localized: "Text cleanup")
+        case .voiceEditing: return String(localized: "Voice editing")
+        case .dictionary: return String(localized: "Dictionary")
+        case .cloud: return String(localized: "Cloud services")
+        case .models: return String(localized: "Models & storage")
         }
     }
     var subtitle: String {
         switch self {
-        case .general: return "A few small preferences. A smoother everyday workflow."
-        case .shortcuts: return "Your voice is a shortcut. Make it feel natural."
-        case .audio: return "Choose how OLIV hears you and handles other audio."
-        case .engines: return "Choose the engine that turns your speech into text."
-        case .cleanup: return "Turn what you say into text that’s ready to use."
-        case .voiceEditing: return "Change text with your voice, or speak Thai and type English."
-        case .dictionary: return "Teach OLIV your words, and how to fix what it mishears."
-        case .cloud: return "Connect a remote engine when you want to use one."
-        case .models: return "Manage the models that make on-device dictation possible."
+        case .general: return String(localized: "A few small preferences. A smoother everyday workflow.")
+        case .shortcuts: return String(localized: "Your voice is a shortcut. Make it feel natural.")
+        case .audio: return String(localized: "Choose how OLIV hears you and handles other audio.")
+        case .engines: return String(localized: "Choose the engine that turns your speech into text.")
+        case .cleanup: return String(localized: "Turn what you say into text that’s ready to use.")
+        case .voiceEditing: return String(localized: "Change text with your voice, or speak Thai and type English.")
+        case .dictionary: return String(localized: "Teach OLIV your words, and how to fix what it mishears.")
+        case .cloud: return String(localized: "Connect a remote engine when you want to use one.")
+        case .models: return String(localized: "Manage the models that make on-device dictation possible.")
         }
     }
     var icon: String {
@@ -43,6 +43,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .models: return "internaldrive"
         }
     }
+    /// Sidebar section identity (stable, not shown); see `groupTitle`.
     var group: String {
         switch self {
         case .general, .shortcuts, .audio: return "EVERYDAY"
@@ -50,17 +51,26 @@ enum SettingsPage: String, CaseIterable, Identifiable {
         case .cloud, .models: return "SYSTEM"
         }
     }
+    /// The sidebar section heading shown for a `group`.
+    static func groupTitle(_ group: String) -> String {
+        switch group {
+        case "EVERYDAY": return String(localized: "EVERYDAY", comment: "Settings sidebar section heading")
+        case "DICTATION": return String(localized: "DICTATION", comment: "Settings sidebar section heading")
+        case "SYSTEM": return String(localized: "SYSTEM", comment: "Settings sidebar section heading")
+        default: return group
+        }
+    }
     private var keywords: String {
         switch self {
-        case .general: return "launch login startup recording indicator hud waveform history recent transcripts privacy"
-        case .shortcuts: return "push to talk hotkey key primary secondary undo record chord binding"
-        case .audio: return "microphone input device bluetooth airpods echo cancellation speaker music volume lower duck"
-        case .engines: return "stt recognition transcription local on device offline typhoon whisper pathumma groq api download"
-        case .cleanup: return "fillers um uh thai numbers repeated words formatting commands new line paragraph verbatim apps bundle"
-        case .voiceEditing: return "command mode edit selection rewrite polite shorter summary bullet email formal translate translation english thai"
-        case .dictionary: return "dictionary vocabulary replacements custom words terms names jargon acronyms spelling recognition snippets phrase corrections starred sync"
-        case .cloud: return "groq oliv api remote server url key keychain connection timeout credentials"
-        case .models: return "download storage disk space finder weights gemma typhoon whisper pathumma offline"
+        case .general: return String(localized: "launch login startup recording indicator hud waveform history recent transcripts privacy", comment: "Settings search keywords. Translate into words people search for, and keep the English words too.")
+        case .shortcuts: return String(localized: "push to talk hotkey key primary secondary undo record chord binding", comment: "Settings search keywords. Translate into words people search for, and keep the English words too.")
+        case .audio: return String(localized: "microphone input device bluetooth airpods echo cancellation speaker music volume lower duck", comment: "Settings search keywords. Translate into words people search for, and keep the English words too.")
+        case .engines: return String(localized: "stt recognition transcription local on device offline typhoon whisper pathumma groq api download", comment: "Settings search keywords. Translate into words people search for, and keep the English words too.")
+        case .cleanup: return String(localized: "fillers um uh thai numbers repeated words formatting commands new line paragraph verbatim apps bundle", comment: "Settings search keywords. Translate into words people search for, and keep the English words too.")
+        case .voiceEditing: return String(localized: "command mode edit selection rewrite polite shorter summary bullet email formal translate translation english thai", comment: "Settings search keywords. Translate into words people search for, and keep the English words too.")
+        case .dictionary: return String(localized: "dictionary vocabulary replacements custom words terms names jargon acronyms spelling recognition snippets phrase corrections starred sync", comment: "Settings search keywords. Translate into words people search for, and keep the English words too.")
+        case .cloud: return String(localized: "groq oliv api remote server url key keychain connection timeout credentials", comment: "Settings search keywords. Translate into words people search for, and keep the English words too.")
+        case .models: return String(localized: "download storage disk space finder weights gemma typhoon whisper pathumma offline", comment: "Settings search keywords. Translate into words people search for, and keep the English words too.")
         }
     }
     func matches(_ query: String) -> Bool {
@@ -153,7 +163,10 @@ struct SettingsView: View {
                         let pages = SettingsPage.allCases.filter { $0.group == group && $0.matches(search) }
                         if !pages.isEmpty {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(group).font(.system(size: 9, weight: .semibold)).tracking(1.3)
+                                let heading = SettingsPage.groupTitle(group)
+                                // Letter-spaced capitals; scripts without case (Thai) stay unspaced.
+                                Text(heading).font(.system(size: 9, weight: .semibold))
+                                    .tracking(heading.contains(where: \.isUppercase) ? 1.3 : 0)
                                     .foregroundStyle(.secondary).padding(.leading, 12).padding(.bottom, 5)
                                 ForEach(pages) { page in
                                     Button { selectedPage = page } label: {

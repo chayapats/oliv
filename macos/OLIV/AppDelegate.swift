@@ -256,7 +256,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     /// Copy-only BY DESIGN (locked decision) — never synthesize a paste; the
     /// HUD tells the user to ⌘V wherever their cursor is.
     func copyTranscript(_ entry: TranscriptLog.Entry) {
-        copyToClipboard(entry.text, notice: "Copied — press ⌘V to paste")
+        copyToClipboard(entry.text, notice: String(localized: "Copied — press ⌘V to paste"))
     }
 
     /// Menu "Report a Wrong Result": show the preview for one Recent entry.
@@ -326,7 +326,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             storagePath: models.storagePath,
             lastDictation: appState.lastDictation,
             olivAPIEnabled: settings.olivAPIConfiguration != nil)
-        copyToClipboard(report, notice: "Diagnostics copied")
+        copyToClipboard(report, notice: String(localized: "Diagnostics copied"))
     }
 
     /// Show (or bring forward) the onboarding window. Wired to the menu's
@@ -385,7 +385,7 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
                 onStopTrial: onStopTrial)
             let hosting = NSHostingController(rootView: root)
             let win = NSWindow(contentViewController: hosting)
-            win.title = "OLIV Setup"
+            win.title = String(localized: "OLIV Setup")
             win.styleMask = [.titled, .closable, .miniaturizable]
             win.isReleasedWhenClosed = false
             win.center()

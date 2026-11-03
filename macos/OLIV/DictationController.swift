@@ -376,7 +376,7 @@ final class DictationController {
         // Never interrupt an in-flight utterance — the user is mid-dictate.
         guard appState.status == .idle else { return }
         guard let text = lastPastedText, !text.isEmpty else {
-            hud?.notice("Nothing to undo", systemImage: "arrow.uturn.backward")
+            hud?.notice(String(localized: "Nothing to undo"), systemImage: "arrow.uturn.backward")
             return
         }
         let result = injector.undo()
@@ -386,9 +386,9 @@ final class DictationController {
             // gates on the toggle + history; approval is still required).
             lastUndoneForLearn = (text, Date())
             lastPastedText = nil
-            hud?.notice("Undid last dictation", systemImage: "arrow.uturn.backward")
+            hud?.notice(String(localized: "Undid last dictation"), systemImage: "arrow.uturn.backward")
         } else {
-            hud?.notice("Couldn’t undo — press ⌘Z", systemImage: "exclamationmark.triangle.fill")
+            hud?.notice(String(localized: "Couldn’t undo — press ⌘Z"), systemImage: "exclamationmark.triangle.fill")
         }
     }
 
@@ -639,7 +639,7 @@ final class DictationController {
             // Ungated by showHUD, like every other failure notice here: turning the
             // recording indicator off asks not to see a waveform, not to be kept in
             // the dark about a dictation that never happened.
-            hud?.notice("Couldn’t open the microphone — try again",
+            hud?.notice(String(localized: "Couldn’t open the microphone — try again"),
                         systemImage: "mic.slash.fill")
         }
     }
@@ -850,12 +850,12 @@ final class DictationController {
             } else if engine == OLIVAPIClient.engineID {
                 // Opt-in/key can be cleared during recording. Never silently
                 // upload with an old key or switch this utterance to a sidecar.
-                failureNotice = "OLIV API is disabled or incomplete — check Settings"
+                failureNotice = String(localized: "OLIV API is disabled or incomplete — check Settings")
                 outcome = .transcribeFailed
             } else if trial {
                 // The trial ended during the hold and no on-device engine took
                 // over (see releaseEngine): nothing is uploaded.
-                failureNotice = "The free trial is off — nothing was sent"
+                failureNotice = String(localized: "The free trial is off — nothing was sent")
                 outcome = .transcribeFailed
             } else if let transcriber = transcriber {
                 // W3-T2 fallback seam (tests / no sidecar): nil is "no-op", not a
@@ -918,12 +918,12 @@ final class DictationController {
                 switch outcome {
                 case .pastedOK, .nothingToDo:
                     if capped {
-                        hud?.notice("Hit the \(Int(captureSeconds / 60))-minute recording limit — the end was cut off",
+                        hud?.notice(String(localized: "Hit the \(Int(captureSeconds / 60))-minute recording limit — the end was cut off"),
                                     systemImage: "exclamationmark.triangle.fill")
                     } else if let voice = frozenVoiceNotice {
                         hud?.notice(voice.text, systemImage: voice.symbol)
                     } else if let actual = frozenStats?.engineID, actual != engine {
-                        hud?.notice("Used \(DictationExecution(engineID: actual).label) fallback",
+                        hud?.notice(String(localized: "Used \(DictationExecution(engineID: actual).label) fallback"),
                                     systemImage: "desktopcomputer")
                     } else if let suggestion {
                         hud?.notice(DictationController.suggestionNotice(suggestion), systemImage: "sparkles", duration: 5)
@@ -931,13 +931,13 @@ final class DictationController {
                         hud?.hide()   // quick fade on completion
                     }
                 case .micNotReady:
-                    hud?.notice("The mic wasn’t ready — try again",
+                    hud?.notice(String(localized: "The mic wasn’t ready — try again"),
                                 systemImage: "mic.slash.fill")
                 case .transcribeFailed:
-                    hud?.notice(frozenFailureNotice ?? "Couldn’t transcribe — try again",
+                    hud?.notice(frozenFailureNotice ?? String(localized: "Couldn’t transcribe — try again"),
                                 systemImage: "exclamationmark.triangle.fill")
                 case .pasteNeedsManual:
-                    hud?.notice(frozenVoiceNotice?.text ?? "Text is on the clipboard — press ⌘V",
+                    hud?.notice(frozenVoiceNotice?.text ?? String(localized: "Text is on the clipboard — press ⌘V"),
                                 systemImage: "doc.on.clipboard")
                 }
             }
@@ -947,7 +947,7 @@ final class DictationController {
     /// "Dictionary suggestion: grafannah → Grafana · review it from the menu".
     nonisolated static func suggestionNotice(_ candidate: AutoLearnCandidate) -> String {
         let change = candidate.correction.map { "“\($0)” → “\(candidate.word)”" } ?? "“\(candidate.word)”"
-        return "Dictionary suggestion: \(change) · review it in the OLIV menu"
+        return String(localized: "Dictionary suggestion: \(change) · review it in the OLIV menu")
     }
 
     /// Engines that send audio to an OLIV server instead of the sidecar.

@@ -96,30 +96,33 @@ enum OLIVAPIError: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL: return "Enter a valid API base URL without credentials, query or fragment."
-        case .insecureURL: return "Use HTTPS. HTTP is allowed only for explicit local/private development addresses."
-        case .invalidKey: return "Enter an individual API key without spaces."
-        case .invalidTimeout: return "Request timeout must be 10–180 whole seconds."
-        case .emptyAudio: return "No audio was captured."
-        case .audioTooLong: return "OLIV API accepts recordings up to 2 minutes."
-        case .requestTooLarge: return "The API request is too large. Shorten the recording or vocabulary/replacements."
-        case .responseTooLarge: return "The API response exceeded the size limit."
-        case .invalidReply: return "The API did not return a valid dictation result."
-        case .redirect: return "API redirect rejected. Enter the final HTTPS base URL."
-        case .timeout: return "The API request timed out. Wait before trying again."
-        case .network: return "Could not reach the API. Check the connection, URL and TLS certificate."
-        case .cancelled: return "The API request was cancelled."
-        case .busy: return "An API dictation is already in progress."
-        case .unsupported: return "This OLIV server doesn't support dictionary sync yet."
-        case .cooldown(let seconds): return "API cooldown — wait \(String(format: "%.0f", ceil(seconds))) seconds."
-        case .http(401): return "API key invalid, expired or revoked. Update it in Settings."
-        case .http(403): return "API access denied. Check key scope dictate or contact the administrator."
-        case .http(400), .http(415): return "The API rejected the audio/request format."
-        case .http(413): return "The API request is too large. Record a shorter clip."
-        case .http(429): return "API key busy or quota exceeded. Wait before trying again."
-        case .http(503): return "API temporarily unavailable. Wait before trying again."
-        case .http(502), .http(504): return "The API could not finish transcription. Wait before trying again."
-        case .http: return "The API request failed. Try again later."
+        case .invalidURL: return String(localized: "Enter a valid API base URL without credentials, query or fragment.")
+        case .insecureURL: return String(localized: "Use HTTPS. HTTP is allowed only for explicit local/private development addresses.")
+        case .invalidKey: return String(localized: "Enter an individual API key without spaces.")
+        case .invalidTimeout: return String(localized: "Request timeout must be 10–180 whole seconds.")
+        case .emptyAudio: return String(localized: "No audio was captured.")
+        case .audioTooLong: return String(localized: "OLIV API accepts recordings up to 2 minutes.")
+        case .requestTooLarge: return String(localized: "The API request is too large. Shorten the recording or vocabulary/replacements.")
+        case .responseTooLarge: return String(localized: "The API response exceeded the size limit.")
+        case .invalidReply: return String(localized: "The API did not return a valid dictation result.")
+        case .redirect: return String(localized: "API redirect rejected. Enter the final HTTPS base URL.")
+        case .timeout: return String(localized: "The API request timed out. Wait before trying again.")
+        case .network: return String(localized: "Could not reach the API. Check the connection, URL and TLS certificate.")
+        case .cancelled: return String(localized: "The API request was cancelled.")
+        case .busy: return String(localized: "An API dictation is already in progress.")
+        case .unsupported: return String(localized: "This OLIV server doesn't support dictionary sync yet.")
+        case .cooldown(let seconds):
+            // Whole seconds, clamped: the deadline comes from the server's Retry-After.
+            let wait = seconds.isFinite ? Int(min(max(ceil(seconds), 1), 999_999_999)) : 1
+            return String(localized: "API cooldown — wait \(wait) seconds.")
+        case .http(401): return String(localized: "API key invalid, expired or revoked. Update it in Settings.")
+        case .http(403): return String(localized: "API access denied. Check key scope dictate or contact the administrator.")
+        case .http(400), .http(415): return String(localized: "The API rejected the audio/request format.")
+        case .http(413): return String(localized: "The API request is too large. Record a shorter clip.")
+        case .http(429): return String(localized: "API key busy or quota exceeded. Wait before trying again.")
+        case .http(503): return String(localized: "API temporarily unavailable. Wait before trying again.")
+        case .http(502), .http(504): return String(localized: "The API could not finish transcription. Wait before trying again.")
+        case .http: return String(localized: "The API request failed. Try again later.")
         }
     }
 }

@@ -44,7 +44,7 @@ enum Diagnostics {
             "- Accessibility: \(label(accessibility))",
             "Models (storage: \(storagePath)):",
         ]
-        lines += models.map { "- \($0.displayName) [\($0.repo)]: \($0.sizeText)" }
+        lines += models.map { "- \($0.reportName) [\($0.repo)]: \($0.reportSizeText)" }
         if olivAPIEnabled || engineID == OLIVAPIClient.engineID {
             lines.append("OLIV API: \(onOff(olivAPIEnabled))")
         }

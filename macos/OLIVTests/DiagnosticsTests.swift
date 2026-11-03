@@ -78,7 +78,7 @@ final class DiagnosticsTests: XCTestCase {
             models: [info], storagePath: "/p", lastDictation: nil)
         // Locale-safe: expect whatever ByteCountFormatter produced via sizeText.
         XCTAssertTrue(report.contains(
-            "- Thai STT (Typhoon Whisper Turbo MLX) [chayapats/typhoon-whisper-turbo-mlx]: \(info.sizeText)"))
+            "- Thai STT (Typhoon Whisper Turbo MLX) [chayapats/typhoon-whisper-turbo-mlx]: \(info.reportSizeText)"))
         XCTAssertTrue(report.contains("Cloud fallback: on"))
     }
 

@@ -31,7 +31,7 @@ struct EngineSettingsView: View {
                         if models.isDownloading {
                             if let pct = models.progressByRepo[repo] {
                                 ProgressView(value: Double(pct), total: 100).frame(maxWidth: .infinity)
-                                Text("\(pct)%").font(.caption).monospacedDigit()
+                                Text(pct, format: .percent).font(.caption).monospacedDigit()
                             } else {
                                 ProgressView().controlSize(.small)
                             }
@@ -200,10 +200,10 @@ private struct OLIVAPISettingsSection: View {
             let failed: Bool
             do {
                 try await OLIVAPIClient(configuration: configuration).health()
-                status = "Server reachable. Your API key and model readiness haven’t been checked."
+                status = String(localized: "Server reachable. Your API key and model readiness haven’t been checked.")
                 failed = false
             } catch {
-                status = (error as? OLIVAPIError)?.errorDescription ?? "Could not check the API connection."
+                status = (error as? OLIVAPIError)?.errorDescription ?? String(localized: "Could not check the API connection.")
                 failed = true
             }
             if settings.olivAPIConfiguration == configuration {

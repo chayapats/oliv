@@ -76,7 +76,7 @@ struct CleanupSettingsView: View {
         }
     }
 
-    private func commandExample(_ title: String, _ phrase: String) -> some View {
+    private func commandExample(_ title: LocalizedStringKey, _ phrase: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title).font(.system(size: 11, weight: .medium))
             Text(phrase).font(.system(size: 11)).foregroundStyle(.secondary)
@@ -96,10 +96,10 @@ struct CleanupSettingsView: View {
         panel.allowedContentTypes = [.application]
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Add app"
+        panel.prompt = String(localized: "Add app")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         guard let id = Bundle(url: url)?.bundleIdentifier else {
-            appError = "This app has no bundle identifier. Choose another app or enter its identifier manually."
+            appError = String(localized: "This app has no bundle identifier. Choose another app or enter its identifier manually.")
             return
         }
         settings.addVerbatimApp(id)
@@ -292,7 +292,7 @@ struct DictionarySettingsView: View {
                           contentType: .commaSeparatedText,
                           defaultFilename: "oliv-dictionary.csv") { result in
                 if case let .failure(error) = result {
-                    importMessage = "Export failed: \(error.localizedDescription)"
+                    importMessage = String(localized: "Export failed: \(error.localizedDescription)")
                     importWarning = true
                 }
             }
@@ -306,7 +306,7 @@ struct DictionarySettingsView: View {
 
         }
         .onAppear { sync.refresh() }
-        .alert(pendingSuggestion.map { "Fix “\($0.correction ?? "")” too?" } ?? "",
+        .alert(pendingSuggestion.map { String(localized: "Fix “\($0.correction ?? "")” too?") } ?? "",
                isPresented: Binding(get: { pendingSuggestion != nil }, set: { if !$0 { pendingSuggestion = nil } }),
                presenting: pendingSuggestion) { candidate in
             Button("Add correction") {
@@ -445,11 +445,11 @@ struct DictionarySettingsView: View {
     private var syncStatus: some View {
         let (text, icon, warning): (String, String, Bool) = {
             switch sync.status {
-            case .localOnly: return ("Saved on this Mac. Add an OLIV API key to share it with your other devices.", "desktopcomputer", false)
-            case .syncing: return ("Syncing with the OLIV server…", "arrow.triangle.2.circlepath", false)
-            case .synced: return ("Synced with your other devices.", "checkmark.icloud", false)
-            case .waiting: return ("Changes saved here; they will sync when the server is reachable.", "icloud.slash", false)
-            case .unsupported: return ("This OLIV server doesn't sync dictionaries yet. Words still apply to every dictation.", "info.circle", false)
+            case .localOnly: return (String(localized: "Saved on this Mac. Add an OLIV API key to share it with your other devices."), "desktopcomputer", false)
+            case .syncing: return (String(localized: "Syncing with the OLIV server…"), "arrow.triangle.2.circlepath", false)
+            case .synced: return (String(localized: "Synced with your other devices."), "checkmark.icloud", false)
+            case .waiting: return (String(localized: "Changes saved here; they will sync when the server is reachable."), "icloud.slash", false)
+            case .unsupported: return (String(localized: "This OLIV server doesn't sync dictionaries yet. Words still apply to every dictation."), "info.circle", false)
             case .failed(let message): return (message, "exclamationmark.triangle", true)
             }
         }()
@@ -569,40 +569,41 @@ struct DictionarySettingsView: View {
                     throw DictionaryEntry.CSVError.tooLarge(limit: DictionaryEntry.maxCSVBytes)
                 }
                 guard let text = String(data: data, encoding: .utf8) else {
-                    importMessage = "Could not read that file as text (expected UTF-8 CSV)."
+                    importMessage = String(localized: "Could not read that file as text (expected UTF-8 CSV).")
                     importWarning = true
                     return
                 }
                 let (imported, skipped) = try settings.importDictionaryCSV(text)
                 importWarning = false
+                // English singulars ("1 word", "1 row was") are plural variants in the catalog.
                 if imported == 0 {
                     importMessage = skipped == 0
-                        ? "Nothing to import — the file has no word rows."
-                        : "No new words — \(skipped) row\(skipped == 1 ? " was" : "s were") skipped (invalid or already in your dictionary)."
+                        ? String(localized: "Nothing to import — the file has no word rows.")
+                        : String(localized: "No new words — \(skipped) rows were skipped (invalid or already in your dictionary).")
                 } else if skipped == 0 {
-                    importMessage = "Imported \(imported) word\(imported == 1 ? "" : "s")."
+                    importMessage = String(localized: "Imported \(imported) words.")
                 } else {
-                    importMessage = "Imported \(imported) word\(imported == 1 ? "" : "s"); \(skipped) row\(skipped == 1 ? " was" : "s were") skipped (invalid or duplicate)."
+                    importMessage = String(localized: "Imported \(imported) words; \(skipped) rows were skipped (invalid or duplicate).")
                 }
             } catch let error as DictionaryEntry.CSVError {
                 importWarning = true
                 switch error {
                 case .empty:
-                    importMessage = "That file is empty — nothing to import."
+                    importMessage = String(localized: "That file is empty — nothing to import.")
                 case .badHeader:
-                    importMessage = "Wrong format — the first line must be “word,correction”."
+                    importMessage = String(localized: "Wrong format — the first line must be “word,correction”.")
                 case let .tooManyRows(limit):
-                    importMessage = "Too many rows — the limit is \(limit) per import."
+                    importMessage = String(localized: "Too many rows — the limit is \(limit) per import.")
                 case .tooLarge:
-                    importMessage = "That file is over 3MB — split it and try again."
+                    importMessage = String(localized: "That file is over 3MB — split it and try again.")
                 }
             } catch {
                 importWarning = true
-                importMessage = "Import failed: \(error.localizedDescription)"
+                importMessage = String(localized: "Import failed: \(error.localizedDescription)")
             }
         case let .failure(error):
             importWarning = true
-            importMessage = "Import failed: \(error.localizedDescription)"
+            importMessage = String(localized: "Import failed: \(error.localizedDescription)")
         }
     }
 }

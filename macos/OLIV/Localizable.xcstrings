@@ -1,0 +1,3628 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+      "shouldTranslate" : false
+    },
+    "%@ — setup needed" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ — ต้องตั้งค่าเพิ่ม"
+          }
+        }
+      }
+    },
+    "%@. %@" : {
+      "shouldTranslate" : false
+    },
+    "%lld seconds" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld วินาที"
+          }
+        }
+      }
+    },
+    "%lld shown" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แสดง %lld รายการ"
+          }
+        }
+      }
+    },
+    "A Bluetooth mic switches headphone playback to mono call quality and may take a second to wake. Wait for the waveform before speaking." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไมโครโฟน Bluetooth จะทำให้หูฟังเปลี่ยนเป็นเสียงโมโนคุณภาพแบบโทรศัพท์ และอาจใช้เวลาสักวินาทีกว่าจะพร้อม รอให้คลื่นเสียงขึ้นก่อนเริ่มพูด"
+          }
+        }
+      }
+    },
+    "A few small preferences. A smoother everyday workflow." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตั้งค่านิดเดียว ใช้งานทุกวันได้ลื่นขึ้น"
+          }
+        }
+      }
+    },
+    "A little history, only for this session." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ประวัติสั้นๆ เฉพาะรอบการใช้งานนี้"
+          }
+        }
+      }
+    },
+    "A quick way to take back a bad paste." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ย้อนข้อความที่วางผิดได้อย่างรวดเร็ว"
+          }
+        }
+      }
+    },
+    "A second shortcut is optional. Either one can start a recording." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปุ่มลัดที่สองจะมีหรือไม่ก็ได้ ใช้ปุ่มไหนก็เริ่มอัดเสียงได้"
+          }
+        }
+      }
+    },
+    "API access denied. Check key scope dictate or contact the administrator." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่ได้รับอนุญาตให้ใช้ API ตรวจสอบว่า key มีสิทธิ์ dictate หรือติดต่อผู้ดูแลระบบ"
+          }
+        }
+      }
+    },
+    "API cooldown — wait %lld seconds." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API ขอพักก่อน รออีก %lld วินาที"
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "API cooldown — wait %lld second."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "API cooldown — wait %lld seconds."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "API key" : {
+      "shouldTranslate" : false
+    },
+    "API key busy or quota exceeded. Wait before trying again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API key ไม่ว่างหรือใช้เกินโควตาแล้ว รอสักครู่แล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "API key invalid, expired or revoked. Update it in Settings." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API key ไม่ถูกต้อง หมดอายุ หรือถูกยกเลิกแล้ว อัปเดตได้ในการตั้งค่า"
+          }
+        }
+      }
+    },
+    "API redirect rejected. Enter the final HTTPS base URL." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่รับการเปลี่ยนเส้นทางของ API ใส่ URL แบบ HTTPS ของปลายทางจริง"
+          }
+        }
+      }
+    },
+    "API temporarily unavailable. Wait before trying again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API ใช้งานไม่ได้ชั่วคราว รอสักครู่แล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Accessibility" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การช่วยการเข้าถึง"
+          }
+        }
+      }
+    },
+    "Add" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพิ่ม"
+          }
+        }
+      }
+    },
+    "Add app" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพิ่มแอป"
+          }
+        }
+      }
+    },
+    "Add by bundle identifier" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพิ่มด้วย bundle identifier"
+          }
+        }
+      }
+    },
+    "Add correction" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพิ่มคำแก้"
+          }
+        }
+      }
+    },
+    "Add word" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพิ่มคำ"
+          }
+        }
+      }
+    },
+    "Allow Groq to appear as a dictation engine after adding your API key." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ให้เลือก Groq เป็นเอนจินถอดเสียงได้ หลังจากใส่ API key แล้ว"
+          }
+        }
+      }
+    },
+    "Alternative engines" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เอนจินทางเลือก"
+          }
+        }
+      }
+    },
+    "An API dictation is already in progress." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังถอดเสียงผ่าน API อยู่แล้ว"
+          }
+        }
+      }
+    },
+    "An alternative Thai model from earlier OLIV versions." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โมเดลภาษาไทยอีกตัวจาก OLIV เวอร์ชันก่อนๆ"
+          }
+        }
+      }
+    },
+    "App bundle identifier" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "bundle identifier ของแอป"
+          }
+        }
+      }
+    },
+    "Approve" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อนุมัติ"
+          }
+        }
+      }
+    },
+    "Approve %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อนุมัติ %@"
+          }
+        }
+      }
+    },
+    "Audio & microphone" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียงและไมโครโฟน"
+          }
+        }
+      }
+    },
+    "Audio is processed on this Mac. Works offline after downloading models." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ประมวลผลเสียงบน Mac เครื่องนี้ ใช้ได้แม้ออฟไลน์หลังดาวน์โหลดโมเดลแล้ว"
+          }
+        }
+      }
+    },
+    "Audio is sent to Groq for transcription. Cleanup, when enabled, runs on this Mac." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียงจะถูกส่งไปที่ Groq เพื่อถอดเสียง ส่วนการเกลาข้อความ (ถ้าเปิดไว้) ทำบน Mac เครื่องนี้"
+          }
+        }
+      }
+    },
+    "Audio is sent to Groq only while the Groq engine is selected. Local models are still needed for cleanup and fallback." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียงจะถูกส่งไปที่ Groq เฉพาะตอนที่เลือกเอนจิน Groq ไว้ แต่ยังต้องมีโมเดลในเครื่องสำหรับเกลาข้อความและใช้สำรอง"
+          }
+        }
+      }
+    },
+    "Audio is sent to OLIV API for transcription and cleanup." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียงจะถูกส่งไปที่ OLIV API เพื่อถอดเสียงและเกลาข้อความ"
+          }
+        }
+      }
+    },
+    "Audio is sent to your configured API for transcription and cleanup. Manage the URL and key, or check the connection, in Settings › Cloud services." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียงจะถูกส่งไปที่ API ที่คุณตั้งค่าไว้เพื่อถอดเสียงและเกลาข้อความ จัดการ URL และ key หรือตรวจสอบการเชื่อมต่อได้ที่ การตั้งค่า › บริการคลาวด์"
+          }
+        }
+      }
+    },
+    "Audio is sent to your configured server only when OLIV API is selected. Recordings are limited to 2 minutes. Failed requests aren’t resent automatically or saved for retry; rate limits may require a wait. Spoken formatting commands aren’t supported yet. Check connection tests server reachability, not your key or model readiness." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียงจะถูกส่งไปที่เซิร์ฟเวอร์ที่คุณตั้งค่าไว้เฉพาะตอนที่เลือก OLIV API อัดเสียงได้ครั้งละไม่เกิน 2 นาที คำขอที่ไม่สำเร็จจะไม่ถูกส่งซ้ำอัตโนมัติและไม่ถูกเก็บไว้ให้ลองใหม่ ถ้าส่งถี่เกินไปอาจต้องรอสักพัก ยังไม่รองรับคำสั่งจัดรูปแบบด้วยเสียง ส่วน ตรวจสอบการเชื่อมต่อ จะทดสอบแค่ว่าติดต่อเซิร์ฟเวอร์ได้ ไม่ได้ตรวจ key หรือความพร้อมของโมเดล"
+          }
+        }
+      }
+    },
+    "Audio is uploaded only when you select a cloud engine." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียงจะถูกอัปโหลดเฉพาะเมื่อคุณเลือกเอนจินบนคลาวด์"
+          }
+        }
+      }
+    },
+    "Audio stays on this Mac." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียงอยู่แค่บน Mac เครื่องนี้"
+          }
+        }
+      }
+    },
+    "Auto-learn" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เรียนรู้อัตโนมัติ"
+          }
+        }
+      }
+    },
+    "Built for Thai and English, including mixed-language speech." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทำมาเพื่อภาษาไทยและอังกฤษ รวมถึงการพูดไทยปนอังกฤษ"
+          }
+        }
+      }
+    },
+    "Built-in microphone" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไมโครโฟนในตัว"
+          }
+        }
+      }
+    },
+    "Bullet point" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "หัวข้อย่อย"
+          }
+        }
+      }
+    },
+    "Bypass cleanup in selected apps, such as terminals or code editors." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้ามการเกลาข้อความในแอปที่เลือก เช่น เทอร์มินัลหรือโปรแกรมเขียนโค้ด"
+          }
+        }
+      }
+    },
+    "CONFIGURED" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตั้งค่าแล้ว"
+          }
+        }
+      }
+    },
+    "CSV format: word,correction — one per line, up to %lld rows and 3MB. Rows without a correction become vocabulary words." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รูปแบบ CSV: word,correction บรรทัดละหนึ่งรายการ ไม่เกิน %lld แถวและ 3MB แถวที่ไม่มี correction จะเป็นคำศัพท์"
+          }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยกเลิก"
+          }
+        }
+      }
+    },
+    "Cancel speaker echo" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตัดเสียงสะท้อนจากลำโพง"
+          }
+        }
+      }
+    },
+    "Changes apply automatically" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การเปลี่ยนแปลงมีผลทันที"
+          }
+        }
+      }
+    },
+    "Changes saved here; they will sync when the server is reachable." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บันทึกไว้ที่นี่แล้ว จะซิงก์เมื่อเชื่อมต่อเซิร์ฟเวอร์ได้"
+          }
+        }
+      }
+    },
+    "Check connection" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตรวจสอบการเชื่อมต่อ"
+          }
+        }
+      }
+    },
+    "Check for Updates…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตรวจหาอัปเดต…"
+          }
+        }
+      }
+    },
+    "Check the API settings." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตรวจสอบการตั้งค่า API"
+          }
+        }
+      }
+    },
+    "Check the selected dictation engine." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตรวจสอบเอนจินถอดเสียงที่เลือกไว้"
+          }
+        }
+      }
+    },
+    "Choose a preset shortcut" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกปุ่มลัดสำเร็จรูป"
+          }
+        }
+      }
+    },
+    "Choose an app…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกแอป…"
+          }
+        }
+      }
+    },
+    "Choose dictation engine" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกเอนจินถอดเสียง"
+          }
+        }
+      }
+    },
+    "Choose engine" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกเอนจิน"
+          }
+        }
+      }
+    },
+    "Choose how OLIV hears you and handles other audio." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกว่า OLIV จะฟังเสียงคุณ และจัดการเสียงอื่นอย่างไร"
+          }
+        }
+      }
+    },
+    "Choose the engine that turns your speech into text." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกเอนจินที่แปลงเสียงพูดของคุณเป็นข้อความ"
+          }
+        }
+      }
+    },
+    "Choose the input OLIV uses to record your voice." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกอุปกรณ์รับเสียงที่ OLIV ใช้อัดเสียงของคุณ"
+          }
+        }
+      }
+    },
+    "Cleanup (Gemma-E2B)" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เกลาข้อความ (Gemma-E2B)"
+          }
+        }
+      }
+    },
+    "Clear search" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ล้างการค้นหา"
+          }
+        }
+      }
+    },
+    "Clearer voice, fewer distractions" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียงชัดขึ้น สิ่งรบกวนน้อยลง"
+          }
+        }
+      }
+    },
+    "Click Record, then press the shortcut that undoes the last paste." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลิก กำหนด แล้วกดปุ่มลัดที่จะใช้เลิกทำการวางครั้งล่าสุด"
+          }
+        }
+      }
+    },
+    "Click Record, then press the shortcut you want to hold to dictate." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลิก กำหนด แล้วกดปุ่มลัดที่จะกดค้างไว้เพื่อพูด"
+          }
+        }
+      }
+    },
+    "Cloud engines" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เอนจินบนคลาวด์"
+          }
+        }
+      }
+    },
+    "Cloud services" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บริการคลาวด์"
+          }
+        }
+      }
+    },
+    "Cloud · Groq" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลาวด์ · Groq"
+          }
+        }
+      }
+    },
+    "Cloud · OLIV API" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลาวด์ · OLIV API"
+          }
+        }
+      }
+    },
+    "Cloud-hosted Whisper large-v3, with fallback to your local engine." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Whisper large-v3 บนคลาวด์ และสลับมาใช้เอนจินในเครื่องได้เมื่อจำเป็น"
+          }
+        }
+      }
+    },
+    "Connect OLIV API or Groq in Cloud services to make a remote engine available here." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เชื่อมต่อ OLIV API หรือ Groq ใน บริการคลาวด์ เพื่อให้เลือกเอนจินระยะไกลได้ที่นี่"
+          }
+        }
+      }
+    },
+    "Connect a remote engine when you want to use one." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เชื่อมต่อเอนจินระยะไกลเมื่อต้องการใช้"
+          }
+        }
+      }
+    },
+    "Connect to an OLIV server using your individual API key." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เชื่อมต่อเซิร์ฟเวอร์ OLIV ด้วย API key ส่วนตัวของคุณ"
+          }
+        }
+      }
+    },
+    "Control the structure of your text with your voice." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "จัดโครงสร้างข้อความด้วยเสียงของคุณ"
+          }
+        }
+      }
+    },
+    "Copied — press ⌘V to paste" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คัดลอกแล้ว กด ⌘V เพื่อวาง"
+          }
+        }
+      }
+    },
+    "Copy Diagnostics" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คัดลอกข้อมูลวินิจฉัย"
+          }
+        }
+      }
+    },
+    "Core models" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โมเดลหลัก"
+          }
+        }
+      }
+    },
+    "Correct a misspelling" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แก้คำที่ได้ยินผิด"
+          }
+        }
+      }
+    },
+    "Correct recognized words and clean up the transcript. Turn off to use the raw transcript in every app." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แก้คำที่ถอดเสียงมาและเกลาข้อความให้เรียบร้อย ปิดไว้ถ้าอยากได้ข้อความดิบในทุกแอป"
+          }
+        }
+      }
+    },
+    "Could not check the API connection." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตรวจสอบการเชื่อมต่อ API ไม่ได้"
+          }
+        }
+      }
+    },
+    "Could not disable launch at login. Move OLIV to /Applications and try again. %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยกเลิกการเปิดเมื่อเข้าสู่ระบบไม่ได้ ย้าย OLIV ไปไว้ที่ /Applications แล้วลองอีกครั้ง %@"
+          }
+        }
+      }
+    },
+    "Could not enable launch at login. Move OLIV to /Applications and try again. %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตั้งให้เปิดเมื่อเข้าสู่ระบบไม่ได้ ย้าย OLIV ไปไว้ที่ /Applications แล้วลองอีกครั้ง %@"
+          }
+        }
+      }
+    },
+    "Could not reach the API. Check the connection, URL and TLS certificate." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เชื่อมต่อ API ไม่ได้ ตรวจสอบการเชื่อมต่อ URL และใบรับรอง TLS"
+          }
+        }
+      }
+    },
+    "Could not read that file as text (expected UTF-8 CSV)." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อ่านไฟล์นี้เป็นข้อความไม่ได้ (ต้องเป็น CSV แบบ UTF-8)"
+          }
+        }
+      }
+    },
+    "Couldn’t open the microphone — try again" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดไมโครโฟนไม่ได้ ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Couldn’t transcribe — try again" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ถอดเสียงไม่สำเร็จ ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Couldn’t undo — press ⌘Z" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลิกทำไม่ได้ ลองกด ⌘Z"
+          }
+        }
+      }
+    },
+    "DEFAULT" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค่าเริ่มต้น"
+          }
+        }
+      }
+    },
+    "DICTATION" : {
+      "comment" : "Settings sidebar section heading",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พิมพ์ด้วยเสียง"
+          }
+        }
+      }
+    },
+    "Delete selected (%lld)" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบที่เลือก (%lld)"
+          }
+        }
+      }
+    },
+    "Detect the push-to-talk key press globally." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รู้ว่าคุณกดปุ่มพูด ไม่ว่าจะใช้แอปไหนอยู่"
+          }
+        }
+      }
+    },
+    "Diagnostics copied" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คัดลอกข้อมูลวินิจฉัยแล้ว"
+          }
+        }
+      }
+    },
+    "Dictation engine" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เอนจินถอดเสียง"
+          }
+        }
+      }
+    },
+    "Dictionary" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พจนานุกรม"
+          }
+        }
+      }
+    },
+    "Dictionary suggestion: %@ · review it in the OLIV menu" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แนะนำคำใหม่: %@ · ดูในเมนู OLIV"
+          }
+        }
+      }
+    },
+    "Disabled" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิดอยู่"
+          }
+        }
+      }
+    },
+    "Dismiss %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้าม %@"
+          }
+        }
+      }
+    },
+    "Dismiss all" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้ามทั้งหมด"
+          }
+        }
+      }
+    },
+    "Done" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสร็จสิ้น"
+          }
+        }
+      }
+    },
+    "Download" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลด"
+          }
+        }
+      }
+    },
+    "Download core models" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดโมเดลหลัก"
+          }
+        }
+      }
+    },
+    "Download failed for %@: %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลด %1$@ ไม่สำเร็จ: %2$@"
+          }
+        }
+      }
+    },
+    "Download failed: %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดไม่สำเร็จ: %@"
+          }
+        }
+      }
+    },
+    "Download models" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดโมเดล"
+          }
+        }
+      }
+    },
+    "Download required" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ต้องดาวน์โหลด"
+          }
+        }
+      }
+    },
+    "Download selected model" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดโมเดลที่เลือก"
+          }
+        }
+      }
+    },
+    "Download this engine’s model before dictating. It isn’t on your Mac yet." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดโมเดลของเอนจินนี้ก่อนใช้งาน ตอนนี้ยังไม่มีใน Mac ของคุณ"
+          }
+        }
+      }
+    },
+    "Downloaded" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดแล้ว"
+          }
+        }
+      }
+    },
+    "Downloaded once. Available offline on this Mac." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดครั้งเดียว ใช้ออฟไลน์ได้บน Mac เครื่องนี้"
+          }
+        }
+      }
+    },
+    "Downloading models. You can keep using Settings." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังดาวน์โหลดโมเดล ใช้การตั้งค่าต่อได้เลย"
+          }
+        }
+      }
+    },
+    "Downloading models… %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังดาวน์โหลดโมเดล… %@"
+          }
+        }
+      }
+    },
+    "EVERYDAY" : {
+      "comment" : "Settings sidebar section heading",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้ทุกวัน"
+          }
+        }
+      }
+    },
+    "Edit %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แก้ไข %@"
+          }
+        }
+      }
+    },
+    "Edit misspelling" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แก้ไขคำที่ได้ยินผิด"
+          }
+        }
+      }
+    },
+    "Edit word" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แก้ไขคำ"
+          }
+        }
+      }
+    },
+    "Enable %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดใช้ %@"
+          }
+        }
+      }
+    },
+    "Enable Groq" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดใช้ Groq"
+          }
+        }
+      }
+    },
+    "Enable OLIV API" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดใช้ OLIV API"
+          }
+        }
+      }
+    },
+    "Enable dictation" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดใช้การพิมพ์ด้วยเสียง"
+          }
+        }
+      }
+    },
+    "Enable formatting commands" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดคำสั่งจัดรูปแบบ"
+          }
+        }
+      }
+    },
+    "Enable text cleanup" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดการเกลาข้อความ"
+          }
+        }
+      }
+    },
+    "Enabled" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดใช้อยู่"
+          }
+        }
+      }
+    },
+    "Enabling a service makes its engine available. Select it in Dictation engine to use it. API keys are stored in macOS Keychain." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดบริการแล้วจะเลือกเอนจินของบริการนั้นได้ที่ เอนจินถอดเสียง ส่วน API key จะเก็บไว้ในพวงกุญแจของ macOS"
+          }
+        }
+      }
+    },
+    "Engine: %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เอนจิน: %@"
+          }
+        }
+      }
+    },
+    "Enter a key with dictate access" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใส่ key ที่มีสิทธิ์ dictate"
+          }
+        }
+      }
+    },
+    "Enter a valid API base URL without credentials, query or fragment." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใส่ URL ของ API ให้ถูกต้อง โดยไม่มีข้อมูลล็อกอิน พารามิเตอร์ หรือส่วนท้าย #"
+          }
+        }
+      }
+    },
+    "Enter an individual API key without spaces." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใส่ API key ส่วนตัวโดยไม่มีช่องว่าง"
+          }
+        }
+      }
+    },
+    "Enter your Groq API key" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใส่ Groq API key ของคุณ"
+          }
+        }
+      }
+    },
+    "Export CSV" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งออก CSV"
+          }
+        }
+      }
+    },
+    "Export failed: %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งออกไม่สำเร็จ: %@"
+          }
+        }
+      }
+    },
+    "Filter out audio your Mac is playing. Used when the selected mic is also the system input; skipped with Bluetooth audio." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กรองเสียงที่ Mac กำลังเล่นออก ใช้เมื่อไมโครโฟนที่เลือกเป็นอุปกรณ์รับเสียงของระบบด้วย และจะข้ามไปเมื่อใช้เสียงผ่าน Bluetooth"
+          }
+        }
+      }
+    },
+    "Find a setting" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค้นหาการตั้งค่า"
+          }
+        }
+      }
+    },
+    "Find your last 10 dictations in the menu bar. Click a transcript to copy it, then paste with ⌘V." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดูข้อความ 10 รายการล่าสุดได้ในแถบเมนู คลิกข้อความเพื่อคัดลอก แล้ววางด้วย ⌘V"
+          }
+        }
+      }
+    },
+    "Fix “%@” too?" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แก้ “%@” ด้วยไหม"
+          }
+        }
+      }
+    },
+    "For dictation that is mostly in English." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สำหรับการพูดที่ส่วนใหญ่เป็นภาษาอังกฤษ"
+          }
+        }
+      }
+    },
+    "Format Thai numbers & repeated words" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "จัดรูปแบบตัวเลขไทยและคำซ้ำ"
+          }
+        }
+      }
+    },
+    "Found in your recent dictation after you added the word" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พบในข้อความล่าสุด หลังจากคุณเพิ่มคำนี้"
+          }
+        }
+      }
+    },
+    "General" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทั่วไป"
+          }
+        }
+      }
+    },
+    "Getting the mic ready…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังเตรียมไมโครโฟน…"
+          }
+        }
+      }
+    },
+    "Grant" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อนุญาต"
+          }
+        }
+      }
+    },
+    "Granted" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อนุญาตแล้ว"
+          }
+        }
+      }
+    },
+    "Groq" : {
+      "shouldTranslate" : false
+    },
+    "Groq API key" : {
+      "shouldTranslate" : false
+    },
+    "History stays in memory. Turning this off clears it immediately; quitting OLIV clears it too." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ประวัติอยู่ในหน่วยความจำเท่านั้น ถ้าปิดตัวเลือกนี้หรือออกจาก OLIV ประวัติจะถูกล้างทันที"
+          }
+        }
+      }
+    },
+    "Hit the %lld-minute recording limit — the end was cut off" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อัดเสียงครบ %lld นาทีแล้ว ช่วงท้ายจึงถูกตัด"
+          }
+        }
+      }
+    },
+    "Hold modifiers, then press the main key (e.g. Control+Option+F17). Or press/release a single modifier. Esc cancels." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กดปุ่มปรับค่าค้างไว้ แล้วกดปุ่มหลัก (เช่น Control+Option+F17) หรือกดแล้วปล่อยปุ่มปรับค่าปุ่มเดียว กด Esc เพื่อยกเลิก"
+          }
+        }
+      }
+    },
+    "Hold your key, speak, release — the transcript pastes at your cursor. Two quick things first." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กดปุ่มค้างไว้ พูด แล้วปล่อย ข้อความจะไปวางตรงเคอร์เซอร์ของคุณ ขอตั้งค่าสั้นๆ อีกสองอย่างก่อน"
+          }
+        }
+      }
+    },
+    "Hold your shortcut to speak. Release any key in the shortcut to finish and insert your text." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กดปุ่มลัดค้างไว้แล้วพูด ปล่อยปุ่มใดก็ได้ในปุ่มลัดเพื่อจบและแทรกข้อความ"
+          }
+        }
+      }
+    },
+    "How audio handling works" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การจัดการเสียงทำงานอย่างไร"
+          }
+        }
+      }
+    },
+    "IN USE" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังใช้"
+          }
+        }
+      }
+    },
+    "Idle" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พร้อม"
+          }
+        }
+      }
+    },
+    "If echo cancellation is unavailable, OLIV remembers that audio route and uses the regular mic to start faster. Turn echo cancellation off and on to retry. With echo cancellation enabled, macOS controls audio lowering and may still lower playback when the second switch is off." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ถ้าใช้การตัดเสียงสะท้อนไม่ได้ OLIV จะจำเส้นทางเสียงนั้นไว้และใช้ไมโครโฟนแบบปกติเพื่อให้เริ่มได้เร็วขึ้น ปิดแล้วเปิดการตัดเสียงสะท้อนอีกครั้งเพื่อลองใหม่ ขณะเปิดการตัดเสียงสะท้อน macOS จะควบคุมการลดเสียงเอง และอาจยังลดเสียงที่เล่นอยู่แม้ปิดสวิตช์ที่สองไว้"
+          }
+        }
+      }
+    },
+    "Import & export" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำเข้าและส่งออก"
+          }
+        }
+      }
+    },
+    "Import CSV…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำเข้า CSV…"
+          }
+        }
+      }
+    },
+    "Import failed: %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำเข้าไม่สำเร็จ: %@"
+          }
+        }
+      }
+    },
+    "Imported %lld words." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำเข้าแล้ว %lld คำ"
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Imported %lld word."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Imported %lld words."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Imported %lld words; %lld rows were skipped (invalid or duplicate)." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำเข้าแล้ว %1$lld คำ ข้ามไป %2$lld แถว (ไม่ถูกต้องหรือซ้ำ)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Imported %#@words@; %#@rows@ skipped (invalid or duplicate)."
+          },
+          "substitutions" : {
+            "words" : {
+              "argNum" : 1,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg word"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg words"
+                    }
+                  }
+                }
+              }
+            },
+            "rows" : {
+              "argNum" : 2,
+              "formatSpecifier" : "lld",
+              "variations" : {
+                "plural" : {
+                  "one" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg row was"
+                    }
+                  },
+                  "other" : {
+                    "stringUnit" : {
+                      "state" : "translated",
+                      "value" : "%arg rows were"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "Incomplete (%@ on disk)" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่ครบ (ในเครื่องมี %@)"
+          }
+        }
+      }
+    },
+    "Individual API key" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API key ส่วนตัว"
+          }
+        }
+      }
+    },
+    "Input Monitoring" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การตรวจสอบสัญญาณเข้า"
+          }
+        }
+      }
+    },
+    "Input device" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อุปกรณ์รับเสียง"
+          }
+        }
+      }
+    },
+    "Keep OLIV close, with as much feedback as you need." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ให้ OLIV อยู่ใกล้มือ และบอกสถานะมากน้อยตามที่คุณต้องการ"
+          }
+        }
+      }
+    },
+    "Keep music and video out of your transcript." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่ให้เสียงเพลงและวิดีโอปนเข้ามาในข้อความ"
+          }
+        }
+      }
+    },
+    "Keep recent transcripts" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เก็บข้อความล่าสุด"
+          }
+        }
+      }
+    },
+    "Keep the meaning. Make the text easier to read." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ความหมายเหมือนเดิม แต่อ่านง่ายขึ้น"
+          }
+        }
+      }
+    },
+    "Keep these apps verbatim" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แอปที่ไม่ต้องเกลาข้อความ"
+          }
+        }
+      }
+    },
+    "Keyboard shortcuts" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปุ่มลัดแป้นพิมพ์"
+          }
+        }
+      }
+    },
+    "Last: %@ · %@s · %lld chars" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ล่าสุด: %1$@ · %2$@ วิ · %3$lld ตัวอักษร"
+          }
+        }
+      }
+    },
+    "Last: %@s · %lld chars" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ล่าสุด: %1$@ วิ · %2$lld ตัวอักษร"
+          }
+        }
+      }
+    },
+    "Later" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไว้ทีหลัง"
+          }
+        }
+      }
+    },
+    "Launch at login" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดเมื่อเข้าสู่ระบบ"
+          }
+        }
+      }
+    },
+    "Let OLIV notice words you correct often." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ให้ OLIV สังเกตคำที่คุณแก้บ่อยๆ"
+          }
+        }
+      }
+    },
+    "Limits & connection details" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อจำกัดและรายละเอียดการเชื่อมต่อ"
+          }
+        }
+      }
+    },
+    "Long, but it will still save (up to %lld characters)." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยาวหน่อย แต่ยังบันทึกได้ (ไม่เกิน %lld ตัวอักษร)"
+          }
+        }
+      }
+    },
+    "Lower other audio while dictating" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลดเสียงอื่นขณะพูด"
+          }
+        }
+      }
+    },
+    "Lower playback while you speak and restore it on release. If you adjust the volume yourself, OLIV keeps your change." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลดเสียงที่เล่นอยู่ขณะคุณพูด แล้วคืนเสียงเดิมเมื่อปล่อยปุ่ม ถ้าคุณปรับระดับเสียงเอง OLIV จะใช้ค่าที่คุณปรับ"
+          }
+        }
+      }
+    },
+    "Make it your vocabulary" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพิ่มคำศัพท์ของคุณ"
+          }
+        }
+      }
+    },
+    "Make yourself at home" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปรับให้เข้ากับคุณ"
+          }
+        }
+      }
+    },
+    "Manage cloud services" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "จัดการบริการคลาวด์"
+          }
+        }
+      }
+    },
+    "Manage the models that make on-device dictation possible." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "จัดการโมเดลที่ทำให้พิมพ์ด้วยเสียงในเครื่องได้"
+          }
+        }
+      }
+    },
+    "Microphone" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไมโครโฟน"
+          }
+        }
+      }
+    },
+    "Misspelling" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำที่ได้ยินผิด"
+          }
+        }
+      }
+    },
+    "Model storage" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พื้นที่เก็บโมเดล"
+          }
+        }
+      }
+    },
+    "Models" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โมเดล"
+          }
+        }
+      }
+    },
+    "Models & storage" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โมเดลและพื้นที่จัดเก็บ"
+          }
+        }
+      }
+    },
+    "Needs approval in System Settings › Login Items" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ต้องอนุญาตใน การตั้งค่าระบบ › รายการเข้าสู่ระบบ"
+          }
+        }
+      }
+    },
+    "New line" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บรรทัดใหม่"
+          }
+        }
+      }
+    },
+    "New paragraph" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ย่อหน้า"
+          }
+        }
+      }
+    },
+    "No app exceptions" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มีแอปที่ยกเว้น"
+          }
+        }
+      }
+    },
+    "No audio was captured." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่มีเสียงที่อัดไว้"
+          }
+        }
+      }
+    },
+    "No matches" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่พบคำที่ตรงกัน"
+          }
+        }
+      }
+    },
+    "No new words — %lld rows were skipped (invalid or already in your dictionary)." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่มีคำใหม่ ข้ามไป %lld แถว (ไม่ถูกต้องหรือมีในพจนานุกรมแล้ว)"
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "No new words — %lld row was skipped (invalid or already in your dictionary)."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "No new words — %lld rows were skipped (invalid or already in your dictionary)."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "No settings found.\nTry “microphone” or “shortcut”." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่พบการตั้งค่า\nลองค้นหา “ไมโครโฟน” หรือ “ปุ่มลัด”"
+          }
+        }
+      }
+    },
+    "No thanks" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่เป็นไร"
+          }
+        }
+      }
+    },
+    "None" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่มี"
+          }
+        }
+      }
+    },
+    "Not downloaded" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่ได้ดาวน์โหลด"
+          }
+        }
+      }
+    },
+    "Not synced (duplicate or dictionary full): %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่ซิงก์ (ซ้ำหรือพจนานุกรมเต็ม): %@"
+          }
+        }
+      }
+    },
+    "Nothing to import — the file has no word rows." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่มีอะไรให้นำเข้า ไฟล์นี้ไม่มีแถวคำ"
+          }
+        }
+      }
+    },
+    "Nothing to undo" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่มีอะไรให้เลิกทำ"
+          }
+        }
+      }
+    },
+    "OLIV" : {
+      "shouldTranslate" : false
+    },
+    "OLIV API" : {
+      "shouldTranslate" : false
+    },
+    "OLIV API accepts recordings up to 2 minutes." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OLIV API รับเสียงที่อัดได้ไม่เกิน 2 นาที"
+          }
+        }
+      }
+    },
+    "OLIV API doesn’t support spoken formatting yet. Your preference is kept for local engines." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OLIV API ยังไม่รองรับการจัดรูปแบบด้วยเสียง ค่าที่คุณเลือกจะยังใช้กับเอนจินในเครื่อง"
+          }
+        }
+      }
+    },
+    "OLIV API is disabled or incomplete — check Settings" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OLIV API ปิดอยู่หรือยังตั้งค่าไม่ครบ ดูที่การตั้งค่า"
+          }
+        }
+      }
+    },
+    "OLIV API key" : {
+      "shouldTranslate" : false
+    },
+    "OLIV API selected — no local models needed" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือก OLIV API ไว้ ไม่ต้องใช้โมเดลในเครื่อง"
+          }
+        }
+      }
+    },
+    "OLIV API server URL" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL เซิร์ฟเวอร์ OLIV API"
+          }
+        }
+      }
+    },
+    "OLIV Setup" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตั้งค่า OLIV"
+          }
+        }
+      }
+    },
+    "OLIV — %@" : {
+      "shouldTranslate" : false
+    },
+    "OLIV: %@" : {
+      "shouldTranslate" : false
+    },
+    "Off" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิด"
+          }
+        }
+      }
+    },
+    "Older snippets · %lld" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำแทนที่แบบเก่า · %lld"
+          }
+        }
+      }
+    },
+    "On" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิด"
+          }
+        }
+      }
+    },
+    "On-device engines" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เอนจินในเครื่อง"
+          }
+        }
+      }
+    },
+    "On-device · %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ในเครื่อง · %@"
+          }
+        }
+      }
+    },
+    "Only download these if you want to use a different local engine." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดเฉพาะเมื่ออยากใช้เอนจินในเครื่องตัวอื่น"
+          }
+        }
+      }
+    },
+    "Open System Settings" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดการตั้งค่าระบบ"
+          }
+        }
+      }
+    },
+    "Optional" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่บังคับ"
+          }
+        }
+      }
+    },
+    "Optional second shortcut — hold either binding to dictate." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปุ่มลัดที่สอง (ไม่บังคับ) กดค้างปุ่มไหนก็พูดได้"
+          }
+        }
+      }
+    },
+    "Paste the transcript at your cursor (synthesize Cmd+V)." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "วางข้อความตรงเคอร์เซอร์ของคุณ (ส่ง Cmd+V ให้อัตโนมัติ)"
+          }
+        }
+      }
+    },
+    "Permissions" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สิทธิ์การเข้าถึง"
+          }
+        }
+      }
+    },
+    "Polish your transcript" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เกลาข้อความให้เรียบร้อย"
+          }
+        }
+      }
+    },
+    "Presets for %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปุ่มลัดสำเร็จรูปสำหรับ %@"
+          }
+        }
+      }
+    },
+    "Press a shortcut…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กดปุ่มลัด…"
+          }
+        }
+      }
+    },
+    "Press once after a dictation to send ⌘Z. Available once per successful paste. The default is Control + Shift + Z." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กดหนึ่งครั้งหลังพูดเพื่อส่ง ⌘Z ใช้ได้ครั้งเดียวต่อการวางที่สำเร็จ ค่าเริ่มต้นคือ Control + Shift + Z"
+          }
+        }
+      }
+    },
+    "Primary" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "หลัก"
+          }
+        }
+      }
+    },
+    "Push to talk" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กดค้างเพื่อพูด"
+          }
+        }
+      }
+    },
+    "Quit OLIV" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ออกจาก OLIV"
+          }
+        }
+      }
+    },
+    "Re-download" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดใหม่"
+          }
+        }
+      }
+    },
+    "Re-download core models" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดโมเดลหลักใหม่"
+          }
+        }
+      }
+    },
+    "Recent transcripts" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อความล่าสุด"
+          }
+        }
+      }
+    },
+    "Recent…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อความล่าสุด…"
+          }
+        }
+      }
+    },
+    "Record" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำหนด"
+          }
+        }
+      }
+    },
+    "Record your voice while you hold the push-to-talk key." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อัดเสียงของคุณขณะที่กดปุ่มพูดค้างไว้"
+          }
+        }
+      }
+    },
+    "Recording…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังอัดเสียง…"
+          }
+        }
+      }
+    },
+    "Refresh status" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รีเฟรชสถานะ"
+          }
+        }
+      }
+    },
+    "Remove" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบ"
+          }
+        }
+      }
+    },
+    "Remove %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบ %@"
+          }
+        }
+      }
+    },
+    "Remove filler words" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตัดคำติดปาก"
+          }
+        }
+      }
+    },
+    "Remove standalone hesitations such as อืม, เอ่อ, um, uh and hmm before cleanup." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตัดเสียงลังเลที่อยู่เดี่ยวๆ เช่น อืม, เอ่อ, um, uh และ hmm ก่อนเกลาข้อความ"
+          }
+        }
+      }
+    },
+    "Replacements from before the Dictionary that it cannot hold exactly (long text, symbols, or spacing). They still work on this Mac." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำแทนที่จากก่อนมีพจนานุกรม ที่พจนานุกรมเก็บแบบเดิมไม่ได้ (ข้อความยาว สัญลักษณ์ หรือการเว้นวรรค) แต่ยังใช้ได้บน Mac เครื่องนี้"
+          }
+        }
+      }
+    },
+    "Request timeout" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เวลารอคำตอบ"
+          }
+        }
+      }
+    },
+    "Request timeout must be 10–180 whole seconds." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เวลารอคำตอบต้องเป็นจำนวนเต็ม 10–180 วินาที"
+          }
+        }
+      }
+    },
+    "Request timeout: %lld seconds" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เวลารอคำตอบ: %lld วินาที"
+          }
+        }
+      }
+    },
+    "Review Dictionary Suggestions (%lld)…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดูคำแนะนำสำหรับพจนานุกรม (%lld)…"
+          }
+        }
+      }
+    },
+    "SELECTED" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกอยู่"
+          }
+        }
+      }
+    },
+    "SYSTEM" : {
+      "comment" : "Settings sidebar section heading",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ระบบ"
+          }
+        }
+      }
+    },
+    "Save changes" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บันทึกการเปลี่ยนแปลง"
+          }
+        }
+      }
+    },
+    "Saved on this Mac. Add an OLIV API key to share it with your other devices." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บันทึกไว้บน Mac เครื่องนี้ เพิ่ม OLIV API key เพื่อใช้ร่วมกับเครื่องอื่นของคุณ"
+          }
+        }
+      }
+    },
+    "Say a command to insert a line break, paragraph or bullet. Leave off if you want these phrases transcribed as text." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พูดคำสั่งเพื่อขึ้นบรรทัดใหม่ ย่อหน้าใหม่ หรือใส่หัวข้อย่อย ปิดไว้ถ้าอยากให้คำเหล่านี้ถูกพิมพ์เป็นข้อความ"
+          }
+        }
+      }
+    },
+    "Search dictionary" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค้นหาในพจนานุกรม"
+          }
+        }
+      }
+    },
+    "Search words or misspellings" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค้นหาคำหรือคำที่ได้ยินผิด"
+          }
+        }
+      }
+    },
+    "Secondary" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สำรอง"
+          }
+        }
+      }
+    },
+    "See a floating waveform while you dictate, plus recording and processing status." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แสดงคลื่นเสียงลอยบนจอขณะพูด พร้อมสถานะการอัดเสียงและการประมวลผล"
+          }
+        }
+      }
+    },
+    "Select" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือก"
+          }
+        }
+      }
+    },
+    "Select %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือก %@"
+          }
+        }
+      }
+    },
+    "Select all" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกทั้งหมด"
+          }
+        }
+      }
+    },
+    "Selected microphone (disconnected)" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไมโครโฟนที่เลือก (ไม่ได้เชื่อมต่อ)"
+          }
+        }
+      }
+    },
+    "Server URL" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "URL เซิร์ฟเวอร์"
+          }
+        }
+      }
+    },
+    "Server reachable. Your API key and model readiness haven’t been checked." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ติดต่อเซิร์ฟเวอร์ได้ แต่ยังไม่ได้ตรวจ API key และความพร้อมของโมเดล"
+          }
+        }
+      }
+    },
+    "Server transcription and cleanup. No local models required." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ถอดเสียงและเกลาข้อความบนเซิร์ฟเวอร์ ไม่ต้องใช้โมเดลในเครื่อง"
+          }
+        }
+      }
+    },
+    "Settings" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การตั้งค่า"
+          }
+        }
+      }
+    },
+    "Settings…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การตั้งค่า…"
+          }
+        }
+      }
+    },
+    "Setup…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตั้งค่าเริ่มต้น…"
+          }
+        }
+      }
+    },
+    "Setup… (action needed)" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตั้งค่าเริ่มต้น… (ยังไม่ครบ)"
+          }
+        }
+      }
+    },
+    "Show in Finder" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แสดงใน Finder"
+          }
+        }
+      }
+    },
+    "Show recording indicator" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แสดงสถานะขณะอัดเสียง"
+          }
+        }
+      }
+    },
+    "Speech recognition" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ถอดเสียง"
+          }
+        }
+      }
+    },
+    "Spoken formatting" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "จัดรูปแบบด้วยเสียง"
+          }
+        }
+      }
+    },
+    "Star %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ติดดาว %@"
+          }
+        }
+      }
+    },
+    "Star %@ — sent to recognition first" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ติดดาว %@ — ส่งให้ระบบถอดเสียงก่อน"
+          }
+        }
+      }
+    },
+    "Start OLIV in the menu bar when you sign in to your Mac." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิด OLIV ไว้ในแถบเมนูทุกครั้งที่เข้าสู่ระบบ Mac"
+          }
+        }
+      }
+    },
+    "Start with your name, a project, or a word you often have to correct." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เริ่มจากชื่อคุณ ชื่อโปรเจกต์ หรือคำที่ต้องแก้บ่อยๆ"
+          }
+        }
+      }
+    },
+    "Step %lld" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ขั้นตอนที่ %lld"
+          }
+        }
+      }
+    },
+    "Stored at: %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เก็บไว้ที่: %@"
+          }
+        }
+      }
+    },
+    "Suggest words from my corrections" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แนะนำคำจากที่ฉันแก้"
+          }
+        }
+      }
+    },
+    "Suggestions for your dictionary · %lld" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำแนะนำสำหรับพจนานุกรม · %lld"
+          }
+        }
+      }
+    },
+    "Synced with your other devices." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ซิงก์กับเครื่องอื่นของคุณแล้ว"
+          }
+        }
+      }
+    },
+    "Syncing with the OLIV server…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังซิงก์กับเซิร์ฟเวอร์ OLIV…"
+          }
+        }
+      }
+    },
+    "System default — %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค่าเริ่มต้นของระบบ — %@"
+          }
+        }
+      }
+    },
+    "Teach OLIV your words, and how to fix what it mishears." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สอน OLIV ให้รู้จักคำของคุณ และแก้คำที่มักได้ยินผิด"
+          }
+        }
+      }
+    },
+    "Text cleanup" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เกลาข้อความ"
+          }
+        }
+      }
+    },
+    "Text is on the clipboard — press ⌘V" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อความอยู่ในคลิปบอร์ดแล้ว กด ⌘V"
+          }
+        }
+      }
+    },
+    "Thai STT (Typhoon Whisper Turbo MLX)" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ถอดเสียงภาษาไทย (Typhoon Whisper Turbo MLX)"
+          }
+        }
+      }
+    },
+    "Thai–English speech recognition" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ถอดเสียงไทย–อังกฤษ"
+          }
+        }
+      }
+    },
+    "That file is empty — nothing to import." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไฟล์นี้ว่างเปล่า ไม่มีอะไรให้นำเข้า"
+          }
+        }
+      }
+    },
+    "That file is over 3MB — split it and try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไฟล์ใหญ่เกิน 3MB แบ่งไฟล์แล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "The API could not finish transcription. Wait before trying again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API ถอดเสียงไม่สำเร็จ รอสักครู่แล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "The API did not return a valid dictation result." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API ไม่ได้ส่งผลการถอดเสียงที่ถูกต้องกลับมา"
+          }
+        }
+      }
+    },
+    "The API key was rejected." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API key ถูกปฏิเสธ"
+          }
+        }
+      }
+    },
+    "The API rejected the audio/request format." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API ไม่รับรูปแบบเสียงหรือคำขอนี้"
+          }
+        }
+      }
+    },
+    "The API request failed. Try again later." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำขอ API ไม่สำเร็จ ลองใหม่ภายหลัง"
+          }
+        }
+      }
+    },
+    "The API request is too large. Record a shorter clip." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำขอ API ใหญ่เกินไป ลองอัดให้สั้นลง"
+          }
+        }
+      }
+    },
+    "The API request is too large. Shorten the recording or vocabulary/replacements." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำขอ API ใหญ่เกินไป ลองอัดให้สั้นลง หรือลดคำศัพท์/คำแทนที่"
+          }
+        }
+      }
+    },
+    "The API request timed out. Wait before trying again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำขอ API หมดเวลา รอสักครู่แล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "The API request was cancelled." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยกเลิกคำขอ API แล้ว"
+          }
+        }
+      }
+    },
+    "The API response exceeded the size limit." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำตอบจาก API ใหญ่เกินขีดจำกัด"
+          }
+        }
+      }
+    },
+    "The built-in mic leaves Bluetooth playback at full quality. You can still use AirPods to listen." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไมโครโฟนในตัวไม่ทำให้คุณภาพเสียงผ่าน Bluetooth ลดลง ยังฟังผ่าน AirPods ได้ตามปกติ"
+          }
+        }
+      }
+    },
+    "The default Thai–English engine and its text cleanup model." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เอนจินไทย–อังกฤษที่ใช้เป็นค่าเริ่มต้น และโมเดลเกลาข้อความ"
+          }
+        }
+      }
+    },
+    "The mic wasn’t ready — try again" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไมโครโฟนยังไม่พร้อม ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "This OLIV server doesn't support dictionary sync yet." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เซิร์ฟเวอร์ OLIV นี้ยังไม่รองรับการซิงก์พจนานุกรม"
+          }
+        }
+      }
+    },
+    "This OLIV server doesn't sync dictionaries yet. Words still apply to every dictation." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เซิร์ฟเวอร์ OLIV นี้ยังไม่รองรับการซิงก์พจนานุกรม แต่คำของคุณยังใช้ได้ทุกครั้งที่พูด"
+          }
+        }
+      }
+    },
+    "This app has no bundle identifier. Choose another app or enter its identifier manually." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แอปนี้ไม่มี bundle identifier เลือกแอปอื่น หรือพิมพ์ identifier เอง"
+          }
+        }
+      }
+    },
+    "This matches a push-to-talk shortcut. Choose a different shortcut for undo." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปุ่มลัดนี้ซ้ำกับปุ่มลัดสำหรับพูด เลือกปุ่มลัดอื่นสำหรับเลิกทำ"
+          }
+        }
+      }
+    },
+    "This misspelling already corrects another word." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำที่ได้ยินผิดนี้ใช้แก้คำอื่นอยู่แล้ว"
+          }
+        }
+      }
+    },
+    "This shortcut also types characters in the active app. A modifier or function key is recommended." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปุ่มลัดนี้จะพิมพ์ตัวอักษรลงในแอปที่ใช้อยู่ด้วย แนะนำให้ใช้ปุ่มปรับค่าหรือปุ่มฟังก์ชัน"
+          }
+        }
+      }
+    },
+    "To record a shortcut, click Record, hold any modifiers, then press a key. You can also press and release a single modifier. Escape cancels." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตั้งปุ่มลัดโดยคลิก กำหนด กดปุ่มปรับค่าค้างไว้ แล้วกดปุ่มที่ต้องการ หรือกดแล้วปล่อยปุ่มปรับค่าปุ่มเดียวก็ได้ กด Escape เพื่อยกเลิก"
+          }
+        }
+      }
+    },
+    "Too many rows — the limit is %lld per import." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แถวเยอะเกินไป นำเข้าได้ครั้งละไม่เกิน %lld แถว"
+          }
+        }
+      }
+    },
+    "Transcribing…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังถอดเสียง…"
+          }
+        }
+      }
+    },
+    "Transcription and cleanup on your configured OLIV server." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ถอดเสียงและเกลาข้อความบนเซิร์ฟเวอร์ OLIV ที่คุณตั้งค่าไว้"
+          }
+        }
+      }
+    },
+    "Try a different search." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลองค้นหาด้วยคำอื่น"
+          }
+        }
+      }
+    },
+    "Turn what you say into text that’s ready to use." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปลี่ยนสิ่งที่คุณพูดเป็นข้อความที่พร้อมใช้"
+          }
+        }
+      }
+    },
+    "Unavailable (run the app from /Applications)" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้ไม่ได้ (เปิดแอปจากโฟลเดอร์ /Applications)"
+          }
+        }
+      }
+    },
+    "Undid last dictation" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลิกทำข้อความล่าสุดแล้ว"
+          }
+        }
+      }
+    },
+    "Undo last" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลิกทำ"
+          }
+        }
+      }
+    },
+    "Undo last dictation" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลิกทำข้อความล่าสุด"
+          }
+        }
+      }
+    },
+    "Unknown" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่ทราบ"
+          }
+        }
+      }
+    },
+    "Unknown engine" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เอนจินที่ไม่รู้จัก"
+          }
+        }
+      }
+    },
+    "Unstar %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลิกติดดาว %@"
+          }
+        }
+      }
+    },
+    "Use HTTPS. HTTP is allowed only for explicit local/private development addresses." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้ HTTPS ส่วน HTTP ใช้ได้เฉพาะที่อยู่ในเครือข่ายภายในหรือเครือข่ายส่วนตัวสำหรับการพัฒนา"
+          }
+        }
+      }
+    },
+    "Use a single modifier or a combination of keys." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้ปุ่มปรับค่าปุ่มเดียว หรือหลายปุ่มร่วมกัน"
+          }
+        }
+      }
+    },
+    "Use the spelling you want to see in your transcript." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้การสะกดแบบที่อยากเห็นในข้อความ"
+          }
+        }
+      }
+    },
+    "Used %@ fallback" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้เอนจินสำรอง: %@"
+          }
+        }
+      }
+    },
+    "Used by OLIV models" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พื้นที่ที่โมเดลของ OLIV ใช้"
+          }
+        }
+      }
+    },
+    "Version %@" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เวอร์ชัน %@"
+          }
+        }
+      }
+    },
+    "Vocabulary only" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำศัพท์อย่างเดียว"
+          }
+        }
+      }
+    },
+    "Vocabulary words bias recognition from the start — add names, jargon or spellings OLIV mishears. Turn on “Correct a misspelling” when you say one thing and want different text typed. Starred words are sent to recognition first." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำศัพท์ช่วยให้ถอดเสียงแม่นตั้งแต่แรก เพิ่มชื่อคน ศัพท์เฉพาะ หรือคำที่ OLIV มักสะกดผิดได้ เปิด “แก้คำที่ได้ยินผิด” เมื่อพูดคำหนึ่งแต่อยากให้พิมพ์อีกแบบ คำที่ติดดาวจะถูกส่งให้ระบบถอดเสียงก่อน"
+          }
+        }
+      }
+    },
+    "Welcome to OLIV" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยินดีต้อนรับสู่ OLIV"
+          }
+        }
+      }
+    },
+    "When I say / STT hears" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เมื่อฉันพูดว่า / ระบบได้ยินว่า"
+          }
+        }
+      }
+    },
+    "When cleanup is enabled, it applies everywhere. Add an app to keep its transcripts raw." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เมื่อเปิดการเกลาข้อความ จะใช้กับทุกแอป เพิ่มแอปที่อยากได้ข้อความดิบไว้ที่นี่"
+          }
+        }
+      }
+    },
+    "When you undo a dictation and say it again within 30 seconds, OLIV suggests the difference (a notice appears, and it waits at the top of this page and in the OLIV menu). Nothing is added until you approve it." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เมื่อคุณเลิกทำข้อความแล้วพูดใหม่ภายใน 30 วินาที OLIV จะแนะนำส่วนที่ต่างกัน (มีแจ้งเตือนขึ้น และรออยู่ด้านบนของหน้านี้กับในเมนู OLIV) จะไม่มีอะไรถูกเพิ่มจนกว่าคุณจะอนุมัติ"
+          }
+        }
+      }
+    },
+    "Whisper large-v3 hosted by Groq, with local fallback." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Whisper large-v3 ที่รันบน Groq และสลับมาใช้เอนจินในเครื่องได้เมื่อจำเป็น"
+          }
+        }
+      }
+    },
+    "Word" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำ"
+          }
+        }
+      }
+    },
+    "Words OLIV noticed you fixing. Nothing changes until you approve." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำที่ OLIV เห็นว่าคุณแก้ จะไม่มีอะไรเปลี่ยนจนกว่าคุณจะอนุมัติ"
+          }
+        }
+      }
+    },
+    "Write spoken numbers as digits and shorten repeated words: สี่สิบห้า → 45, มากมาก → มากๆ. Small counts stay as words. Applies when cleanup is enabled." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เขียนตัวเลขที่พูดเป็นตัวเลข และย่อคำซ้ำ: สี่สิบห้า → 45, มากมาก → มากๆ จำนวนน้อยๆ ยังเขียนเป็นคำ ใช้เมื่อเปิดการเกลาข้อความ"
+          }
+        }
+      }
+    },
+    "Wrong format — the first line must be “word,correction”." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รูปแบบไม่ถูกต้อง บรรทัดแรกต้องเป็น “word,correction”"
+          }
+        }
+      }
+    },
+    "You can close this and finish setup later from the menu › Setup…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิดหน้าต่างนี้ได้ แล้วค่อยตั้งค่าต่อจากเมนู › ตั้งค่าเริ่มต้น…"
+          }
+        }
+      }
+    },
+    "You undid this and said it again" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณเลิกทำแล้วพูดใหม่"
+          }
+        }
+      }
+    },
+    "You're all set" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พร้อมใช้งานแล้ว"
+          }
+        }
+      }
+    },
+    "Your dictionary · %lld" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พจนานุกรมของคุณ · %lld"
+          }
+        }
+      }
+    },
+    "Your recent dictation had “%@”. OLIV can type “%@” whenever it hears that." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อความล่าสุดของคุณมี “%1$@” ให้ OLIV พิมพ์เป็น “%2$@” ทุกครั้งที่ได้ยินคำนี้ได้"
+          }
+        }
+      }
+    },
+    "Your voice is a shortcut. Make it feel natural." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียงของคุณคือปุ่มลัด ตั้งให้ใช้ได้อย่างเป็นธรรมชาติ"
+          }
+        }
+      }
+    },
+    "You’re using OLIV API. Local models are optional until you switch to an on-device engine." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณกำลังใช้ OLIV API จึงยังไม่ต้องมีโมเดลในเครื่อง จนกว่าจะเปลี่ยนไปใช้เอนจินในเครื่อง"
+          }
+        }
+      }
+    },
+    "a model" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โมเดล"
+          }
+        }
+      }
+    },
+    "com.apple.dt.Xcode" : {
+      "shouldTranslate" : false
+    },
+    "dictionary vocabulary replacements custom words terms names jargon acronyms spelling recognition snippets phrase corrections starred sync" : {
+      "comment" : "Settings search keywords. Translate into words people search for, and keep the English words too.",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พจนานุกรม คำศัพท์ คำแทนที่ คำของฉัน ศัพท์เฉพาะ ชื่อ ตัวย่อ การสะกด คำที่ได้ยินผิด ติดดาว ซิงก์ dictionary vocabulary replacements custom words terms names jargon acronyms spelling recognition snippets phrase corrections starred sync"
+          }
+        }
+      }
+    },
+    "download storage disk space finder weights gemma typhoon whisper pathumma offline" : {
+      "comment" : "Settings search keywords. Translate into words people search for, and keep the English words too.",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โมเดล พื้นที่จัดเก็บ ดาวน์โหลด ดิสก์ พื้นที่ ออฟไลน์ models storage download disk space finder weights gemma typhoon whisper pathumma offline"
+          }
+        }
+      }
+    },
+    "e.g. Grafana, บางแค" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เช่น Grafana, บางแค"
+          }
+        }
+      }
+    },
+    "e.g. grafannah" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เช่น กราฟาน่า"
+          }
+        }
+      }
+    },
+    "fillers um uh thai numbers repeated words formatting commands new line paragraph verbatim apps bundle" : {
+      "comment" : "Settings search keywords. Translate into words people search for, and keep the English words too.",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เกลาข้อความ คำติดปาก อืม เอ่อ ตัวเลขไทย คำซ้ำ ไม้ยมก จัดรูปแบบ คำสั่ง ขึ้นบรรทัดใหม่ ย่อหน้า ไม่เกลา แอป text cleanup fillers um uh thai numbers repeated words formatting commands new line paragraph verbatim apps bundle"
+          }
+        }
+      }
+    },
+    "groq oliv api remote server url key keychain connection timeout credentials" : {
+      "comment" : "Settings search keywords. Translate into words people search for, and keep the English words too.",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บริการคลาวด์ เซิร์ฟเวอร์ ระยะไกล พวงกุญแจ การเชื่อมต่อ เวลารอ cloud services groq oliv api remote server url key keychain connection timeout credentials"
+          }
+        }
+      }
+    },
+    "https://oliv.example.com" : {
+      "shouldTranslate" : false
+    },
+    "launch login startup recording indicator hud waveform history recent transcripts privacy" : {
+      "comment" : "Settings search keywords. Translate into words people search for, and keep the English words too.",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทั่วไป เปิดเมื่อเข้าสู่ระบบ ล็อกอิน เริ่มต้น สถานะ อัดเสียง คลื่นเสียง ประวัติ ข้อความล่าสุด ความเป็นส่วนตัว general launch login startup recording indicator hud waveform history recent transcripts privacy"
+          }
+        }
+      }
+    },
+    "microphone input device bluetooth airpods echo cancellation speaker music volume lower duck" : {
+      "comment" : "Settings search keywords. Translate into words people search for, and keep the English words too.",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียง ไมโครโฟน อุปกรณ์รับเสียง บลูทูธ หูฟัง เสียงสะท้อน ลำโพง เพลง ระดับเสียง ลดเสียง audio microphone input device bluetooth airpods echo cancellation speaker music volume lower duck"
+          }
+        }
+      }
+    },
+    "none" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่มี"
+          }
+        }
+      }
+    },
+    "push to talk hotkey key primary secondary undo record chord binding" : {
+      "comment" : "Settings search keywords. Translate into words people search for, and keep the English words too.",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปุ่มลัด แป้นพิมพ์ คีย์บอร์ด กดค้างเพื่อพูด ปุ่มพูด หลัก สำรอง เลิกทำ กำหนด keyboard shortcuts push to talk hotkey key primary secondary undo record chord binding"
+          }
+        }
+      }
+    },
+    "stt recognition transcription local on device offline typhoon whisper pathumma groq api download" : {
+      "comment" : "Settings search keywords. Translate into words people search for, and keep the English words too.",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เอนจิน ถอดเสียง แปลงเสียงเป็นข้อความ ในเครื่อง ออฟไลน์ คลาวด์ ดาวน์โหลด dictation engine stt recognition transcription local on device offline typhoon whisper pathumma groq api download"
+          }
+        }
+      }
+    },
+    "unknown error" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อผิดพลาดที่ไม่ทราบสาเหตุ"
+          }
+        }
+      }
+    },
+    "“%@” → “%@”" : {
+      "shouldTranslate" : false
+    }
+  },
+  "version" : "1.0"
+}

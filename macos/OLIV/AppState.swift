@@ -26,9 +26,9 @@ enum DictationStatus: Equatable {
 
     var label: String {
         switch self {
-        case .idle: return "Idle"
-        case .recording: return "Recording…"
-        case .processing: return "Transcribing…"
+        case .idle: return String(localized: "Idle")
+        case .recording: return String(localized: "Recording…")
+        case .processing: return String(localized: "Transcribing…")
         }
     }
 }
@@ -51,11 +51,11 @@ enum DictationExecution: Equatable {
 
     var label: String {
         switch self {
-        case .onDevice(let name): return "On-device · \(name)"
-        case .olivAPI: return "Cloud · OLIV API"
-        case .olivTrial: return "Cloud · OLIV free trial"
-        case .groq: return "Cloud · Groq"
-        case .unknown: return "Unknown engine"
+        case .onDevice(let name): return String(localized: "On-device · \(name)")
+        case .olivAPI: return String(localized: "Cloud · OLIV API")
+        case .olivTrial: return String(localized: "Cloud · OLIV free trial")
+        case .groq: return String(localized: "Cloud · Groq")
+        case .unknown: return String(localized: "Unknown engine")
         }
     }
 
@@ -69,11 +69,11 @@ enum DictationExecution: Equatable {
 
     var detail: String {
         switch self {
-        case .onDevice: return "Audio stays on this Mac."
-        case .olivAPI: return "Audio is sent to OLIV API for transcription and cleanup."
-        case .olivTrial: return "Free trial: audio is sent to the OLIV server until the on-device models finish downloading."
-        case .groq: return "Audio is sent to Groq for transcription. Cleanup, when enabled, runs on this Mac."
-        case .unknown: return "Check the selected dictation engine."
+        case .onDevice: return String(localized: "Audio stays on this Mac.")
+        case .olivAPI: return String(localized: "Audio is sent to OLIV API for transcription and cleanup.")
+        case .olivTrial: return String(localized: "Free trial: audio is sent to the OLIV server until the on-device models finish downloading.")
+        case .groq: return String(localized: "Audio is sent to Groq for transcription. Cleanup, when enabled, runs on this Mac.")
+        case .unknown: return String(localized: "Check the selected dictation engine.")
         }
     }
 }
@@ -89,16 +89,18 @@ struct LastDictationStats: Equatable {
     var microphoneStartupSeconds: Double? = nil
     var captureBackend: String? = nil
 
-    /// "1.4s · 38 chars" — total time (stt + cleanup) to one decimal. Shared
-    /// by the menu line and the diagnostics report.
+    /// "1.4s · 38 chars" — total time (stt + cleanup) to one decimal, for the
+    /// diagnostics report (always English, like the rest of the report).
     var summary: String {
         String(format: "%.1fs · %d chars", sttSeconds + cleanupSeconds, chars)
     }
 
-    /// The menu's secondary line: "Last: 1.4s · 38 chars".
+    /// The menu's secondary line, in the user's language: "Last: 1.4s · 38 chars".
     var menuLine: String {
-        let execution = engineID.map { "\(DictationExecution(engineID: $0).label) · " } ?? ""
-        return "Last: \(execution)\(summary)"
+        let seconds = (sttSeconds + cleanupSeconds).formatted(.number.precision(.fractionLength(1)))
+        guard let engineID else { return String(localized: "Last: \(seconds)s · \(chars) chars") }
+        let execution = DictationExecution(engineID: engineID).label
+        return String(localized: "Last: \(execution) · \(seconds)s · \(chars) chars")
     }
 }
 

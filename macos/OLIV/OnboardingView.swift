@@ -51,8 +51,7 @@ struct OnboardingView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Welcome to OLIV")
                 .font(.title2).bold()
-            Text("Hold your key, speak, release — the transcript pastes at your cursor. "
-                 + "Two quick things first.")
+            Text("Hold your key, speak, release — the transcript pastes at your cursor. Two quick things first.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -132,8 +131,7 @@ struct OnboardingView: View {
 
             if settings.usesOLIVAPI {
                 Label("OLIV API selected — no local models needed", systemImage: "network")
-                Text("Audio is sent to your configured API for transcription and cleanup. "
-                     + "Manage the URL and key, or check the connection, in Settings › General.")
+                Text("Audio is sent to your configured API for transcription and cleanup. Manage the URL and key, or check the connection, in Settings › Cloud services.")
                     .font(.caption).foregroundStyle(.secondary)
             }
 
@@ -146,7 +144,7 @@ struct OnboardingView: View {
                     }
                     Spacer()
                     if models.isDownloading, let pct = models.progressByRepo[info.repo] {
-                        Text("\(pct)%").font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                        Text(pct, format: .percent).font(.caption).monospacedDigit().foregroundStyle(.secondary)
                     } else {
                         Text(info.sizeText).font(.caption).foregroundStyle(.secondary)
                     }
@@ -157,7 +155,7 @@ struct OnboardingView: View {
 
             if models.isDownloading && !settings.requiredModelRepos.isEmpty {
                 ProgressView(value: overallProgress) {
-                    Text("Downloading models… \(Int(overallProgress * 100))%")
+                    Text("Downloading models… \(overallProgress.formatted(.percent.precision(.fractionLength(0))))")
                         .font(.caption)
                 }
                 .progressViewStyle(.linear)
@@ -199,7 +197,7 @@ struct OnboardingView: View {
 
     // MARK: Bits
 
-    private func stepTitle(_ n: Int, _ title: String, done: Bool) -> some View {
+    private func stepTitle(_ n: Int, _ title: LocalizedStringKey, done: Bool) -> some View {
         HStack(spacing: 8) {
             Text("Step \(n)").font(.caption).foregroundStyle(.secondary)
             Text(title).font(.headline)

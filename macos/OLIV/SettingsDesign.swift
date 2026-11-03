@@ -34,10 +34,12 @@ struct SettingsPane<Content: View>: View {
     }
 }
 
+// Titles, details and badges take LocalizedStringKey so the literals every page
+// passes are extracted into Localizable.xcstrings and shown in the user's language.
 struct SettingsCard<Content: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     let icon: String
-    var subtitle: String? = nil
+    var subtitle: LocalizedStringKey? = nil
     /// Draws attention (e.g. suggestions waiting for the user).
     var highlighted = false
     @ViewBuilder var content: () -> Content
@@ -72,8 +74,8 @@ struct SettingsCard<Content: View>: View {
 }
 
 struct SettingsToggle: View {
-    let title: String
-    let detail: String
+    let title: LocalizedStringKey
+    let detail: LocalizedStringKey
     @Binding var isOn: Bool
 
     var body: some View {
@@ -93,15 +95,32 @@ struct SettingsToggle: View {
 }
 
 struct SettingsNotice: View {
-    let text: String
+    let text: Text
     var icon = "info.circle"
     var warning = false
+
+    /// A literal: looked up in Localizable.xcstrings.
+    init(text: LocalizedStringKey, icon: String = "info.circle", warning: Bool = false) {
+        self.init(text: Text(text), icon: icon, warning: warning)
+    }
+
+    /// Text that is already in the user's language (an error message, a status).
+    @_disfavoredOverload
+    init<S: StringProtocol>(text: S, icon: String = "info.circle", warning: Bool = false) {
+        self.init(text: Text(text), icon: icon, warning: warning)
+    }
+
+    private init(text: Text, icon: String, warning: Bool) {
+        self.text = text
+        self.icon = icon
+        self.warning = warning
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon).font(.system(size: 14))
                 .foregroundStyle(warning ? Color.orange : SettingsStyle.accent)
-            Text(text).font(.system(size: 12)).foregroundStyle(.secondary)
+            text.font(.system(size: 12)).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -112,7 +131,7 @@ struct SettingsNotice: View {
 }
 
 struct SettingsBadge: View {
-    let text: String
+    let text: LocalizedStringKey
     var active = false
 
     var body: some View {
@@ -127,8 +146,8 @@ struct SettingsBadge: View {
 
 struct SettingsEmptyState: View {
     let icon: String
-    let title: String
-    let detail: String
+    let title: LocalizedStringKey
+    let detail: LocalizedStringKey
 
     var body: some View {
         VStack(spacing: 10) {
@@ -173,11 +192,11 @@ extension OLIVSettings.Engine {
 
     var settingsDetail: String {
         switch id {
-        case Self.typhoon.id: return "Built for Thai and English, including mixed-language speech."
-        case Self.pathumma.id: return "An alternative Thai model from earlier OLIV versions."
-        case Self.mlxLarge.id: return "For dictation that is mostly in English."
-        case Self.groq.id: return "Whisper large-v3 hosted by Groq, with local fallback."
-        case Self.olivAPI.id: return "Transcription and cleanup on your configured OLIV server."
+        case Self.typhoon.id: return String(localized: "Built for Thai and English, including mixed-language speech.")
+        case Self.pathumma.id: return String(localized: "An alternative Thai model from earlier OLIV versions.")
+        case Self.mlxLarge.id: return String(localized: "For dictation that is mostly in English.")
+        case Self.groq.id: return String(localized: "Whisper large-v3 hosted by Groq, with local fallback.")
+        case Self.olivAPI.id: return String(localized: "Transcription and cleanup on your configured OLIV server.")
         default: return displayName
         }
     }

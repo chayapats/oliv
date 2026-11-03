@@ -317,7 +317,7 @@ final class OLIVSettings: ObservableObject {
             _ = try OLIVAPIConfiguration(url: olivAPIURL, apiKey: olivAPIKey, timeout: TimeInterval(olivAPITimeout))
             return nil
         } catch let error as OLIVAPIError { return error.errorDescription }
-        catch { return "Check the API settings." }
+        catch { return String(localized: "Check the API settings.") }
     }
 
     /// Remote dictation has no local model prerequisites. Groq still uses local cleanup.

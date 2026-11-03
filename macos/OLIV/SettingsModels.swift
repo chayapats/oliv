@@ -30,7 +30,8 @@ struct ModelsSettingsView: View {
                 ForEach(Array(models.repos.enumerated()), id: \.element.id) { index, info in
                     if index > 0 { Divider() }
                     modelRow(info, name: info.repo == RequiredModels.stt ? "Typhoon Whisper Turbo" : "Gemma E2B",
-                             detail: info.repo == RequiredModels.stt ? "Thai–English speech recognition" : "Text cleanup")
+                             detail: info.repo == RequiredModels.stt
+                                 ? String(localized: "Thai–English speech recognition") : String(localized: "Text cleanup"))
                 }
                 Divider()
                 HStack {
@@ -49,7 +50,7 @@ struct ModelsSettingsView: View {
                     if index > 0 { Divider() }
                     let engine = OLIVSettings.Engine.local.first { $0.repo == info.repo }
                     modelRow(info, name: engine?.settingsName ?? info.displayName,
-                             detail: engine?.settingsDetail ?? "Speech recognition")
+                             detail: engine?.settingsDetail ?? String(localized: "Speech recognition"))
                 }
             }
             if models.isDownloading {
@@ -90,7 +91,7 @@ struct ModelsSettingsView: View {
             if models.isDownloading, let pct = models.progressByRepo[info.repo] {
                 HStack(spacing: 10) {
                     ProgressView(value: Double(pct), total: 100).progressViewStyle(.linear)
-                    Text("\(pct)%").font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
+                    Text(pct, format: .percent).font(.system(size: 11)).monospacedDigit().foregroundStyle(.secondary)
                 }
             }
         }

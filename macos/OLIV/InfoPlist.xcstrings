@@ -1,0 +1,24 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSMicrophoneUsageDescription" : {
+      "comment" : "Shown by macOS when OLIV first asks for the microphone. Keep in step with NSMicrophoneUsageDescription in project.yml.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OLIV records your voice only while you hold the push-to-talk key, and transcribes it locally or through the remote engine you select."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OLIV อัดเสียงของคุณเฉพาะตอนที่กดปุ่มพูดค้างไว้ แล้วแปลงเป็นข้อความบน Mac เครื่องนี้ หรือผ่านเอนจินระยะไกลที่คุณเลือก"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

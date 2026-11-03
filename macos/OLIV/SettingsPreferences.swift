@@ -36,7 +36,9 @@ struct GeneralSettingsView: View {
             try LaunchAtLogin.setEnabled(enabled)
             launchError = nil
         } catch {
-            launchError = "Could not \(enabled ? "enable" : "disable") launch at login. Move OLIV to /Applications and try again. \(error.localizedDescription)"
+            launchError = enabled
+                ? String(localized: "Could not enable launch at login. Move OLIV to /Applications and try again. \(error.localizedDescription)")
+                : String(localized: "Could not disable launch at login. Move OLIV to /Applications and try again. \(error.localizedDescription)")
         }
         launchEnabled = LaunchAtLogin.isEnabled
     }
@@ -122,7 +124,7 @@ private struct MicrophonePicker: View {
         VStack(alignment: .leading, spacing: 16) {
             Picker("Input device", selection: $settings.micDevice) {
                 Text("Built-in microphone").tag(MicSelection.builtIn)
-                Text("System default — \(devices.first(where: { $0.id == systemDefaultID })?.name ?? "none")")
+                Text("System default — \(devices.first(where: { $0.id == systemDefaultID })?.name ?? String(localized: "none"))")
                     .tag(MicSelection.systemDefault)
                 if !devices.isEmpty {
                     Divider()
@@ -158,9 +160,9 @@ enum HotkeySlot: Equatable {
     /// fixed label column (520-wide Settings window) and crushed the key name.
     var label: String {
         switch self {
-        case .primary: return "Primary"
-        case .secondary: return "Secondary"
-        case .undo: return "Undo last"
+        case .primary: return String(localized: "Primary")
+        case .secondary: return String(localized: "Secondary")
+        case .undo: return String(localized: "Undo last")
         }
     }
 }
@@ -189,7 +191,7 @@ struct HotkeyRecorderField: View {
                 }
             }
             .frame(width: 85, alignment: .leading)
-            Text(isCapturing ? "Press a shortcut…" : displayName)
+            Text(isCapturing ? String(localized: "Press a shortcut…") : displayName)
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(isCapturing ? SettingsStyle.accent : Color.primary)
                 .padding(.horizontal, 12).padding(.vertical, 9)
@@ -220,22 +222,22 @@ struct HotkeyRecorderField: View {
     private var displayName: String {
         switch slot {
         case .primary: return settings.hotkeyChord.displayName
-        case .secondary: return settings.hotkeySecondaryChord?.displayName ?? "None"
-        case .undo: return settings.undoHotkeyChord?.displayName ?? "None"
+        case .secondary: return settings.hotkeySecondaryChord?.displayName ?? String(localized: "None")
+        case .undo: return settings.undoHotkeyChord?.displayName ?? String(localized: "None")
         }
     }
 
     private var captureHelp: String {
         if isCapturing {
-            return "Hold modifiers, then press the main key (e.g. Control+Option+F17). Or press/release a single modifier. Esc cancels."
+            return String(localized: "Hold modifiers, then press the main key (e.g. Control+Option+F17). Or press/release a single modifier. Esc cancels.")
         }
         switch slot {
         case .primary:
-            return "Click Record, then press the shortcut you want to hold to dictate."
+            return String(localized: "Click Record, then press the shortcut you want to hold to dictate.")
         case .secondary:
-            return "Optional second shortcut — hold either binding to dictate."
+            return String(localized: "Optional second shortcut — hold either binding to dictate.")
         case .undo:
-            return "Click Record, then press the shortcut that undoes the last paste."
+            return String(localized: "Click Record, then press the shortcut that undoes the last paste.")
         }
     }
 

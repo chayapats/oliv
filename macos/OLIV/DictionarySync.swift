@@ -381,7 +381,7 @@ final class DictionarySync: ObservableObject {
             mergedDuplicates = []
             status = .unsupported
         case .failure(OLIVAPIError.http(let code)) where code == 401 || code == 403:
-            status = .failed(OLIVAPIError.http(code).errorDescription ?? "The API key was rejected.")
+            status = .failed(OLIVAPIError.http(code).errorDescription ?? String(localized: "The API key was rejected."))
         case .failure:
             status = .waiting
             let delay = Self.retryDelays[min(failures, Self.retryDelays.count - 1)]

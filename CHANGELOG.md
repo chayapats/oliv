@@ -44,6 +44,9 @@ Sparkle appcast's release notes, so keep entries short and end-user readable.
   and OLIV pastes natural English. Names, product names and code terms stay as
   they are, and the recording pill shows "Thai → English" while it's on. Off
   by default.
+- **OLIV speaks Thai.** On a Mac set to Thai, the menu, Settings, the setup
+  window, recording notices and error messages are in Thai, with the same
+  words as the iPhone app. Macs set to other languages keep English.
 - **Corrections that lead into each other apply once.** With rules like
   `foo → docker` and `docker → X`, a word OLIV already corrected is no longer
   corrected again after the cleanup model changes its capitals or spacing.

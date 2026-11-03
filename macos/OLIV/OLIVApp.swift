@@ -69,7 +69,7 @@ struct MenuBarLabel: View {
 
     private var accessibilityLabel: String {
         if coordinator.needsAttention && appState.status == .idle {
-            return "\(appState.status.label) — setup needed"
+            return String(localized: "\(appState.status.label) — setup needed")
         }
         return appState.status.label
     }

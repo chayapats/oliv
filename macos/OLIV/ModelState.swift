@@ -17,7 +17,17 @@ enum RequiredModels {
     static let cleanup = "mlx-community/gemma-4-e2b-it-4bit"
     static let all: [String] = [stt, cleanup]
 
+    /// The name shown in onboarding and Settings, in the user's language.
     static func displayName(_ repo: String) -> String {
+        switch repo {
+        case stt: return String(localized: "Thai STT (Typhoon Whisper Turbo MLX)")
+        case cleanup: return String(localized: "Cleanup (Gemma-E2B)")
+        default: return repo
+        }
+    }
+
+    /// The same name in English, for the support report (Diagnostics).
+    static func reportName(_ repo: String) -> String {
         switch repo {
         case stt: return "Thai STT (Typhoon Whisper Turbo MLX)"
         case cleanup: return "Cleanup (Gemma-E2B)"
@@ -34,7 +44,9 @@ struct RepoInfo: Identifiable {
 
     var id: String { repo }
     var displayName: String { RequiredModels.displayName(repo) }
+    var reportName: String { RequiredModels.reportName(repo) }
 
+    /// Size or download state, in the user's language.
     var sizeText: String {
         let formatted = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
         if present, bytes > 0 { return formatted }
@@ -42,6 +54,14 @@ struct RepoInfo: Identifiable {
         // "Not downloaded" hides gigabytes of partial blobs from the Models
         // tab and the diagnostics report, misleading exactly the support
         // conversation the readiness check exists to inform.
+        if bytes > 0 { return String(localized: "Incomplete (\(formatted) on disk)") }
+        return String(localized: "Not downloaded")
+    }
+
+    /// `sizeText` in English, for the support report (Diagnostics).
+    var reportSizeText: String {
+        let formatted = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        if present, bytes > 0 { return formatted }
         if bytes > 0 { return "Incomplete (\(formatted) on disk)" }
         return "Not downloaded"
     }
@@ -117,10 +137,11 @@ final class ModelState: ObservableObject {
                 case let .success(r) where r.ok:
                     break
                 case let .success(r):
-                    self.lastError = "Download failed for "
-                        + "\(r.failedRepo ?? "a model"): \(r.error ?? "unknown error")"
+                    let repo = r.failedRepo ?? String(localized: "a model")
+                    let reason = r.error ?? String(localized: "unknown error")
+                    self.lastError = String(localized: "Download failed for \(repo): \(reason)")
                 case let .failure(err):
-                    self.lastError = "Download failed: \(err)"
+                    self.lastError = String(localized: "Download failed: \(String(describing: err))")
                 }
                 self.isDownloading = false
                 self.recheck()

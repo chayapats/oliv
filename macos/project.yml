@@ -17,6 +17,9 @@ options:
   deploymentTarget:
     macOS: "14.0"
   createIntermediateGroups: true
+  # English is the source language; OLIV/Localizable.xcstrings and
+  # OLIV/InfoPlist.xcstrings add Thai. macOS picks the user's language.
+  developmentLanguage: en
 
 # Sparkle stays in the UI; MLX dependencies are confined to the lazy helper.
 # Resolved by xcodebuild via SPM at build time (needs network the first time,
@@ -104,6 +107,7 @@ targets:
         # Menu-bar-only app: no Dock icon, no app switcher entry.
         LSUIElement: true
         CFBundleDisplayName: OLIV
+        CFBundleLocalizations: [en, th]
         # Version comes from the build settings below (Xcode expands $(...) into
         # the Info.plist at build time) so scripts/release.sh only has to bump
         # MARKETING_VERSION + CURRENT_PROJECT_VERSION in ONE place. Sparkle uses
@@ -112,6 +116,7 @@ targets:
         # "1" and every release would ship the same version to Sparkle.
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        # Translated in OLIV/InfoPlist.xcstrings; keep both in step.
         NSMicrophoneUsageDescription: >-
           OLIV records your voice only while you hold the push-to-talk key,
           and transcribes it locally or through the remote engine you select.
@@ -145,6 +150,12 @@ targets:
         # need an icon key. The dark/reversed export set stays unused in
         # oliv_logo_assets/ for a future dark-appearance icon.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Interface strings: the compiler extracts every localizable literal
+        # (Text("…"), String(localized: "…")) and the build compiles
+        # OLIV/Localizable.xcstrings into en.lproj / th.lproj.
+        # LocalizationCatalogTests fails on an untranslated or unused key.
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
         # Swift 5 language mode on the Swift 6 toolchain: this target is
         # AppKit-interop heavy (event taps, pasteboard, subprocess plumbing);
         # strict Swift-6 concurrency checking there is W3-polish, not W3-T1.
@@ -187,6 +198,9 @@ schemes:
         OLIVTests: [test]
     test:
       targets: [OLIVTests]
+      # Tests assert English strings; a Mac set to Thai still runs them in
+      # English. `xcodebuild test -testLanguage th` overrides this.
+      language: en
 
   OLIVInference:
     build:

@@ -42,11 +42,11 @@ enum LaunchAtLogin {
     /// Human-readable one-liner for the current status (drives the Settings hint).
     static func statusDescription() -> String {
         switch SMAppService.mainApp.status {
-        case .enabled: return "On"
-        case .notRegistered: return "Off"
-        case .requiresApproval: return "Needs approval in System Settings › Login Items"
-        case .notFound: return "Unavailable (run the app from /Applications)"
-        @unknown default: return "Unknown"
+        case .enabled: return String(localized: "On")
+        case .notRegistered: return String(localized: "Off")
+        case .requiresApproval: return String(localized: "Needs approval in System Settings › Login Items")
+        case .notFound: return String(localized: "Unavailable (run the app from /Applications)")
+        @unknown default: return String(localized: "Unknown")
         }
     }
 }

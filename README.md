@@ -111,6 +111,7 @@ OLIV 0.2.0 removed Python from the app. Text processing and API requests use a s
 | **Audio** | Pick any microphone, cancel speaker echo, and lower other audio while you talk. Bluetooth headphones keep full playback quality. |
 | **Recent dictations** | Your last 10 results in the menu, kept in memory only. Click one to copy it again, or report one that came out wrong. |
 | **Optional cloud engines** | Groq or a self-hosted OLIV API, both off by default. Audio leaves your Mac only while you select one. Keys are stored in the macOS Keychain. |
+| **English or Thai** | The menu, Settings, setup and notices follow your Mac's language: Thai on a Mac set to Thai, English otherwise. |
 | **Auto-update** | Signed and notarized builds, with updates delivered through Sparkle. |
 
 ## Install

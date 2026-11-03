@@ -40,17 +40,17 @@ enum PermissionKind: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .microphone: return "Microphone"
-        case .inputMonitoring: return "Input Monitoring"
-        case .accessibility: return "Accessibility"
+        case .microphone: return String(localized: "Microphone")
+        case .inputMonitoring: return String(localized: "Input Monitoring")
+        case .accessibility: return String(localized: "Accessibility")
         }
     }
 
     var why: String {
         switch self {
-        case .microphone: return "Record your voice while you hold the push-to-talk key."
-        case .inputMonitoring: return "Detect the push-to-talk key press globally."
-        case .accessibility: return "Paste the transcript at your cursor (synthesize Cmd+V)."
+        case .microphone: return String(localized: "Record your voice while you hold the push-to-talk key.")
+        case .inputMonitoring: return String(localized: "Detect the push-to-talk key press globally.")
+        case .accessibility: return String(localized: "Paste the transcript at your cursor (synthesize Cmd+V).")
         }
     }
 

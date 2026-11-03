@@ -412,7 +412,7 @@ private struct LevelMeterView: View {
 /// `warming` ("Getting the mic ready…") — no progress is known in either.
 private struct ProcessingView: View {
     let reduceMotion: Bool
-    let label: String
+    let label: LocalizedStringKey
 
     var body: some View {
         HStack(spacing: 10) {
