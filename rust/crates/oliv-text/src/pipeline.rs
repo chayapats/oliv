@@ -72,6 +72,24 @@ pub fn clean_ex_with(
     prompt: Prompt,
     llm: &dyn Llm,
 ) -> CleanResult {
+    clean_ex_screen(text, vocab, dict, legacy, &[], prompt, llm)
+}
+
+/// [`clean_ex_with`] plus names on screen (`screen`, from
+/// [`crate::screen::candidates`]) for this one dictation. They rank below the
+/// user's words: their passes run after the user's vocabulary, never rewrite
+/// an occurrence of a listed word, match more closely, and never wake the LLM
+/// with hints; the LLM may not rewrite a Thai one it sees. An empty `screen`
+/// is exactly [`clean_ex_with`].
+pub fn clean_ex_screen(
+    text: &str,
+    vocab: &[String],
+    dict: &UserDictionary,
+    legacy: &[(String, String)],
+    screen: &[String],
+    prompt: Prompt,
+    llm: &dyn Llm,
+) -> CleanResult {
     let (mut dict_text, mut dict_hits) = apply_dictionary(text);
     let (t, n, corrected) = dict.apply_corrections_before(&dict_text, legacy);
     dict_text = t;
@@ -100,8 +118,20 @@ pub fn clean_ex_with(
         }
         hints = vocab_hint(&dict_text, vocab);
     }
+    let before_screen = (!screen.is_empty()).then(|| (dict_text.clone(), dict_hits));
+    if !screen.is_empty() {
+        let (t, n, hits) = crate::screen::correct(&dict_text, vocab, screen);
+        dict_text = t;
+        vocab_fired += n;
+        dict_hits += hits;
+    }
 
     let (mut run_llm, mut gate_reason, susp) = gate(&dict_text, dict_hits);
+    // A name on screen may re-spell the very token that made the text look
+    // garbled; it never talks the gate out of a cleanup the text needed.
+    if let Some((text, hits)) = before_screen.filter(|_| !run_llm) {
+        (run_llm, gate_reason, _) = gate(&text, hits);
+    }
     if !hints.is_empty() && !run_llm {
         run_llm = true;
         gate_reason = if gate_reason.is_empty() {
@@ -127,7 +157,10 @@ pub fn clean_ex_with(
                 if !dict.lost_words(&dict_text, &f).is_empty() {
                     (dict_text.clone(), DICTIONARY_FLAG.to_string())
                 } else if flag == "ok" {
-                    let (f, listed) = protect_listed_terms(&dict_text, &f, vocab);
+                    // Names on screen are guarded like listed words, but only
+                    // the user's own words license a Thai rewrite.
+                    let guarded = crate::screen::with_screen(vocab, screen);
+                    let (f, listed) = protect_listed_terms(&dict_text, &f, &guarded);
                     let (f, thai) = keep_thai_speech(&dict_text, &f, vocab);
                     let flag = match (listed, thai) {
                         (0, 0) => flag,

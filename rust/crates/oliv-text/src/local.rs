@@ -55,11 +55,12 @@ pub fn clean(
         let ran_cleanup = opts.cleanup && !is_blank(&segment);
         let mut corrected = Vec::new();
         if ran_cleanup {
-            let r = crate::pipeline::clean_ex_with(
+            let r = crate::pipeline::clean_ex_screen(
                 &segment,
                 &vocabulary,
                 &opts.dictionary,
                 &opts.replacements,
+                &opts.screen_terms,
                 opts.prompt,
                 llm,
             );

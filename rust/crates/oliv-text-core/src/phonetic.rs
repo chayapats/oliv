@@ -120,6 +120,12 @@ fn digits_compatible(token_text: &str, term: &str) -> bool {
     digits(token_text) == digits(term)
 }
 
+/// Letters of Pali/Sanskrit spellings (ศุภณัฐ, ศักดิ์, ธนา): Thai names and
+/// learned words use them; transliterations of English words almost never do.
+fn is_pali_letter(c: char) -> bool {
+    "ฆฌญฎฏฐฑฒณธภศษฬ".contains(c)
+}
+
 /// Whether Thai text is the acronym read letter by letter (เอพีไอ for API).
 fn spells_letters(thai: &str, term: &str) -> bool {
     let spelled: String = lower(term).chars().filter_map(thai_letter_name).collect();
@@ -187,6 +193,14 @@ const ACRO_MAX: f64 = 0.15;
 const MIN_FOLD_LEN: usize = 3;
 const CONS_COVERAGE: f64 = 0.6;
 const HINT_MAX: f64 = 0.40;
+/// Terms the user did not list (names on screen) snap only on closer sound
+/// matches and longer skeletons: at most one skeleton edit in eight letters
+/// (Anthropic for แอนทรอปิก, not Bangkok for a Thai word one edit further).
+const TRANSIENT_FUZZY_MAX: f64 = 0.13;
+/// Latin text ASR wrote snaps to an unlisted term at most this far
+/// (Lifting is not Lufthansa).
+const TRANSIENT_LATIN_MAX: f64 = 0.15;
+const TRANSIENT_MIN_FOLD: usize = 5;
 
 fn has_stopword(toks: &[&str]) -> bool {
     toks.iter().any(|t| THAI_STOPWORDS.contains(t))
@@ -216,6 +230,29 @@ fn is_latin_tok(t: &str) -> bool {
 /// Result of `correct_with_vocab`: new text, number fired, `(thai_span, term)` subs.
 pub type VocabResult = (String, usize, Vec<(String, String)>);
 
+/// Limits for a vocabulary pass over terms the user did not list (names on
+/// screen): chars marked in `protected` (the user's own words) are never
+/// rewritten, and `transient` terms must match more closely (see the
+/// `guard.transient` rules in each pass). Measured on Thai ContextASR Bench
+/// distractor lists and a noisy synthetic screen. The default guard is the
+/// plain pass.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Guard<'a> {
+    pub protected: &'a [bool],
+    pub transient: bool,
+}
+
+impl Guard<'_> {
+    /// Claimed chars to start from: the protected ones (when the mask fits).
+    fn claimed(&self, len: usize) -> Vec<bool> {
+        if self.protected.len() == len {
+            self.protected.to_vec()
+        } else {
+            vec![false; len]
+        }
+    }
+}
+
 /// Whether a Latin term can be matched by its folded sound. The fold keeps
 /// ASCII letters only, so a term with Thai (หุ้นกู้ THANA) or other non-ASCII
 /// letters (Chișinău) would be matched on a fragment of itself; and a 3-letter
@@ -230,6 +267,11 @@ fn foldable_term(term: &str) -> bool {
 const MIN_WORD_FOLD_LEN: usize = 4;
 
 pub fn correct_with_vocab(text: &str, vocab_terms: &[String]) -> VocabResult {
+    correct_with_vocab_guarded(text, vocab_terms, Guard::default())
+}
+
+/// [`correct_with_vocab`] that leaves `guard.protected` chars alone.
+pub fn correct_with_vocab_guarded(text: &str, vocab_terms: &[String], guard: Guard) -> VocabResult {
     if text.is_empty() || vocab_terms.is_empty() || !has_thai(text) {
         return (text.to_string(), 0, Vec::new());
     }
@@ -281,6 +323,11 @@ pub fn correct_with_vocab(text: &str, vocab_terms: &[String]) -> VocabResult {
                 if !any_suspicious && !spells_letters(&toks.concat(), term) {
                     continue;
                 }
+                // An acronym the user did not list only replaces Thai that
+                // reads its letters out (KEEL is not คีอีแอล).
+                if guard.transient && !spells_letters(&toks.concat(), term) {
+                    continue;
+                }
                 let d = norm_dist(&wf, af);
                 if d <= ACRO_MAX {
                     proposals.push((d, start, end, term));
@@ -290,7 +337,19 @@ pub fn correct_with_vocab(text: &str, vocab_terms: &[String]) -> VocabResult {
             if any_suspicious && !word_folds.is_empty() {
                 let sc = scored(&wf, &word_folds);
                 let (d1, best) = sc[0];
-                if d1 <= FUZZY_MAX
+                let (max, min_len) = if guard.transient {
+                    (TRANSIENT_FUZZY_MAX, TRANSIENT_MIN_FOLD)
+                } else {
+                    (FUZZY_MAX, 0)
+                };
+                // A Thai name, not a foreign word (its skeleton is its own
+                // romanization, or it is spelled with Pali/Sanskrit letters):
+                // an unlisted Latin spelling of it is not used.
+                let romanized = guard.transient
+                    && (d1 == 0.0 || toks.iter().any(|t| t.chars().any(is_pali_letter)));
+                if d1 <= max
+                    && !romanized
+                    && fold(best).chars().count() >= min_len
                     && !best.is_empty()
                     && first_char(&fold(best)) == first
                     && consonant_coverage(best, &wf) >= CONS_COVERAGE
@@ -325,6 +384,15 @@ pub fn correct_with_vocab(text: &str, vocab_terms: &[String]) -> VocabResult {
                 continue;
             }
             let toks: String = pos_ids.iter().map(|&i| spans[i].2.as_str()).collect();
+            // ASR writes everyday English in lower case ("change"); a garbled
+            // name or term it heard keeps a capital or a digit.
+            if guard.transient
+                && !toks
+                    .chars()
+                    .any(|c| c.is_ascii_uppercase() || c.is_ascii_digit())
+            {
+                continue;
+            }
             let start = spans[pos_ids[0]].0;
             let end = spans[pos_ids[w - 1]].1;
             let wf = fold(&toks);
@@ -334,7 +402,19 @@ pub fn correct_with_vocab(text: &str, vocab_terms: &[String]) -> VocabResult {
             let first = first_char(&wf);
             let sc = scored(&wf, &word_folds);
             let (d1, best) = sc[0];
-            if d1 <= 0.30
+            let max = if guard.transient {
+                TRANSIENT_LATIN_MAX
+            } else {
+                0.30
+            };
+            // Another form of the same word (American/America, King/Kings)
+            // is not a misheard name.
+            let variant = guard.transient && {
+                let (a, b) = (toks.to_lowercase(), best.to_lowercase().replace(' ', ""));
+                a != b && (a.starts_with(&b) || b.starts_with(&a))
+            };
+            if d1 <= max
+                && !variant
                 && !best.is_empty()
                 && first_char(&fold(best)) == first
                 && consonant_coverage(best, &wf) >= CONS_COVERAGE
@@ -353,7 +433,7 @@ pub fn correct_with_vocab(text: &str, vocab_terms: &[String]) -> VocabResult {
     // best (lowest score, then longest span) first; stable like Python's sort
     proposals.sort_by(|p, q| p.0.total_cmp(&q.0).then((q.2 - q.1).cmp(&(p.2 - p.1))));
     let t: Vec<char> = text.chars().collect();
-    let mut claimed = vec![false; t.len()];
+    let mut claimed = guard.claimed(t.len());
     let mut chosen: Vec<(usize, usize, &str)> = Vec::new();
     for &(_, s, e, term) in &proposals {
         if claimed[s..e].iter().any(|&c| c) {
@@ -522,6 +602,15 @@ const THAI_EXACT_KEY_MAX: usize = 3;
 /// The Latin-term path in [`correct_with_vocab`] is unchanged; text already
 /// matching a listed term is protected from other terms.
 pub fn correct_with_thai_vocab(text: &str, vocab_terms: &[String]) -> VocabResult {
+    correct_with_thai_vocab_guarded(text, vocab_terms, Guard::default())
+}
+
+/// [`correct_with_thai_vocab`] that leaves `guard.protected` chars alone.
+pub fn correct_with_thai_vocab_guarded(
+    text: &str,
+    vocab_terms: &[String],
+    guard: Guard,
+) -> VocabResult {
     let terms: Vec<(&str, Vec<char>, Vec<char>, String)> = vocab_terms
         .iter()
         .map(|t| strip(t))
@@ -562,6 +651,16 @@ pub fn correct_with_thai_vocab(text: &str, vocab_terms: &[String]) -> VocabResul
                 continue;
             }
             let (start, end) = (spans[idx[a]].0, spans[idx[a + w - 1]].1);
+            // A lone Thai letter right next to the span is the rest of its
+            // word (สยาม|พารา|กอ|ล): an unlisted term covers it or nothing.
+            let lone = |k: usize| {
+                spans
+                    .get(k)
+                    .is_some_and(|(_, _, t)| t.chars().filter(|c| c.is_alphabetic()).count() == 1)
+            };
+            if guard.transient && ((idx[a] > 0 && lone(idx[a] - 1)) || lone(idx[a + w - 1] + 1)) {
+                continue;
+            }
             let mut key = None;
             let mut fold = None;
             for (term, term_key, chars, term_fold) in &terms {
@@ -575,7 +674,26 @@ pub fn correct_with_thai_vocab(text: &str, vocab_terms: &[String]) -> VocabResul
                 if w == 1 && term_key.len() <= THAI_SHORT_TERM_MAX && is_thai_word(toks[0]) {
                     continue;
                 }
+                // A real word is never re-spelled into another one the user
+                // did not list (นุ่ม is not an on-screen หนุ่ม), and a function
+                // word at the span's edge is not absorbed into it (the นาง of
+                // แม่นางมารี), unless the term itself begins or ends so.
+                if guard.transient {
+                    let term = term.chars().filter(|c| !is_space(*c)).collect::<String>();
+                    let (head, tail) = (toks[0], toks[w - 1]);
+                    if (w == 1 && is_thai_word(head))
+                        || (THAI_STOPWORDS.contains(head) && !term.starts_with(head))
+                        || (THAI_STOPWORDS.contains(tail) && !term.ends_with(tail))
+                    {
+                        continue;
+                    }
+                }
                 let key: &Vec<char> = key.get_or_insert_with(|| thai_spelling_key(&surface));
+                // An unlisted term fixes letters; it never adds or drops a
+                // syllable (มีมติเอกฉันต์ is not an on-screen มติเอกฉันท์).
+                if guard.transient && key.len().abs_diff(term_key.len()) > 1 {
+                    continue;
+                }
                 let edits = thai_spelling_distance(key, term_key);
                 let dist = edits as f64 / key.len().max(term_key.len()).max(1) as f64;
                 if edits > THAI_SURFACE_MAX_EDITS
@@ -603,7 +721,7 @@ pub fn correct_with_thai_vocab(text: &str, vocab_terms: &[String]) -> VocabResul
     }
     proposals.sort_by(|p, q| p.0.total_cmp(&q.0).then((q.2 - q.1).cmp(&(p.2 - p.1))));
     let t: Vec<char> = text.chars().collect();
-    let mut claimed = vec![false; t.len()];
+    let mut claimed = guard.claimed(t.len());
     let mut chosen: Vec<(usize, usize, &str)> = Vec::new();
     for &(_, s, e, term) in &proposals {
         if claimed[s..e].iter().any(|&c| c) {
@@ -817,5 +935,150 @@ mod thai_vocab_tests {
         let vocab: Vec<String> = ["บางแค", "บางแคร์"].iter().map(|s| s.to_string()).collect();
         let (text, n, _) = correct_with_thai_vocab("สถานีบางแคร์", &vocab);
         assert_eq!((text.as_str(), n), ("สถานีบางแคร์", 0));
+    }
+}
+
+/// Terms the user did not list (names on screen): each rule below is a wrong
+/// snap seen on Thai ContextASR Bench distractor lists or a noisy synthetic
+/// screen, which the user's own vocabulary is still allowed to make.
+#[cfg(test)]
+mod transient_tests {
+    use super::*;
+
+    const SCREEN: Guard = Guard {
+        protected: &[],
+        transient: true,
+    };
+
+    fn terms(t: &[&str]) -> Vec<String> {
+        t.iter().map(|s| s.to_string()).collect()
+    }
+
+    /// (listed by the user, on screen) through the Latin-term pass.
+    fn latin(text: &str, t: &[&str]) -> (String, String) {
+        let t = terms(t);
+        (
+            correct_with_vocab(text, &t).0,
+            correct_with_vocab_guarded(text, &t, SCREEN).0,
+        )
+    }
+
+    fn thai(text: &str, t: &[&str]) -> (String, String) {
+        let t = terms(t);
+        (
+            correct_with_thai_vocab(text, &t).0,
+            correct_with_thai_vocab_guarded(text, &t, SCREEN).0,
+        )
+    }
+
+    #[test]
+    fn the_default_guard_is_the_plain_pass() {
+        let t = terms(&["Kubernetes", "API", "ณรงค์พงษ์"]);
+        for text in ["Grafana, คูเบอร์เนติส", "เรียกเอพีไอก่อน", "คุณณรงค์พงศ์มาแล้ว"]
+        {
+            let g = Guard::default();
+            assert_eq!(
+                correct_with_vocab_guarded(text, &t, g),
+                correct_with_vocab(text, &t)
+            );
+            assert_eq!(
+                correct_with_thai_vocab_guarded(text, &t, g),
+                correct_with_thai_vocab(text, &t)
+            );
+        }
+    }
+
+    #[test]
+    fn on_screen_terms_still_fix_close_matches() {
+        assert_eq!(
+            latin("เมื่อวานทีมแอนทรอปิกประกาศรุ่นใหม่", &["Anthropic"]).1,
+            "เมื่อวานทีม Anthropic ประกาศรุ่นใหม่"
+        );
+        assert_eq!(thai("คุณณรงค์พงศ์มาแล้ว", &["ณรงค์พงษ์"]).1, "คุณณรงค์พงษ์มาแล้ว");
+        assert_eq!(latin("เรียกเอพีไอก่อน", &["API"]).1, "เรียก API ก่อน");
+    }
+
+    #[test]
+    fn protected_chars_are_never_rewritten() {
+        let text = "คุณณรงค์พงศ์มาแล้ว";
+        let mask: Vec<bool> = text.chars().map(|_| true).collect();
+        let guard = Guard {
+            protected: &mask,
+            transient: true,
+        };
+        let t = terms(&["ณรงค์พงษ์", "Narongpong"]);
+        assert_eq!(correct_with_thai_vocab_guarded(text, &t, guard).0, text);
+        assert_eq!(correct_with_vocab_guarded(text, &t, guard).0, text);
+    }
+
+    #[test]
+    fn lower_case_english_is_not_an_on_screen_name() {
+        let (listed, screen) = latin("อย่าลืม change ชื่อไฟล์นะ", &["Chiang Mai"]);
+        assert_eq!(listed, "อย่าลืม Chiang Mai ชื่อไฟล์นะ");
+        assert_eq!(screen, "อย่าลืม change ชื่อไฟล์นะ");
+        let (listed, screen) = latin("คุยกับทีม marketing แล้ว", &["Marketing"]);
+        assert_eq!(listed, "คุยกับทีม Marketing แล้ว");
+        assert_eq!(screen, "คุยกับทีม marketing แล้ว");
+    }
+
+    #[test]
+    fn other_forms_of_a_word_are_not_misheard_names() {
+        let text = "จ่ายด้วยบัตร American Express ได้ไหม";
+        let (listed, screen) = latin(text, &["America"]);
+        assert_eq!(listed, "จ่ายด้วยบัตร America Express ได้ไหม");
+        assert_eq!(screen, text);
+    }
+
+    #[test]
+    fn latin_snaps_need_a_closer_sound() {
+        let (listed, screen) = latin("เครื่องนี้ใช้ระบบ Lifting ใหม่", &["Lufthansa"]);
+        assert_eq!(listed, "เครื่องนี้ใช้ระบบ Lufthansa ใหม่");
+        assert_eq!(screen, "เครื่องนี้ใช้ระบบ Lifting ใหม่");
+        let (listed, screen) = latin("โอนผ่านแบงค์กิมได้ไหม", &["Bangkok"]);
+        assert_eq!(listed, "โอนผ่าน Bangkok ได้ไหม");
+        assert_eq!(screen, "โอนผ่านแบงค์กิมได้ไหม");
+    }
+
+    #[test]
+    fn thai_names_keep_their_script() {
+        // Pali letters: a Thai name, not a transliterated English word.
+        let (listed, screen) = latin("คุณศุภณัฐพงศ์โทรมา", &["Supnadphong"]);
+        assert_eq!(listed, "คุณ Supnadphong โทรมา");
+        assert_eq!(screen, "คุณศุภณัฐพงศ์โทรมา");
+        // The skeleton is the name's own romanization.
+        let (listed, screen) = latin("คุณกิตติพัทมาแล้ว", &["Kittiphat"]);
+        assert_eq!(listed, "คุณ Kittiphat มาแล้ว");
+        assert_eq!(screen, "คุณกิตติพัทมาแล้ว");
+    }
+
+    #[test]
+    fn acronyms_need_their_letters_spelled() {
+        let (listed, screen) = latin("ร้านคีอีแอลเปิดใหม่", &["KEEL"]);
+        assert_eq!(listed, "ร้าน KEEL เปิดใหม่");
+        assert_eq!(screen, "ร้านคีอีแอลเปิดใหม่");
+        let (listed, screen) = latin("ไปร้านเบเกอร์แลนด์กัน", &["BKR"]);
+        assert_eq!(listed, "ไปร้าน BKR แลนด์กัน");
+        assert_eq!(screen, "ไปร้านเบเกอร์แลนด์กัน");
+    }
+
+    #[test]
+    fn real_words_and_syllables_are_not_respelled() {
+        let (listed, screen) = thai("รถคันนี้ขับนุ่มมาก", &["หนุ่ม"]);
+        assert_eq!(listed, "รถคันนี้ขับหนุ่มมาก");
+        assert_eq!(screen, "รถคันนี้ขับนุ่มมาก");
+        let (listed, screen) = thai("ผู้ถือหุ้นมีมติเอกฉันต์", &["มติเอกฉันท์"]);
+        assert_eq!(listed, "ผู้ถือหุ้นมติเอกฉันท์");
+        assert_eq!(screen, "ผู้ถือหุ้นมีมติเอกฉันต์");
+        let (listed, screen) = thai("เมื่อวานแม่นางมารีมาหา", &["อมารี"]);
+        assert_eq!(listed, "เมื่อวานแม่นางอมารีมาหา");
+        assert_eq!(screen, "เมื่อวานแม่นางมารีมาหา");
+    }
+
+    #[test]
+    fn a_respelling_covers_the_whole_word() {
+        // newmm split the misspelled name as สยาม|พารา|กอ|ล.
+        let (listed, screen) = thai("เจอกันที่สยามพารากอลนะ", &["สยามพารากอน"]);
+        assert_eq!(listed, "เจอกันที่สยามพารากอนลนะ");
+        assert_eq!(screen, "เจอกันที่สยามพารากอนนะ");
     }
 }

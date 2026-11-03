@@ -21,6 +21,7 @@ pub mod local;
 pub mod pipeline;
 mod prompts_text;
 mod prompts_transform;
+pub mod screen;
 pub mod spacing;
 pub mod stt;
 pub mod thai_format;

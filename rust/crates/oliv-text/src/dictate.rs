@@ -26,6 +26,11 @@ pub struct Options {
     /// The user's personal dictionary (`dictionary` entries in the request;
     /// the Mac app sends its synced copy so local dictation matches the server).
     pub dictionary: UserDictionary,
+    /// Names on screen for this dictation only: candidates picked from the
+    /// request's `screen_text` snippets (see [`crate::screen`]), without the
+    /// words already in `dictionary` or `vocabulary`. Never part of
+    /// [`Self::effective_vocabulary`], so they never reach an STT prompt.
+    pub screen_terms: Vec<String>,
     pub prompt: Prompt,
 }
 
@@ -38,6 +43,7 @@ impl Default for Options {
             vocabulary: Vec::new(),
             replacements: Vec::new(),
             dictionary: UserDictionary::default(),
+            screen_terms: Vec::new(),
             prompt: Prompt::default(),
         }
     }
@@ -91,6 +97,18 @@ impl Options {
                 o.dictionary = UserDictionary::new(&entries);
             }
             Some(_) => return Err("dictionary must be a list".into()),
+        }
+        match body.get("screen_text") {
+            None | Some(Value::Null) => {}
+            Some(Value::Array(a)) => {
+                let snippets: Vec<String> = a
+                    .iter()
+                    .map(|t| t.as_str().map(str::to_string))
+                    .collect::<Option<_>>()
+                    .ok_or("screen_text must be a list of strings")?;
+                o.screen_terms = crate::screen::candidates(&snippets, &o.effective_vocabulary());
+            }
+            Some(_) => return Err("screen_text must be a list of strings".into()),
         }
         match body.get("prompt") {
             None | Some(Value::Null) => {}
@@ -178,11 +196,12 @@ pub fn clean_text(text: &str, opts: &Options, llm: &dyn Llm) -> Outcome {
     let cleaned = opts.cleanup && !is_blank(&seg);
     let mut corrected = Vec::new();
     if cleaned {
-        let r = crate::pipeline::clean_ex_with(
+        let r = crate::pipeline::clean_ex_screen(
             &seg,
             &opts.effective_vocabulary(),
             &opts.dictionary,
             &opts.replacements,
+            &opts.screen_terms,
             opts.prompt,
             llm,
         );
