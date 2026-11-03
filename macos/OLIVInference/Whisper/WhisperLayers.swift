@@ -158,6 +158,24 @@ final class WhisperEncoder: Module {
         }
         return layerNorm(h)
     }
+
+    /// Live previews only: the same forward pass, evaluated `group` layers at a
+    /// time so a cancel takes effect between groups instead of after the whole
+    /// encoder. The final transcription keeps the single-graph pass above.
+    func callAsFunction(_ inputFeatures: MLXArray, group: Int, shouldStop: () -> Bool) throws -> MLXArray {
+        var h = gelu(conv1(inputFeatures))
+        h = gelu(conv2(h))
+        let seqLen = h.shape[1]
+        h = h + embedPositions.weight[0..<seqLen]
+        for (index, layer) in layers.enumerated() {
+            h = layer(h)
+            if (index + 1) % max(1, group) == 0 {
+                eval(h)
+                if shouldStop() { throw WhisperModel.Stopped() }
+            }
+        }
+        return layerNorm(h)
+    }
 }
 
 // MARK: - Decoder

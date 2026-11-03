@@ -4,6 +4,7 @@ use inference::Inference;
 use oliv_pipeline::{
     audio, commands,
     dictate::Options,
+    hallucination,
     llm::{Llm, LlmError, Prompt, Request},
     local,
     stt::{Stt, Transcript},
@@ -12,6 +13,7 @@ use oliv_pipeline::{
 use serde_json::{Value, json};
 use std::cell::Cell;
 use std::io::{self, BufRead, Read, Write};
+use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant};
 
 const MAX_REQUEST: u64 = 56 * 1024 * 1024;
@@ -334,6 +336,7 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
             result["ok"] = json!(true);
             Ok(result)
         }
+        "preview" => preview(request, engine, inference),
         "dictate" => {
             let samples = pcm(request, audio::MAX_SAMPLES)?;
             if samples
@@ -404,6 +407,53 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
     }
 }
 
+/// On-device engines that may preview while the key is held. Groq and the OLIV
+/// API never do: a preview must not upload audio.
+const PREVIEW_ENGINES: [&str; 3] = ["typhoon-turbo-mlx", "pathumma-mlx", "mlx-large-v3"];
+/// One Whisper window: a preview transcribes only the newest audio.
+const PREVIEW_MAX_SAMPLES: usize = audio::RATE * 30;
+
+/// Live preview while the key is held: speech-to-text only (no cleanup model,
+/// dictionary or English re-decode), greedy, on the newest audio, with the
+/// engine that is already loaded. The app shows it and never pastes it; the
+/// final `dictate` after release is unchanged. `preview_seq` lets the app
+/// cancel it out of band (`cancel_preview`), even mid-decode.
+fn preview(request: &Value, engine: &str, inference: &Inference) -> Result<Value, String> {
+    if !PREVIEW_ENGINES.contains(&engine) {
+        return Err("previewUnavailable".into());
+    }
+    let seq = request["preview_seq"]
+        .as_u64()
+        .filter(|seq| *seq > 0)
+        .ok_or("invalidPreview")?;
+    let samples = pcm(request, PREVIEW_MAX_SAMPLES)?.ok_or("invalidAudio")?;
+    if samples.iter().any(|f| !f.is_finite()) {
+        return Err("invalidAudio".into());
+    }
+    let skipped = |reason: &str, t_stt: f64| json!({"ok":true,"engine":engine,"text":"","skipped":reason,"t_stt":t_stt});
+    if inference.preview_cancelled(seq) {
+        return Ok(skipped("cancelled", 0.0));
+    }
+    if audio::is_silent(&samples) {
+        return Ok(skipped("silent", 0.0));
+    }
+    let start = Instant::now();
+    let reply = inference.request(
+        json!({"cmd":"stt","engine":engine,"pcm_b64":request["pcm_b64"],"preview_seq":seq}),
+        Duration::from_secs(30),
+        &request["id"],
+    )?;
+    let t_stt = start.elapsed().as_secs_f64();
+    if let Some(reason) = reply["skipped"].as_str() {
+        return Ok(skipped(reason, t_stt));
+    }
+    let text = hallucination::strip_cjk(reply["text"].as_str().unwrap_or(""));
+    if hallucination::text_hallucination(&text) {
+        return Ok(skipped("noSpeech", t_stt));
+    }
+    Ok(json!({"ok":true,"engine":engine,"text":text.trim(),"t_stt":t_stt}))
+}
+
 /// Whisper initial prompt using the same engine policy as the app.
 fn stt_initial_prompt(request: &Value, engine: &str, vocabulary: &[String]) -> Option<String> {
     if !oliv_pipeline::stt::uses_initial_prompt(engine) {
@@ -416,33 +466,73 @@ fn stt_initial_prompt(request: &Value, engine: &str, vocabulary: &[String]) -> O
     )
 }
 
+enum Incoming {
+    Request(Value),
+    Invalid,
+    TooLarge,
+}
+
+/// Read requests on their own thread, so a `cancel_preview` takes effect while
+/// the request loop is still waiting on that preview. Every other line keeps
+/// its order; the cancel itself gets no reply.
+fn read_requests(mut reader: impl BufRead, cancel: impl Fn(u64), requests: mpsc::Sender<Incoming>) {
+    loop {
+        let mut line = Vec::new();
+        let incoming = match (&mut reader)
+            .take(MAX_REQUEST + 1)
+            .read_until(b'\n', &mut line)
+        {
+            Ok(0) | Err(_) => return,
+            Ok(_) if line.len() as u64 > MAX_REQUEST => Incoming::TooLarge,
+            _ => match serde_json::from_slice(&line) {
+                Ok(Value::Object(body)) if body.get("cmd") == Some(&json!("cancel_preview")) => {
+                    if let Some(through) = body.get("through").and_then(Value::as_u64) {
+                        cancel(through);
+                    }
+                    continue;
+                }
+                Ok(Value::Object(body)) => Incoming::Request(Value::Object(body)),
+                _ => Incoming::Invalid,
+            },
+        };
+        let last = match &incoming {
+            Incoming::TooLarge => true,
+            Incoming::Request(request) => request["cmd"] == "shutdown",
+            Incoming::Invalid => false,
+        };
+        if requests.send(incoming).is_err() || last {
+            return;
+        }
+    }
+}
+
 fn main() {
     // Panic details can include user inputs; stdout remains protocol-only.
     std::panic::set_hook(Box::new(|_| eprintln!("OLIV Rust worker failed")));
     let once = std::env::args().any(|a| a == "--once");
-    let inference = Inference::default();
-    let mut reader = io::stdin().lock();
-    loop {
-        let mut line = Vec::new();
-        match (&mut reader)
-            .take(MAX_REQUEST + 1)
-            .read_until(b'\n', &mut line)
-        {
-            Ok(0) | Err(_) => break,
-            Ok(_) if line.len() as u64 > MAX_REQUEST => {
+    let inference = Arc::new(Inference::default());
+    let (sender, requests) = mpsc::channel();
+    let cancels = Arc::clone(&inference);
+    std::thread::spawn(move || {
+        read_requests(
+            io::stdin().lock(),
+            |through| cancels.cancel_previews(through),
+            sender,
+        );
+    });
+    for incoming in requests {
+        let request = match incoming {
+            Incoming::TooLarge => {
                 let _ = emit(&json!({"ok":false,"code":"requestTooLarge"}));
                 break;
             }
-            _ => (),
-        }
-        let request: Value = match serde_json::from_slice(&line) {
-            Ok(Value::Object(body)) => Value::Object(body),
-            _ => {
+            Incoming::Invalid => {
                 if emit(&json!({"ok":false,"code":"invalidRequest"})).is_err() || once {
                     break;
                 }
                 continue;
             }
+            Incoming::Request(request) => request,
         };
         if request["cmd"] == "shutdown" {
             break;
@@ -461,6 +551,8 @@ fn main() {
             break;
         }
     }
+    // The stdin reader still holds a reference: stop the model helper here.
+    inference.shutdown();
 }
 
 #[cfg(test)]
@@ -568,6 +660,105 @@ mod tests {
         ] {
             assert!(transform_reply(&bad, &Down).is_err());
         }
+    }
+
+    fn incoming(input: &str) -> (Vec<Value>, Vec<u64>) {
+        let (sender, receiver) = mpsc::channel();
+        let cancels = std::cell::RefCell::new(Vec::new());
+        read_requests(
+            io::Cursor::new(input.as_bytes().to_vec()),
+            |through| cancels.borrow_mut().push(through),
+            sender,
+        );
+        let requests = receiver
+            .try_iter()
+            .map(|item| match item {
+                Incoming::Request(request) => request,
+                Incoming::Invalid => json!("invalid"),
+                Incoming::TooLarge => json!("too large"),
+            })
+            .collect();
+        (requests, cancels.into_inner())
+    }
+
+    #[test]
+    fn cancel_preview_is_handled_out_of_band_and_never_queued() {
+        let (requests, cancels) = incoming(concat!(
+            "{\"id\":1,\"cmd\":\"preview\"}\n",
+            "{\"cmd\":\"cancel_preview\",\"through\":1}\n",
+            "not json\n",
+            "{\"id\":2,\"cmd\":\"dictate\"}\n",
+        ));
+        assert_eq!(cancels, vec![1]);
+        assert_eq!(
+            requests,
+            vec![
+                json!({"id":1,"cmd":"preview"}),
+                json!("invalid"),
+                json!({"id":2,"cmd":"dictate"})
+            ]
+        );
+    }
+
+    #[test]
+    fn reading_stops_after_shutdown() {
+        let (requests, _) = incoming(concat!(
+            "{\"id\":1,\"cmd\":\"shutdown\"}\n",
+            "{\"id\":2,\"cmd\":\"ping\"}\n",
+        ));
+        assert_eq!(requests, vec![json!({"id":1,"cmd":"shutdown"})]);
+    }
+
+    fn pcm_b64(samples: &[f32]) -> String {
+        B64.encode(
+            samples
+                .iter()
+                .flat_map(|s| s.to_le_bytes())
+                .collect::<Vec<_>>(),
+        )
+    }
+
+    #[test]
+    fn previews_never_reach_a_cloud_engine() {
+        // No helper is configured: any attempt to transcribe would fail with a
+        // different error than the policy refusal.
+        let inference = Inference::default();
+        for engine in ["groq-large-v3", "oliv-api", "oliv-trial", "unknown"] {
+            let request = json!({"cmd":"preview","engine":engine,"preview_seq":1,
+                "pcm_b64":pcm_b64(&[0.1; 16_000])});
+            assert_eq!(
+                handle(&request, &inference).unwrap_err(),
+                "previewUnavailable",
+                "{engine}"
+            );
+        }
+    }
+
+    #[test]
+    fn preview_guards_run_before_the_model() {
+        let inference = Inference::default();
+        let speech: Vec<f32> = (0..32_000).map(|i| (i as f32 * 0.05).sin() * 0.2).collect();
+        let request = |seq: Value, samples: &[f32]| {
+            json!({"cmd":"preview","engine":"typhoon-turbo-mlx","preview_seq":seq,
+                "pcm_b64":pcm_b64(samples)})
+        };
+        assert_eq!(
+            handle(&request(json!(0), &speech), &inference).unwrap_err(),
+            "invalidPreview"
+        );
+        let too_long = vec![0.1; PREVIEW_MAX_SAMPLES + 1];
+        assert_eq!(
+            handle(&request(json!(1), &too_long), &inference).unwrap_err(),
+            "audioTooLong"
+        );
+        let silent = handle(&request(json!(1), &[0.0; 16_000]), &inference).unwrap();
+        assert_eq!(silent["skipped"], "silent");
+        inference.cancel_previews(3);
+        let cancelled = handle(&request(json!(2), &speech), &inference).unwrap();
+        assert_eq!(cancelled["skipped"], "cancelled");
+        assert_eq!(cancelled["text"], "");
+        // Not cancelled, so it reaches the (unconfigured) helper and fails.
+        assert!(handle(&request(json!(4), &speech), &inference).is_err());
     }
 
     #[test]

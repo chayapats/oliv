@@ -22,6 +22,10 @@ for name in ["oliv-sidecar", "oliv-inference"] {
     }
     try process.run()
     for id in 1...2 {
+        // A live-preview cancel is out of band: it must never produce a reply.
+        if id == 2 {
+            try input.fileHandleForWriting.write(contentsOf: Data("{\"cmd\":\"cancel_preview\",\"through\":1}\n".utf8))
+        }
         try input.fileHandleForWriting.write(contentsOf: Data("{\"id\":\(id),\"cmd\":\"ping\"}\n".utf8))
         guard signal.wait(timeout: .now() + 5) == .success else {
             process.terminate(); fatalError("\(name): no reply with stdin open")
@@ -34,5 +38,7 @@ for name in ["oliv-sidecar", "oliv-inference"] {
     process.waitUntilExit()
     output.fileHandleForReading.readabilityHandler = nil
     precondition(process.terminationStatus == 0)
-    print("\(name): persistent IPC and clean EOF passed")
+    lock.lock(); let extra = frames.count; lock.unlock()
+    precondition(extra == 0, "\(name): replied to a cancel_preview line")
+    print("\(name): persistent IPC, silent preview cancel and clean EOF passed")
 }

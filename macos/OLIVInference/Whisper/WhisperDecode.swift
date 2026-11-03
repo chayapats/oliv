@@ -17,9 +17,17 @@ extension WhisperModel {
         let temperature: Float
     }
 
+    /// Thrown when `shouldStop` asks a live preview to give up mid-decode.
+    struct Stopped: Error {}
+
     /// Compute one spectrogram for the entire capture, then seek by Whisper's
     /// timestamp boundaries. Each recording owns its tokens and KV cache.
-    func transcribe(_ samples: [Float], language requested: String?, initialPrompt: String?, fallback: Bool) throws -> Transcript {
+    /// Live previews pass `shouldStop`: it is polled between groups of encoder
+    /// layers, between the decoder passes and after each token. Without it
+    /// (the final transcription) the computation is exactly as before.
+    func transcribe(_ samples: [Float], language requested: String?, initialPrompt: String?, fallback: Bool,
+                    shouldStop: (() -> Bool)? = nil) throws -> Transcript {
+        let stop = { if let shouldStop, shouldStop() { throw Stopped() } }
         guard let tokenizer else { throw RuntimeError.invalidModel }
         if let requested, tokenizer.resolveLanguage(requested) == nil { throw RuntimeError.invalidLanguage }
         let padded = MLX.padded(MLXArray(samples), widths: [.init((0, WhisperAudioConfig.chunkLengthSamples))])
@@ -31,11 +39,14 @@ extension WhisperModel {
         var promptReset = 0, seek = 0
         var scores = [Double]()
         while seek < contentFrames {
+            try stop()
             let segmentSize = min(3000, contentFrames - seek)
             var features = mel[seek..<(seek + segmentSize)]
             if segmentSize < 3000 { features = MLX.padded(features, widths: [.init((0, 3000 - segmentSize)), .init((0, 0))]) }
-            let encoder = model.encoder(features.asType(.float16).expandedDimensions(axis: 0))
+            let input = features.asType(.float16).expandedDimensions(axis: 0)
+            let encoder = try shouldStop.map { try model.encoder(input, group: 4, shouldStop: $0) } ?? model.encoder(input)
             eval(encoder)
+            try stop()
             if language == nil {
                 var cache = (0..<config.decoderLayers).map { _ in WhisperLayerCache() }
                 let hidden = model.decoder(tokens: MLXArray([Int32(tokenizer.startOfTranscriptId)]).expandedDimensions(axis: 0), startPosition: 0, encoderHidden: encoder, caches: &cache)
@@ -43,6 +54,7 @@ extension WhisperModel {
                 let languages = tokenizer.languageToId.sorted { $0.key < $1.key }
                 let ids = MLXArray(languages.map { Int32($0.value) })
                 language = languages[logits[ids].argMax().item(Int.self)].key
+                try stop()
             }
             var prefix = tokenizer.buildPromptTokens(language: language, timestamps: true)
             let prompt = allTokens.dropFirst(promptReset)
@@ -51,7 +63,7 @@ extension WhisperModel {
             }
             var candidate: Decoded?
             for temperature: Float in fallback ? [0, 0.2, 0.4, 0.6, 0.8, 1] : [0] {
-                let result = decode(encoder: encoder, prefix: prefix, temperature: temperature)
+                let result = try decode(encoder: encoder, prefix: prefix, temperature: temperature, stop: stop)
                 candidate = result
                 let text = tokenizer.decode(tokens: result.tokens)
                 let compressed = try (Data(text.utf8) as NSData).compressed(using: .zlib)
@@ -94,7 +106,7 @@ extension WhisperModel {
         return Transcript(text: tokenizer.decode(tokens: Array(allTokens.dropFirst(initialCount))), avgLogprob: scores.isEmpty ? -10 : scores.reduce(0, +) / Double(scores.count), language: language ?? "en")
     }
 
-    private func decode(encoder: MLXArray, prefix: [Int], temperature: Float) -> Decoded {
+    private func decode(encoder: MLXArray, prefix: [Int], temperature: Float, stop: () throws -> Void) throws -> Decoded {
         let tokenizer = tokenizer!
         var caches = (0..<config.decoderLayers).map { _ in WhisperLayerCache() }
         var hidden = model.decoder(tokens: MLXArray(prefix.map(Int32.init)).expandedDimensions(axis: 0), startPosition: 0, encoderHidden: encoder, caches: &caches)
@@ -114,6 +126,7 @@ extension WhisperModel {
         for step in 0..<max(1, limit) {
             var filtered = logits + (step == 0 ? firstMask : regularMask)
             filtered = timestampRules(filtered, tokens: tokens, tokenizer: tokenizer)
+            try stop()
             let next = temperature == 0 ? filtered.argMax().item(Int.self) : categorical(filtered / temperature).item(Int.self)
             total += (filtered[next] - filtered.logSumExp()).item(Float.self)
             if next == tokenizer.endOfTextId { break }

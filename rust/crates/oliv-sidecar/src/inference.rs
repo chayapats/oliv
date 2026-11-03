@@ -2,13 +2,17 @@
 use serde_json::{Value, json};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::{Mutex, mpsc};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, mpsc};
 use std::time::Duration;
 
 const MAX_REPLY: u64 = 2 * 1024 * 1024;
+/// The helper's stdin. Shared so a live-preview cancel can be written while a
+/// request (the preview itself) holds the session lock.
+type Input = Arc<Mutex<ChildStdin>>;
 struct Session {
     child: Child,
-    input: ChildStdin,
+    input: Input,
     replies: mpsc::Receiver<Result<Value, String>>,
     next_id: u64,
 }
@@ -17,6 +21,15 @@ impl Drop for Session {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
+}
+fn write_line(input: &Input, body: &Value) -> Result<(), String> {
+    let bytes = serde_json::to_vec(body).map_err(|_| "Could not encode inference request")?;
+    let mut input = input.lock().map_err(|_| "Inference input unavailable")?;
+    input
+        .write_all(&bytes)
+        .and_then(|_| input.write_all(b"\n"))
+        .and_then(|_| input.flush())
+        .map_err(|_| "Inference process stopped".to_string())
 }
 impl Session {
     fn spawn() -> Result<Self, String> {
@@ -29,7 +42,7 @@ impl Session {
             .stderr(Stdio::null())
             .spawn()
             .map_err(|_| "Could not start inference runtime")?;
-        let input = child.stdin.take().unwrap();
+        let input = Arc::new(Mutex::new(child.stdin.take().unwrap()));
         let mut reader = BufReader::new(child.stdout.take().unwrap());
         let (sender, replies) = mpsc::sync_channel(8);
         std::thread::spawn(move || {
@@ -69,12 +82,7 @@ impl Session {
     ) -> Result<Value, String> {
         self.next_id += 1;
         body["id"] = json!(self.next_id);
-        let bytes = serde_json::to_vec(&body).map_err(|_| "Could not encode inference request")?;
-        self.input
-            .write_all(&bytes)
-            .and_then(|_| self.input.write_all(b"\n"))
-            .and_then(|_| self.input.flush())
-            .map_err(|_| "Inference process stopped")?;
+        write_line(&self.input, &body)?;
         loop {
             let mut reply = self
                 .replies
@@ -97,7 +105,13 @@ impl Session {
 }
 
 #[derive(Default)]
-pub struct Inference(Mutex<Option<Session>>);
+pub struct Inference {
+    session: Mutex<Option<Session>>,
+    /// The live helper's stdin, reachable without the session lock.
+    input: Mutex<Option<Input>>,
+    /// Live previews up to this sequence number are cancelled. Monotonic.
+    cancelled_through: AtomicU64,
+}
 impl Inference {
     pub fn request(
         &self,
@@ -105,16 +119,72 @@ impl Inference {
         timeout: Duration,
         outer_id: &Value,
     ) -> Result<Value, String> {
-        let mut session = self.0.lock().map_err(|_| "Inference state unavailable")?;
+        let mut session = self
+            .session
+            .lock()
+            .map_err(|_| "Inference state unavailable")?;
         if session.is_none() {
-            *session = Some(Session::spawn()?);
+            let spawned = Session::spawn()?;
+            if let Ok(mut input) = self.input.lock() {
+                *input = Some(spawned.input.clone());
+            }
+            *session = Some(spawned);
         }
         let result = session.as_mut().unwrap().request(body, timeout, outer_id);
         // On an unknown process state, discard it. Next explicit call respawns;
         // never resend this inference request.
         if result.is_err() {
+            if let Ok(mut input) = self.input.lock() {
+                *input = None;
+            }
             *session = None;
         }
         result
+    }
+
+    /// Stop every live preview up to `through`, including one the helper is
+    /// decoding right now. Out of band: called from the stdin reader while the
+    /// request loop may be waiting on that preview. The helper sends no reply.
+    pub fn cancel_previews(&self, through: u64) {
+        self.cancelled_through.fetch_max(through, Ordering::SeqCst);
+        let input = self.input.lock().ok().and_then(|input| input.clone());
+        if let Some(input) = input {
+            // A dead helper is noticed (and replaced) by the next request.
+            let _ = write_line(&input, &json!({"cmd":"cancel_preview","through":through}));
+        }
+    }
+
+    /// Whether preview `seq` was cancelled before it reached the helper.
+    pub fn preview_cancelled(&self, seq: u64) -> bool {
+        seq <= self.cancelled_through.load(Ordering::SeqCst)
+    }
+
+    /// Stop the helper now (worker exit), even mid-request.
+    pub fn shutdown(&self) {
+        if let Ok(mut input) = self.input.lock() {
+            *input = None;
+        }
+        // A request still holding the lock is abandoned with the process.
+        if let Ok(mut session) = self.session.try_lock() {
+            *session = None;
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cancelling_previews_is_monotonic_and_needs_no_helper() {
+        let inference = Inference::default();
+        assert!(!inference.preview_cancelled(1));
+        inference.cancel_previews(5);
+        assert!(inference.preview_cancelled(5));
+        assert!(inference.preview_cancelled(3));
+        assert!(!inference.preview_cancelled(6));
+        // A late cancel for an older preview never un-cancels a newer one.
+        inference.cancel_previews(2);
+        assert!(inference.preview_cancelled(5));
     }
 }

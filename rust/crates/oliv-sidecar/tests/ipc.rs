@@ -66,3 +66,88 @@ fn evaluation_replay_runs_text_stage_without_inference() {
     assert_eq!(replies[0]["guardrail_flag"], "llmError->dict");
     assert_eq!(replies[1]["final"], "สวัสดีครับ");
 }
+
+/// A model helper whose preview decode only ends when `cancel_preview` arrives
+/// (or after 20 s); a plain STT request answers at once.
+const SLOW_PREVIEW_HELPER: &str = r#"#!/bin/bash
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+  case "$line" in
+    *'"cmd":"cancel_preview"'*) ;;
+    *'"preview_seq"'*)
+      : > "$(dirname "$0")/decoding"
+      if IFS= read -r -t 20 next && [[ "$next" == *cancel_preview* ]]; then
+        printf '{"id":%s,"ok":true,"text":"","skipped":"cancelled"}\n' "$id"
+      else
+        printf '{"id":%s,"ok":true,"text":"finished anyway"}\n' "$id"
+      fi ;;
+    *'"cmd":"stt"'*) printf '{"id":%s,"ok":true,"text":"final words","avg_logprob":-0.1}\n' "$id" ;;
+    *) printf '{"id":%s,"ok":false}\n' "$id" ;;
+  esac
+done
+"#;
+
+#[test]
+fn release_cancels_a_preview_mid_decode_so_dictate_is_not_queued_behind_it() {
+    use base64::Engine;
+    use std::io::{BufRead, BufReader};
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::{Duration, Instant};
+    let dir = std::env::temp_dir().join(format!("oliv-preview-cancel-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let helper = dir.join("helper.sh");
+    std::fs::write(&helper, SLOW_PREVIEW_HELPER).unwrap();
+    std::fs::set_permissions(&helper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let speech: Vec<u8> = (0..16000)
+        .flat_map(|i| (if i % 2 == 0 { 0.1f32 } else { -0.1 }).to_le_bytes())
+        .collect();
+    let pcm = base64::engine::general_purpose::STANDARD.encode(speech);
+    let mut child = Command::new(env!("CARGO_BIN_EXE_oliv-sidecar"))
+        .env("OLIV_INFERENCE_EXECUTABLE", &helper)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut input = child.stdin.take().unwrap();
+    let mut output = BufReader::new(child.stdout.take().unwrap());
+    let mut reply = || {
+        let mut line = String::new();
+        output.read_line(&mut line).unwrap();
+        serde_json::from_str::<Value>(&line).unwrap()
+    };
+    writeln!(
+        input,
+        "{}",
+        json!({"id":1,"cmd":"preview","engine":"typhoon-turbo-mlx","preview_seq":7,"pcm_b64":pcm})
+    )
+    .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !dir.join("decoding").exists() {
+        assert!(
+            Instant::now() < deadline,
+            "the helper never started the preview"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    // Release: cancel out of band, then the final pass right behind it.
+    let released = Instant::now();
+    writeln!(input, "{}", json!({"cmd":"cancel_preview","through":7})).unwrap();
+    writeln!(
+        input,
+        "{}",
+        json!({"id":2,"cmd":"dictate","engine":"typhoon-turbo-mlx","cleanup":false,"pcm_b64":pcm})
+    )
+    .unwrap();
+    let preview = reply();
+    let dictate = reply();
+    let waited = released.elapsed();
+    drop(input);
+    assert!(child.wait().unwrap().success());
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(preview["id"], 1);
+    assert_eq!(preview["skipped"], "cancelled", "{preview}");
+    assert_eq!(preview["text"], "");
+    assert_eq!(dictate["id"], 2);
+    assert_eq!(dictate["final"], "final words", "{dictate}");
+    assert!(waited < Duration::from_secs(5), "dictate waited {waited:?}");
+}

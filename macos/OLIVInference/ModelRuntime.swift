@@ -110,6 +110,7 @@ actor ModelRuntime {
             return ["ok": true]
         case "stt":
             let samples = try Self.audio(request)
+            if let seq = request["preview_seq"] as? Int { return preview(samples, engine: selected, seq: seq) }
             let model = try await loadWhisper(selected)
             let result = try model.transcribe(samples, language: request["language"] as? String,
                 initialPrompt: request["initial_prompt"] as? String, fallback: selected != "mlx-large-v3")
@@ -163,6 +164,24 @@ actor ModelRuntime {
             }
             return ["ok": true, "downloaded": downloaded]
         default: throw RuntimeError.invalidRequest
+        }
+    }
+
+    /// Live preview: greedy, no temperature fallback, no prompt, and only on
+    /// the engine already in memory — a preview never loads a model. A cancel
+    /// (see PreviewCancellation) stops it between tokens.
+    private func preview(_ samples: [Float], engine selected: String, seq: Int) -> [String: Any] {
+        let cancellation = PreviewCancellation.shared
+        guard engine == selected, let whisper else { return ["ok": true, "text": "", "skipped": "notLoaded"] }
+        do {
+            let result = try whisper.transcribe(samples, language: nil, initialPrompt: nil, fallback: false,
+                                                shouldStop: { cancellation.isCancelled(seq) })
+            return ["ok": true, "text": result.text]
+        } catch {
+            // Cancelled, or a decode failure: either way nothing to show, and
+            // the helper (with its loaded models) must stay up for the release.
+            if cancellation.isCancelled(seq) { Memory.clearCache() }
+            return ["ok": true, "text": "", "skipped": cancellation.isCancelled(seq) ? "cancelled" : "failed"]
         }
     }
 
