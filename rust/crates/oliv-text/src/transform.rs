@@ -192,10 +192,30 @@ impl Request<'_> {
     }
 }
 
+/// One model answer.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Generation {
+    pub text: String,
+    /// The model ended the answer itself. False when it was still writing at
+    /// `max_tokens` (or the runtime could not say why it stopped): the text
+    /// is only the start of an answer.
+    pub finished: bool,
+}
+
+impl Generation {
+    /// An answer the model ended itself.
+    pub fn finished(text: impl Into<String>) -> Self {
+        Generation {
+            text: text.into(),
+            finished: true,
+        }
+    }
+}
+
 /// Generates text for a prompt. Mocked in tests; the sidecar sends it to
 /// the on-device model.
 pub trait Generate {
-    fn generate(&self, content: &str, max_tokens: u32) -> Result<String, LlmError>;
+    fn generate(&self, content: &str, max_tokens: u32) -> Result<Generation, LlmError>;
 }
 
 /// The result of one transform. `text` is the new text when `applied`, and
@@ -205,7 +225,8 @@ pub struct Outcome {
     pub applied: bool,
     pub text: String,
     /// `ok`, or why nothing changed (`emptySelection`, `tooLong`,
-    /// `noInstruction`, `noThai`, `llmError`, or a guardrail reason).
+    /// `noInstruction`, `noThai`, `llmError`, `unfinished`, or a guardrail
+    /// reason).
     pub flag: String,
     pub intent: Intent,
     /// The model's raw generation, for evaluation. Never logged by the app.
@@ -252,7 +273,14 @@ pub fn transform(req: &Request, model: &dyn Generate) -> Outcome {
         Mode::Translate => {}
     }
     let raw = match model.generate(&req.content(), req.max_tokens()) {
-        Ok(raw) => raw,
+        // Cut off at the token limit. The checks below could pass the first
+        // part of an answer (an edit needs 40% of the source's length, a
+        // translation 30%), which would replace the whole text. A model that
+        // ran on past its answer into the template did finish it, though.
+        Ok(generation) if !generation.finished && !reached_a_stop(&generation.text) => {
+            return keep("unfinished", Some(generation.text));
+        }
+        Ok(generation) => generation.text,
         Err(_) => return keep("llmError", None),
     };
     let candidate = clean_generation(&raw, req.text);
@@ -287,6 +315,12 @@ const STOPS: [&str; 10] = [
     "\nTHAI:",
     "\nEDITED TEXT:",
 ];
+
+/// The answer ended at a chat-template marker or prompt label, whatever
+/// the model wrote after it.
+fn reached_a_stop(generation: &str) -> bool {
+    STOPS.iter().any(|stop| generation.contains(stop))
+}
 
 /// Labels a model sometimes repeats at the start of its answer.
 const LABELS: [&str; 6] = [
@@ -961,13 +995,23 @@ mod tests {
 
     struct Fixed(&'static str);
     impl Generate for Fixed {
-        fn generate(&self, _: &str, _: u32) -> Result<String, LlmError> {
-            Ok(self.0.to_string())
+        fn generate(&self, _: &str, _: u32) -> Result<Generation, LlmError> {
+            Ok(Generation::finished(self.0))
+        }
+    }
+    /// Still writing when it reached the token limit.
+    struct CutOff(&'static str);
+    impl Generate for CutOff {
+        fn generate(&self, _: &str, _: u32) -> Result<Generation, LlmError> {
+            Ok(Generation {
+                text: self.0.to_string(),
+                finished: false,
+            })
         }
     }
     struct Failing;
     impl Generate for Failing {
-        fn generate(&self, _: &str, _: u32) -> Result<String, LlmError> {
+        fn generate(&self, _: &str, _: u32) -> Result<Generation, LlmError> {
             Err(LlmError("timeout".into()))
         }
     }
@@ -975,9 +1019,9 @@ mod tests {
     #[derive(Default)]
     struct Recording(RefCell<Vec<(String, u32)>>);
     impl Generate for Recording {
-        fn generate(&self, content: &str, max_tokens: u32) -> Result<String, LlmError> {
+        fn generate(&self, content: &str, max_tokens: u32) -> Result<Generation, LlmError> {
             self.0.borrow_mut().push((content.to_string(), max_tokens));
-            Ok("ok".into())
+            Ok(Generation::finished("ok"))
         }
     }
 
@@ -1277,6 +1321,42 @@ mod tests {
         );
         assert!(!out.applied);
         assert_eq!(out.text, "เขียน SQL query ที่ดึงลูกค้าที่ซื้อมากกว่าสามครั้ง");
+    }
+
+    /// An answer cut off at the token limit is refused even when its first
+    /// part would pass every check: it would replace the whole text.
+    #[test]
+    fn an_answer_cut_off_at_the_token_limit_is_never_applied() {
+        let src = "ส่งไฟล์ deck มาด่วนเลย ลูกค้าจะเอาบ่ายนี้ แล้วก็ช่วยเช็ค budget ของเดือนหน้าด้วย ถ้ามีปัญหาอะไรโทรหาผมได้เลย";
+        let cut =
+            "รบกวนช่วยส่งไฟล์ deck มาให้หน่อยนะครับ ลูกค้าต้องการภายในบ่ายนี้ครับ นอกจากนี้รบกวนช่วยตรวจสอบ budget";
+        assert_eq!(check_command("ทำให้สุภาพขึ้น", src, cut), Ok(()));
+        let out = transform(&command("ทำให้สุภาพขึ้น", src), &CutOff(cut));
+        assert_eq!((out.applied, out.flag.as_str()), (false, "unfinished"));
+        assert_eq!(out.text, src, "the selection stays as it was");
+        assert_eq!(out.raw.as_deref(), Some(cut));
+
+        let src = "ช่วยส่ง deck กับ budget ให้ทีม marketing ก่อนพรุ่งนี้เช้านะครับ เพราะลูกค้าอยากเห็นตัวเลขทั้งหมดก่อนประชุม และจะถามเรื่องแผนของไตรมาสหน้าด้วย";
+        let cut = "Please send the deck and budget to the marketing team before tomorrow morning, because the client wants to see all the figures before the";
+        assert_eq!(check_translation(src, cut), Ok(()));
+        let out = transform(&translate(src), &CutOff(cut));
+        assert_eq!((out.applied, out.flag.as_str()), (false, "unfinished"));
+        assert_eq!(out.text, src, "the transcript is pasted instead");
+        // The same words, ended by the model, are a translation.
+        assert!(transform(&translate(src), &Fixed(cut)).applied);
+        // So is an answer the model ended with a template marker before
+        // running on into the limit.
+        let out = transform(
+            &translate(src),
+            &CutOff(
+                "Please send the deck and budget to the marketing team before tomorrow morning.\nTHAI: ช่วยส่ง",
+            ),
+        );
+        assert!(out.applied, "{}", out.flag);
+        assert_eq!(
+            out.text,
+            "Please send the deck and budget to the marketing team before tomorrow morning."
+        );
     }
 
     #[test]

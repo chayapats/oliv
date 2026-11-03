@@ -73,14 +73,31 @@ actor ModelRuntime {
     /// translation) ask for more, up to this ceiling.
     static let maxGenerationTokens = 1024
 
-    private func generate(_ content: String, maxTokens: Int = 200) async throws -> String {
+    /// The answer and why generation stopped: "stop" when the model ended
+    /// it, "length" when it was still writing at `maxTokens` (the text is cut
+    /// off), "cancelled", or "unknown" when the stream gave no reason.
+    private func generate(_ content: String, maxTokens: Int = 200) async throws -> (text: String, stopReason: String) {
         let model = try await cleanupModel()
         let input = try await model.prepare(input: UserInput(prompt: content, additionalContext: ["enable_thinking": false]))
         let stream = try await model.generate(input: input, parameters: GenerateParameters(maxTokens: maxTokens, temperature: 0))
-        var text = ""
-        for await event in stream { if case .chunk(let chunk) = event { text += chunk } }
+        var text = "", stopReason = "unknown"
+        for await event in stream {
+            switch event {
+            case .chunk(let chunk): text += chunk
+            case .info(let info): stopReason = Self.name(info.stopReason)
+            default: break
+            }
+        }
         Memory.clearCache()
-        return text
+        return (text, stopReason)
+    }
+
+    static func name(_ reason: GenerateStopReason) -> String {
+        switch reason {
+        case .stop: "stop"
+        case .length: "length"
+        case .cancelled: "cancelled"
+        }
     }
 
     func handle(_ request: [String: Any]) async throws -> [String: Any] {
@@ -100,7 +117,10 @@ actor ModelRuntime {
         case "generate":
             guard let content = request["content"] as? String else { throw RuntimeError.invalidRequest }
             let maxTokens = min(max((request["max_tokens"] as? Int) ?? 200, 1), Self.maxGenerationTokens)
-            return ["ok": true, "generation": try await generate(content, maxTokens: maxTokens)]
+            // Voice editing refuses an answer that stopped for any reason but
+            // "stop" (transform_generation in oliv-sidecar); cleanup ignores it.
+            let generation = try await generate(content, maxTokens: maxTokens)
+            return ["ok": true, "generation": generation.text, "stop_reason": generation.stopReason]
         case "tokenize":
             guard let content = request["content"] as? String else { throw RuntimeError.invalidRequest }
             let model = try await cleanupModel()

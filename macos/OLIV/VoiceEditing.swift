@@ -214,6 +214,9 @@ struct VoiceEditResult: Equatable {
     /// The text that went to the pasteboard (history, undo bookkeeping).
     var pastedText: String?
     var notice: VoiceEditNotice?
+    /// What the pasted text was made from, kept with the Recent entry for
+    /// "Report a Wrong Result…". Set whenever `pastedText` is.
+    var edit: TranscriptLog.VoiceEdit?
 }
 
 enum VoiceEditRunner {
@@ -279,51 +282,58 @@ enum VoiceEditRunner {
         // field or window, or selected something else. Paste only over the
         // exact selection that was edited; otherwise, or when that can't be
         // confirmed, leave the edit on the clipboard (never restored over).
+        let edit = TranscriptLog.VoiceEdit(mode: .command, heard: instruction, selection: target.text,
+                                           applied: true, flag: result.flag)
         let check = job.reader.verify(target)
         if check != .same {
             injector.inject(result.text, mode: .clipboardOnly)
             return VoiceEditResult(outcome: .pasteNeedsManual, pastedText: result.text,
-                                   notice: clipboardNotice(check))
+                                   notice: clipboardNotice(check), edit: edit)
         }
         let outcome = DictationController.paste(result.text, with: injector)
         let undo = job.undoHint.map { " · \($0) undoes it" } ?? ""
         return VoiceEditResult(outcome: outcome, pastedText: result.text,
                                notice: outcome == .pastedOK
-                                   ? VoiceEditNotice(text: "Edited\(undo)", symbol: "wand.and.stars") : nil)
+                                   ? VoiceEditNotice(text: "Edited\(undo)", symbol: "wand.and.stars") : nil,
+                               edit: edit)
     }
 
     /// Translation: paste English for a Thai `transcript`. Never loses what
     /// was said: anything short of a good translation pastes the transcript.
     static func finishTranslation(transcript: String, job: VoiceEditJob,
                                               injector: TextInjector) -> VoiceEditResult {
-        func pasteOriginal(_ notice: VoiceEditNotice?) -> VoiceEditResult {
+        func edit(applied: Bool, flag: String) -> TranscriptLog.VoiceEdit {
+            TranscriptLog.VoiceEdit(mode: .translation, heard: transcript, selection: nil,
+                                    applied: applied, flag: flag)
+        }
+        func pasteOriginal(_ notice: VoiceEditNotice?, flag: String) -> VoiceEditResult {
             VoiceEditResult(outcome: DictationController.paste(transcript, with: injector),
-                            pastedText: transcript, notice: notice)
+                            pastedText: transcript, notice: notice, edit: edit(applied: false, flag: flag))
         }
         if job.block != nil {
             return pasteOriginal(VoiceEditNotice(text: "Translation is off in this app — pasted what you said",
-                                                 symbol: "globe"))
+                                                 symbol: "globe"), flag: "blocked")
         }
         guard job.modelReady, let transformer = job.transformer else {
             return pasteOriginal(VoiceEditNotice(
                 text: "Translation needs the on-device cleanup model — pasted what you said",
-                symbol: "arrow.down.circle"))
+                symbol: "arrow.down.circle"), flag: "noModel")
         }
         let result: TransformResult
         do {
             result = try transformer.transform(mode: .translate, instruction: "", text: transcript)
         } catch {
             return pasteOriginal(VoiceEditNotice(text: "Couldn’t translate — pasted what you said",
-                                                 symbol: "exclamationmark.triangle.fill"))
+                                                 symbol: "exclamationmark.triangle.fill"), flag: "llmError")
         }
         if result.applied {
             return VoiceEditResult(outcome: DictationController.paste(result.text, with: injector),
-                                   pastedText: result.text)
+                                   pastedText: result.text, edit: edit(applied: true, flag: result.flag))
         }
         // Already English: nothing to translate, nothing to report.
-        if result.flag == "noThai" { return pasteOriginal(nil) }
+        if result.flag == "noThai" { return pasteOriginal(nil, flag: result.flag) }
         return pasteOriginal(VoiceEditNotice(text: "Couldn’t translate that — pasted what you said",
-                                             symbol: "exclamationmark.triangle.fill"))
+                                             symbol: "exclamationmark.triangle.fill"), flag: result.flag)
     }
 
     /// Why an edit went to the clipboard instead of replacing the selection.

@@ -821,6 +821,9 @@ final class DictationController {
                         }
                         voiceResult = edit
                         pastedText = edit.pastedText
+                        // The report then shows the instruction, the selection
+                        // and the outcome, each under its own label.
+                        details?.voiceEdit = edit.edit
                         outcome = edit.outcome
                     } else {
                         outcome = text.isEmpty ? .nothingToDo : DictationController.paste(text, with: injector)

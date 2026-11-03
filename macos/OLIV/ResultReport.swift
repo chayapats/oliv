@@ -15,16 +15,28 @@ import Foundation
 struct ResultReport: Equatable {
     /// Issue-form field ids. Must match wrong-result.yml (a test checks).
     enum Field: String, CaseIterable {
-        case typed, raw, meant, engine, cleanup
+        case mode, source, instruction, typed, raw, meant, engine, cleanup
         case appVersion = "app-version"
         case osVersion = "os-version"
         case timing
     }
 
+    /// Which kind of result is reported; it decides the preview's labels.
+    enum Kind: Equatable { case dictation, command, translation }
+
     var title: String
-    /// What OLIV typed, exactly as pasted.
+    var kind: Kind = .dictation
+    /// "Dictation", or the voice-editing mode and what came of it.
+    var mode: String = ""
+    /// Command mode: the selected text it rewrote. Translation: the Thai that
+    /// was translated, after cleanup. Empty for dictation.
+    var source: String = ""
+    /// Command mode: the spoken instruction as heard, after cleanup.
+    var instruction: String = ""
+    /// What OLIV typed, exactly as pasted: the result of an edit.
     var typed: String
-    /// Speech-to-text output before cleanup and formatting.
+    /// Speech-to-text output before cleanup and formatting (of the instruction,
+    /// in Command mode).
     var raw: String
     /// What the user meant to say; they write this in the preview.
     var meant: String = ""
@@ -39,10 +51,13 @@ struct ResultReport: Equatable {
     /// GitHub refuses very long URLs; stay well under its limit.
     static let maxURLLength = 8_000
     /// Only these can be long; everything else is a short fixed label.
-    static let longFields: [Field] = [.typed, .raw, .meant]
+    static let longFields: [Field] = [.source, .instruction, .typed, .raw, .meant]
 
     func value(_ field: Field) -> String {
         switch field {
+        case .mode: return mode
+        case .source: return source
+        case .instruction: return instruction
         case .typed: return typed
         case .raw: return raw
         case .meant: return meant
@@ -144,16 +159,51 @@ extension ResultReport {
     static func mac(entry: TranscriptLog.Entry, appVersion: String, build: String,
                     macOSVersion: String) -> ResultReport {
         let details = entry.details
+        let edit = details?.voiceEdit
         let engine = details?.engineID.map(engineLabel) ?? ""
+        let kind: Kind = switch edit?.mode {
+        case nil: .dictation
+        case .command: .command
+        case .translation: .translation
+        }
+        // Cleanup ran on the instruction, or on the Thai before translating.
+        let cleanupOf = switch kind {
+        case .dictation: ""
+        case .command: "Instruction: "
+        case .translation: "Thai transcript: "
+        }
+        let titleMode = switch kind {
+        case .dictation: ""
+        case .command: " · Command mode"
+        case .translation: " · Translation"
+        }
         return ResultReport(
-            title: "[Wrong result] Mac" + (engine.isEmpty ? "" : " · \(engine)"),
+            title: "[Wrong result] Mac\(titleMode)" + (engine.isEmpty ? "" : " · \(engine)"),
+            kind: kind,
+            mode: details.map { modeLabel($0.voiceEdit) } ?? "",
+            source: edit?.selection ?? (kind == .translation ? edit?.heard ?? "" : ""),
+            instruction: kind == .command ? edit?.heard ?? "" : "",
             typed: entry.text,
             raw: details?.raw ?? "",
             engine: engine,
-            cleanup: details.map(cleanupLabel) ?? "",
+            cleanup: details.map { cleanupOf + cleanupLabel($0) } ?? "",
             appVersion: "OLIV \(appVersion) (build \(build)) · Mac",
             osVersion: "macOS " + macOSVersion.replacingOccurrences(of: "Version ", with: ""),
             timing: details.map(timingLabel) ?? "")
+    }
+
+    /// "Dictation", "Command mode · edit applied", "Translation (Thai →
+    /// English) · not translated (termLost), the transcript was pasted".
+    static func modeLabel(_ edit: TranscriptLog.VoiceEdit?) -> String {
+        guard let edit else { return "Dictation" }
+        let reason = edit.flag.isEmpty || edit.flag == "ok" ? "" : " (\(edit.flag))"
+        switch edit.mode {
+        case .command:
+            return edit.applied ? "Command mode · edit applied\(reason)" : "Command mode · not applied\(reason)"
+        case .translation:
+            return "Translation (Thai → English) · "
+                + (edit.applied ? "translated\(reason)" : "not translated\(reason), the transcript was pasted")
+        }
     }
 
     /// "On-device · Typhoon (typhoon-turbo-mlx)": the menu's label plus the id.

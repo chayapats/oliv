@@ -14,11 +14,34 @@ body:
         **รายงานนี้จะเป็นสาธารณะ** ทุกคนอ่านได้และค้นเจอผ่านเสิร์ชเอนจิน ก่อนส่ง ลบชื่อ เบอร์โทร ที่อยู่ รหัสผ่าน หรือเรื่องส่วนตัวอื่น ๆ ออกก่อน
 
         OLIV doesn't send reports by itself: nothing is posted until you press **Create** below. Recordings are never uploaded. Attach one only if a maintainer asks and you are happy for it to be public. Thai or English is fine.
+  - type: input
+    id: mode
+    attributes:
+      label: Mode
+      description: Dictation, Command mode or translation, and what came of it.
+    validations:
+      required: false
+  - type: textarea
+    id: instruction
+    attributes:
+      label: Instruction (heard)
+      description: Command mode only. What OLIV heard you ask for, after cleanup.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: source
+    attributes:
+      label: Selected text, or the Thai that was translated
+      description: Command mode, the text you selected. Translation, the Thai transcript that was translated (after cleanup). Leave blank for dictation.
+      render: text
+    validations:
+      required: false
   - type: textarea
     id: typed
     attributes:
       label: What OLIV typed
-      description: The finished text exactly as it was pasted. Leave blank if OLIV typed nothing.
+      description: The finished text exactly as it was pasted; for Command mode or translation, the result. Leave blank if OLIV typed nothing.
       render: text
     validations:
       required: false
@@ -26,7 +49,7 @@ body:
     id: raw
     attributes:
       label: Raw transcript
-      description: What speech-to-text heard, before cleanup and formatting. Leave blank if you don't have it.
+      description: What speech-to-text heard, before cleanup and formatting (in Command mode, the spoken instruction). Leave blank if you don't have it.
       render: text
     validations:
       required: false
@@ -49,7 +72,7 @@ body:
     id: cleanup
     attributes:
       label: Cleanup
-      description: Whether cleanup was on, and whether the language model ran.
+      description: Whether cleanup was on, and whether the language model ran (in Command mode, on the instruction).
     validations:
       required: false
   - type: input

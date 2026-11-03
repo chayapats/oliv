@@ -5,8 +5,9 @@
 // defaults/backups. Retention is deliberately tiny (10 entries): this is a
 // "grab back what I just dictated" convenience, not a transcript archive.
 // Each entry also carries what "Report a Wrong Result…" needs (raw transcript,
-// engine, cleanup decision, timing) — still memory-only, gone on quit. Audio is
-// never kept.
+// engine, cleanup decision, timing, and for Command mode or translation the
+// instruction, the selected text and the outcome) — still memory-only, gone on
+// quit. Audio is never kept.
 
 import Foundation
 
@@ -31,6 +32,29 @@ struct TranscriptLog {
         var sttSeconds: Double = 0
         var cleanupSeconds: Double = 0
         var audioSeconds: Double = 0
+        /// Set for a Command mode or translation result. `raw` and the cleanup
+        /// fields above then describe the spoken instruction (Command mode) or
+        /// the Thai that was translated, not the text that was typed.
+        var voiceEdit: VoiceEdit?
+    }
+
+    /// What a Command mode or translation result was made from, and how it
+    /// went. Fixed codes and the user's own text only, like the rest.
+    struct VoiceEdit: Equatable {
+        enum Mode: Equatable { case command, translation }
+        var mode: Mode
+        /// The transcript the edit worked from, after cleanup: the spoken
+        /// instruction (Command mode) or the Thai that was translated.
+        var heard: String
+        /// The selected text Command mode rewrote; nil for translation.
+        var selection: String?
+        /// The new text was used: the selection was replaced (or the edit left
+        /// on the clipboard), or the English was pasted.
+        var applied: Bool
+        /// The transform's code ("ok", or why it kept the text, e.g.
+        /// "termLost" or "unfinished"), or the app's own reason it didn't run:
+        /// "blocked", "noModel", "llmError".
+        var flag: String
     }
 
     struct Entry: Identifiable, Equatable {

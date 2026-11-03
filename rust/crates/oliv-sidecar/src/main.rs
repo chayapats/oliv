@@ -75,7 +75,7 @@ impl Llm for ModelLlm<'_> {
     }
 }
 impl transform::Generate for ModelLlm<'_> {
-    fn generate(&self, content: &str, max_tokens: u32) -> Result<String, LlmError> {
+    fn generate(&self, content: &str, max_tokens: u32) -> Result<transform::Generation, LlmError> {
         let start = Instant::now();
         let reply = self.inference.request(
             json!({"cmd":"generate","content":content,"max_tokens":max_tokens}),
@@ -84,13 +84,21 @@ impl transform::Generate for ModelLlm<'_> {
         );
         self.seconds
             .set(self.seconds.get() + start.elapsed().as_secs_f64());
-        reply
-            .map_err(LlmError)?
-            .get("generation")
-            .and_then(Value::as_str)
-            .map(str::to_string)
-            .ok_or_else(|| LlmError("Invalid generation reply".into()))
+        transform_generation(&reply.map_err(LlmError)?)
     }
+}
+/// The native runtime's `generate` reply. Only `stop_reason: "stop"` (the
+/// model ended its answer) is a finished answer: `"length"` hit `max_tokens`,
+/// and a missing or other reason can't vouch for the end either.
+fn transform_generation(reply: &Value) -> Result<transform::Generation, LlmError> {
+    let text = reply
+        .get("generation")
+        .and_then(Value::as_str)
+        .ok_or_else(|| LlmError("Invalid generation reply".into()))?;
+    Ok(transform::Generation {
+        text: text.to_string(),
+        finished: reply["stop_reason"] == "stop",
+    })
 }
 /// A transform may generate up to `transform::MAX_GENERATION_TOKENS`, and the
 /// first one may also load the cleanup model (not pre-warmed with the OLIV
@@ -461,15 +469,72 @@ mod tests {
 
     struct Answer(&'static str);
     impl transform::Generate for Answer {
-        fn generate(&self, _: &str, _: u32) -> Result<String, LlmError> {
-            Ok(self.0.to_string())
+        fn generate(&self, _: &str, _: u32) -> Result<transform::Generation, LlmError> {
+            Ok(transform::Generation::finished(self.0))
         }
     }
     struct Down;
     impl transform::Generate for Down {
-        fn generate(&self, _: &str, _: u32) -> Result<String, LlmError> {
+        fn generate(&self, _: &str, _: u32) -> Result<transform::Generation, LlmError> {
             Err(LlmError("Inference runtime not configured".into()))
         }
+    }
+    /// The runtime's reply for `max_tokens`, as `transform_generation` reads it.
+    struct Runtime(Value);
+    impl transform::Generate for Runtime {
+        fn generate(&self, _: &str, _: u32) -> Result<transform::Generation, LlmError> {
+            transform_generation(&self.0)
+        }
+    }
+
+    #[test]
+    fn an_answer_that_hit_the_token_limit_keeps_the_text() {
+        let answer = "รบกวนส่งไฟล์ deck มาให้หน่อยนะครับ";
+        let read = |reply: Value| transform_generation(&reply).unwrap().finished;
+        assert!(read(json!({"generation": answer, "stop_reason": "stop"})));
+        assert!(!read(
+            json!({"generation": answer, "stop_reason": "length"})
+        ));
+        assert!(!read(
+            json!({"generation": answer, "stop_reason": "cancelled"})
+        ));
+        assert!(
+            !read(json!({"generation": answer})),
+            "no reason, no vouching for the end"
+        );
+        assert!(transform_generation(&json!({"stop_reason": "stop"})).is_err());
+
+        let text = "ส่งไฟล์ deck มาด่วนเลย";
+        for (mode, instruction) in [("command", "ทำให้สุภาพขึ้น"), ("translate", "")]
+        {
+            let request =
+                json!({"cmd":"transform","mode":mode,"instruction":instruction,"text":text});
+            let reply = transform_reply(
+                &request,
+                &Runtime(json!({"generation": answer, "stop_reason": "length"})),
+            )
+            .unwrap();
+            assert_eq!(
+                (
+                    reply["applied"].clone(),
+                    reply["flag"].clone(),
+                    reply["text"].clone()
+                ),
+                (json!(false), json!("unfinished"), json!(text)),
+                "{mode}"
+            );
+        }
+        let request =
+            json!({"cmd":"transform","mode":"command","instruction":"ทำให้สุภาพขึ้น","text":text});
+        let reply = transform_reply(
+            &request,
+            &Runtime(json!({"generation": answer, "stop_reason": "stop"})),
+        )
+        .unwrap();
+        assert_eq!(
+            (reply["applied"].clone(), reply["text"].clone()),
+            (json!(true), json!(answer))
+        );
     }
 
     #[test]

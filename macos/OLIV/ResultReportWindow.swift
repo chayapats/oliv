@@ -10,6 +10,8 @@ import SwiftUI
 /// check that nothing leaves before `submit()`.
 @MainActor
 final class ResultReportDraft: ObservableObject {
+    @Published var source: String
+    @Published var instruction: String
     @Published var typed: String
     @Published var raw: String
     @Published var meant: String
@@ -18,6 +20,8 @@ final class ResultReportDraft: ObservableObject {
 
     init(report: ResultReport, open: @escaping (URL) -> Void) {
         base = report
+        source = report.source
+        instruction = report.instruction
         typed = report.typed
         raw = report.raw
         meant = report.meant
@@ -27,6 +31,8 @@ final class ResultReportDraft: ObservableObject {
     /// The report as currently edited.
     var report: ResultReport {
         var report = base
+        report.source = source
+        report.instruction = instruction
         report.typed = typed
         report.raw = raw
         report.meant = meant
@@ -60,11 +66,28 @@ struct ResultReportView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
 
-            editor("What OLIV typed", text: $draft.typed)
-            editor("Raw transcript, before cleanup", text: $draft.raw)
-            editor("What you meant to say (optional)", text: $draft.meant)
+            // Each part of an edit under its own label: what was selected (or
+            // translated), what was asked, and what came of it.
+            switch draft.base.kind {
+            case .dictation:
+                editor("What OLIV typed", text: $draft.typed)
+                editor("Raw transcript, before cleanup", text: $draft.raw)
+                editor("What you meant to say (optional)", text: $draft.meant)
+            case .command:
+                editor("Selected text", text: $draft.source, compact: true)
+                editor("Instruction (heard)", text: $draft.instruction, compact: true)
+                editor("Result: what OLIV typed", text: $draft.typed, compact: true)
+                editor("Raw transcript of the instruction, before cleanup", text: $draft.raw, compact: true)
+                editor("What you expected (optional)", text: $draft.meant, compact: true)
+            case .translation:
+                editor("Thai that was translated", text: $draft.source, compact: true)
+                editor("Result: what OLIV typed", text: $draft.typed, compact: true)
+                editor("Raw transcript, before cleanup", text: $draft.raw, compact: true)
+                editor("What you expected (optional)", text: $draft.meant, compact: true)
+            }
 
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
+                detail("Mode", draft.base.mode)
                 detail("Engine", draft.base.engine)
                 detail("Cleanup", draft.base.cleanup)
                 detail("App", draft.base.appVersion)
@@ -99,13 +122,14 @@ struct ResultReportView: View {
         .frame(width: 540)
     }
 
-    private func editor(_ title: LocalizedStringKey, text: Binding<String>) -> some View {
+    /// `compact`: an edit's report has more boxes; keep the window on screen.
+    private func editor(_ title: LocalizedStringKey, text: Binding<String>, compact: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.callout.weight(.medium))
             TextEditor(text: text)
                 .font(.body)
-                .frame(minHeight: 52, maxHeight: 110)
+                .frame(minHeight: compact ? 40 : 52, maxHeight: compact ? 76 : 110)
                 .scrollContentBackground(.hidden)
                 .padding(4)
                 .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 6))

@@ -17,8 +17,9 @@ Sparkle appcast's release notes, so keep entries short and end-user readable.
   Result**; on iPhone, use the button under a result or in History. You see
   and edit the report first, then it opens as a prefilled GitHub issue in your
   browser. Issues are public, so remove anything private; OLIV sends nothing
-  itself and never attaches audio. On iPhone, a recording that failed to send
-  can now be shared from its card.
+  itself and never attaches audio. A report about a Command mode edit or a
+  translation also shows the text you selected and what you asked for. On
+  iPhone, a recording that failed to send can now be shared from its card.
 - **Volume no longer stays low when headphones connect or disconnect while you
   dictate.** With "Lower other audio while dictating" on, AirPods or other
   headphones that drop out mid-dictation get your volume back as soon as they

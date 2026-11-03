@@ -39,6 +39,87 @@ final class ResultReportTests: XCTestCase {
         XCTAssertEqual(report.osVersion, "macOS 15.6 (Build 24G84)")
         XCTAssertEqual(report.timing, "4.2 s audio · speech-to-text 0.8 s · cleanup 0.6 s")
         XCTAssertEqual(report.title, "[Wrong result] Mac · On-device · Typhoon (typhoon-turbo-mlx)")
+        XCTAssertEqual(report.kind, .dictation)
+        XCTAssertEqual(report.mode, "Dictation")
+        XCTAssertEqual(report.source, "")
+        XCTAssertEqual(report.instruction, "")
+    }
+
+    // MARK: Command mode and translation
+
+    /// A Command mode result: the instruction's transcript is not "what was
+    /// said" and the edit is not a dictation, so each part has its own field.
+    func testCommandModeReportSeparatesSelectionInstructionAndResult() {
+        var edit = details
+        edit.raw = "เอ่อ ทำให้สุภาพขึ้น"
+        edit.voiceEdit = TranscriptLog.VoiceEdit(mode: .command, heard: "ทำให้สุภาพขึ้น",
+                                                 selection: "ส่งไฟล์ deck มาด่วน", applied: true, flag: "ok")
+        let report = report(text: "รบกวนส่งไฟล์ deck มาให้หน่อยครับ", details: edit)
+        XCTAssertEqual(report.kind, .command)
+        XCTAssertEqual(report.mode, "Command mode · edit applied")
+        XCTAssertEqual(report.source, "ส่งไฟล์ deck มาด่วน")
+        XCTAssertEqual(report.instruction, "ทำให้สุภาพขึ้น")
+        XCTAssertEqual(report.typed, "รบกวนส่งไฟล์ deck มาให้หน่อยครับ")
+        XCTAssertEqual(report.raw, "เอ่อ ทำให้สุภาพขึ้น")
+        XCTAssertEqual(report.cleanup, "Instruction: On · language model ran (dict-hit) · guardrail ok")
+        XCTAssertEqual(report.title, "[Wrong result] Mac · Command mode · On-device · Typhoon (typhoon-turbo-mlx)")
+        let values = query(report.url)
+        XCTAssertEqual(values["mode"], "Command mode · edit applied")
+        XCTAssertEqual(values["source"], "ส่งไฟล์ deck มาด่วน")
+        XCTAssertEqual(values["instruction"], "ทำให้สุภาพขึ้น")
+        XCTAssertEqual(values["typed"], "รบกวนส่งไฟล์ deck มาให้หน่อยครับ")
+    }
+
+    func testTranslationReportSaysWhatWasTranslatedAndHowItWent() {
+        let thai = "เดี๋ยวผม deploy ตัว hotfix ตอนห้าโมง"
+        var translated = details
+        translated.voiceEdit = TranscriptLog.VoiceEdit(mode: .translation, heard: thai, selection: nil,
+                                                       applied: true, flag: "ok")
+        var report = report(text: "I'll deploy the hotfix at 5 p.m.", details: translated)
+        XCTAssertEqual(report.kind, .translation)
+        XCTAssertEqual(report.mode, "Translation (Thai → English) · translated")
+        XCTAssertEqual(report.source, thai)
+        XCTAssertEqual(report.instruction, "")
+        XCTAssertEqual(report.cleanup, "Thai transcript: On · language model ran (dict-hit) · guardrail ok")
+        XCTAssertEqual(report.title, "[Wrong result] Mac · Translation · On-device · Typhoon (typhoon-turbo-mlx)")
+        XCTAssertNil(query(report.url)["instruction"], "Command mode only")
+        // Cut off at the token limit: the transcript was pasted instead.
+        translated.voiceEdit?.applied = false
+        translated.voiceEdit?.flag = "unfinished"
+        report = self.report(text: thai, details: translated)
+        XCTAssertEqual(report.mode, "Translation (Thai → English) · not translated (unfinished), the transcript was pasted")
+        XCTAssertEqual(ResultReport.modeLabel(TranscriptLog.VoiceEdit(
+            mode: .command, heard: "สั้นลง", selection: "x", applied: false, flag: "unfinished")),
+            "Command mode · not applied (unfinished)")
+    }
+
+    func testEditsInThePreviewReachTheLink() {
+        var edit = details
+        edit.voiceEdit = TranscriptLog.VoiceEdit(mode: .command, heard: "สั้นลง",
+                                                 selection: "พรุ่งนี้นัดคุณสมชายที่บ้าน", applied: true, flag: "ok")
+        var opened: [URL] = []
+        let draft = ResultReportDraft(report: report(details: edit), open: { opened.append($0) })
+        draft.source = "พรุ่งนี้นัด [ลบชื่อแล้ว]"
+        draft.instruction = "สั้นลงหน่อย"
+        draft.submit()
+        let values = query(opened[0])
+        XCTAssertEqual(values["source"], "พรุ่งนี้นัด [ลบชื่อแล้ว]", "the user can take private text out of the selection")
+        XCTAssertEqual(values["instruction"], "สั้นลงหน่อย")
+    }
+
+    func testALongSelectionIsCutToFitWithTheResult() {
+        let long = String(repeating: "ภาษาไทยยาวมาก ", count: 140)   // 1,960 characters
+        var edit = details
+        edit.voiceEdit = TranscriptLog.VoiceEdit(mode: .command, heard: "สรุปเป็น bullet",
+                                                 selection: long, applied: true, flag: "ok")
+        let report = report(text: long, details: edit)
+        XCTAssertEqual(report.fitted().truncated, [.source, .typed])
+        let url = report.url
+        XCTAssertLessThanOrEqual(url.absoluteString.count, ResultReport.maxURLLength)
+        let values = query(url)
+        XCTAssertEqual(values["instruction"], "สรุปเป็น bullet", "a short field keeps all of its text")
+        XCTAssertEqual(values["mode"], "Command mode · edit applied")
+        XCTAssertTrue(values["source"]?.contains("… [truncated by OLIV: ") == true)
     }
 
     func testCleanupDescribesWhatHappened() {
@@ -90,6 +171,8 @@ final class ResultReportTests: XCTestCase {
         for field in ResultReport.Field.allCases {
             XCTAssertTrue(ids.contains(field.rawValue), "wrong-result.yml has no field \(field.rawValue)")
         }
+        // ...and the Mac fills every field but the user's own notes.
+        XCTAssertEqual(ids.subtracting(ResultReport.Field.allCases.map(\.rawValue)), ["extra"])
     }
 
     // MARK: URL

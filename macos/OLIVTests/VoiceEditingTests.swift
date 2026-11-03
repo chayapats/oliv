@@ -218,19 +218,27 @@ final class VoiceEditingTests: XCTestCase {
         XCTAssertEqual(transformer.calls.all.first?.2, "ส่งไฟล์ deck มาด่วน")
         XCTAssertEqual(result.notice?.text, "Edited · Control + Shift + Z undoes it")
         XCTAssertEqual(pasteboard.string(forType: .string), "the user's clipboard")
+        // Kept with the Recent entry, for a wrong-result report.
+        XCTAssertEqual(result.edit, TranscriptLog.VoiceEdit(
+            mode: .command, heard: "ทำให้สุภาพขึ้น", selection: "ส่งไฟล์ deck มาด่วน", applied: true, flag: "ok"))
     }
 
     func testARejectedOrFailedTransformLeavesTheOriginalUntouched() {
         let target = SelectionCapture(text: "ทำไม build พัง", source: .copy, focus: ax.focusSnapshot())
-        for transformer in [
-            FakeTransformer { _, _, text in TransformResult(applied: false, text: text, flag: "answered") },
-            FakeTransformer { _, _, _ in throw ModelDown() },
+        let unsure = "OLIV wasn’t sure about that edit — your text is unchanged"
+        for (transformer, notice) in [
+            (FakeTransformer { _, _, text in TransformResult(applied: false, text: text, flag: "answered") }, unsure),
+            // Cut off at the token limit (rust/crates/oliv-text/src/transform.rs).
+            (FakeTransformer { _, _, text in TransformResult(applied: false, text: text, flag: "unfinished") }, unsure),
+            (FakeTransformer { _, _, _ in throw ModelDown() },
+             "Couldn’t reach the on-device model — your text is unchanged"),
         ] {
             let result = VoiceEditRunner.finishCommand(instruction: "ทำให้สุภาพขึ้น", target: target,
                                                        job: job(transformer: transformer), injector: injector())
             XCTAssertEqual(result.outcome, .nothingToDo)
             XCTAssertNil(result.pastedText)
-            XCTAssertTrue(result.notice?.text.contains("unchanged") == true)
+            XCTAssertNil(result.edit, "nothing landed, so nothing goes to Recent")
+            XCTAssertEqual(result.notice?.text, notice)
         }
         XCTAssertTrue(pastes.all.isEmpty, "nothing was pasted over the selection")
         XCTAssertEqual(pasteboard.string(forType: .string), "the user's clipboard")
@@ -373,6 +381,8 @@ final class VoiceEditingTests: XCTestCase {
             injector: injector())
         XCTAssertEqual(result.pastedText, "I'll deploy the hotfix at 5 p.m.")
         XCTAssertNil(result.notice)
+        XCTAssertEqual(result.edit, TranscriptLog.VoiceEdit(
+            mode: .translation, heard: thai, selection: nil, applied: true, flag: "ok"))
         result = VoiceEditRunner.finishTranslation(
             transcript: thai,
             job: job(.translate, transformer: FakeTransformer { _, _, text in
@@ -380,6 +390,17 @@ final class VoiceEditingTests: XCTestCase {
             injector: injector())
         XCTAssertEqual(result.pastedText, thai, "never loses what was said")
         XCTAssertNotNil(result.notice)
+        XCTAssertEqual(result.edit, TranscriptLog.VoiceEdit(
+            mode: .translation, heard: thai, selection: nil, applied: false, flag: "termLost"))
+        // Cut off at the token limit: the transcript, never half a translation.
+        result = VoiceEditRunner.finishTranslation(
+            transcript: thai,
+            job: job(.translate, transformer: FakeTransformer { _, _, text in
+                TransformResult(applied: false, text: text, flag: "unfinished") }),
+            injector: injector())
+        XCTAssertEqual(result.pastedText, thai)
+        XCTAssertEqual(result.notice?.text, "Couldn’t translate that — pasted what you said")
+        XCTAssertEqual(result.edit?.flag, "unfinished")
         result = VoiceEditRunner.finishTranslation(
             transcript: "Let's sync after lunch",
             job: job(.translate, transformer: FakeTransformer { _, _, text in
@@ -392,7 +413,9 @@ final class VoiceEditingTests: XCTestCase {
                 XCTFail("verbatim apps are never translated"); throw ModelDown() }),
             injector: injector())
         XCTAssertEqual(result.pastedText, thai)
-        XCTAssertEqual(pastes.all, ["I'll deploy the hotfix at 5 p.m.", thai, "Let's sync after lunch", thai])
+        XCTAssertEqual(result.edit, TranscriptLog.VoiceEdit(
+            mode: .translation, heard: thai, selection: nil, applied: false, flag: "blocked"))
+        XCTAssertEqual(pastes.all, ["I'll deploy the hotfix at 5 p.m.", thai, thai, "Let's sync after lunch", thai])
     }
 
     // MARK: Policy and settings
@@ -489,6 +512,8 @@ final class VoiceEditingTests: XCTestCase {
 final class CommandModeControllerTests: XCTestCase {
     private var pasteboard: NSPasteboard!
     private var client: SidecarClient!
+    /// The last controller's state (its Recent entries).
+    private var state: AppState!
 
     override func setUpWithError() throws {
         pasteboard = NSPasteboard(name: NSPasteboard.Name("com.oliv.test.command.\(UUID().uuidString)"))
@@ -518,6 +543,7 @@ final class CommandModeControllerTests: XCTestCase {
         injector.cmdVPoster = { pastes.append(pasteboard.string(forType: .string) ?? ""); return true }
         injector.cmdZPoster = { undos.append(1); return true }
         let state = AppState()
+        self.state = state
         let controller = DictationController(appState: state, injector: injector, captureWorker: worker)
         controller.sidecar = client
         controller.cleanupModelReady = { true }
@@ -651,6 +677,34 @@ final class CommandModeControllerTests: XCTestCase {
         XCTAssertEqual(undos.all.count, 1, "undo-last-paste sends ⌘Z, restoring the original in the host app")
         XCTAssertFalse(controller.hasUndoablePaste)
         XCTAssertEqual(pasteboard.string(forType: .string), "the user's clipboard")
+    }
+
+    /// A wrong-result report about an edit needs what was selected and what
+    /// was asked, not only the instruction's transcript.
+    func testRecentEntriesKeepWhatAnEditWasMadeFrom() async throws {
+        let pastes = Log<String>(), undos = Log<Int>(), copies = Log<Int>()
+        _ = await run(.command, selection: "ส่งไฟล์มาด่วน", pastes: pastes, undos: undos, copies: copies)
+        var entry = try XCTUnwrap(state.transcripts.entries.first)
+        XCTAssertEqual(entry.text, "[command|Hello world.] ส่งไฟล์มาด่วน")
+        XCTAssertEqual(entry.details?.raw, "hello world", "the instruction, before cleanup")
+        XCTAssertEqual(entry.details?.voiceEdit, TranscriptLog.VoiceEdit(
+            mode: .command, heard: "Hello world.", selection: "ส่งไฟล์มาด่วน", applied: true, flag: "ok"))
+        let report = ResultReport.mac(entry: entry, appVersion: "0.2.2", build: "19", macOSVersion: "15.6")
+        XCTAssertEqual(report.source, "ส่งไฟล์มาด่วน")
+        XCTAssertEqual(report.instruction, "Hello world.")
+        XCTAssertEqual(report.mode, "Command mode · edit applied")
+
+        _ = await run(.translate, selection: nil, pastes: pastes, undos: undos, copies: copies)
+        entry = try XCTUnwrap(state.transcripts.entries.first)
+        XCTAssertEqual(entry.text, "[translate|] Hello world.")
+        XCTAssertEqual(entry.details?.voiceEdit, TranscriptLog.VoiceEdit(
+            mode: .translation, heard: "Hello world.", selection: nil, applied: true, flag: "ok"))
+
+        _ = await run(.dictate, selection: nil, pastes: pastes, undos: undos, copies: copies)
+        entry = try XCTUnwrap(state.transcripts.entries.first)
+        XCTAssertEqual(entry.text, "Hello world.")
+        XCTAssertNotNil(entry.details)
+        XCTAssertNil(entry.details?.voiceEdit)
     }
 
     func testARejectedEditNeverPastes() async {
