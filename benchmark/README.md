@@ -10,7 +10,7 @@
 **The numbers on the OLIV site come from this CLI, and you can run it on your own recordings.**<br>
 Rust + native MLX, the same pipeline the app ships. No Python, no Torch, no pip.
 
-[Interactive results](https://chayapats.github.io/oliv/) · [OLIV vs Wispr Flow](https://chayapats.github.io/oliv/oliv-vs-wispr.html) · [Thai ContextASR Bench](contextasr.md) · [Main README](../README.md)
+[Interactive results](https://chayapats.github.io/oliv/) · [OLIV vs Wispr Flow](https://chayapats.github.io/oliv/oliv-vs-wispr.html) · [Thai ContextASR Bench](contextasr.md) · [Apple dictation vs OLIV](dictation-transcriber.md) · [Main README](../README.md)
 
 </div>
 
@@ -98,6 +98,15 @@ excluded from the default offline sweep.
 `oliv-dev contextasr` runs the public Thai ContextASR Bench (contextual biasing
 with mixed Thai/Latin vocabulary lists) through the same sidecar; see
 [contextasr.md](contextasr.md) for setup, metrics, scorer parity and results.
+
+## Apple's on-device dictation
+
+[dictation-transcriber.md](dictation-transcriber.md) compares macOS's
+`SpeechAnalyzer` + `DictationTranscriber` (Thai, on the Neural Engine) with
+OLIV on the same clips and scorer. The harness is the Swift tool in
+`tools/apple-dictation`, which writes results `oliv-dev score`, `semantic`,
+`eval --replay` and `contextasr score|run --stt-replay` read;
+`run_dictation_transcriber.sh` re-runs every table.
 
 ## Other voices
 
