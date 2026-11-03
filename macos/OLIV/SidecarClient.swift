@@ -298,14 +298,15 @@ final class SidecarClient {
                  vocabulary: [String] = [],
                  formatCommands: Bool = false,
                  thaiFormat: Bool = false,
-                 dictionary: [DictionaryEntry] = []) throws -> DictationResult {
+                 dictionary: [DictionaryEntry] = [],
+                 screenText: [String] = []) throws -> DictationResult {
         let data = samples.withUnsafeBufferPointer { Data(buffer: $0) }
         let body = Self.dictateBody(
             engine: engine ?? self.engine, pcmB64: data.base64EncodedString(),
             cleanup: cleanup, removeFillers: removeFillers,
             replacements: replacements, vocabulary: vocabulary,
             formatCommands: formatCommands, thaiFormat: thaiFormat,
-            dictionary: dictionary)
+            dictionary: dictionary, screenText: screenText)
         let reply = try exchange(body, timeout: SidecarClient.dictateTimeout)
         return DictationResult(
             raw: reply["raw"] as? String ?? "",
@@ -724,7 +725,8 @@ extension SidecarClient {
                                         vocabulary: [String] = [],
                                         formatCommands: Bool = false,
                                         thaiFormat: Bool = false,
-                                        dictionary: [DictionaryEntry] = []) -> [String: Any] {
+                                        dictionary: [DictionaryEntry] = [],
+                                        screenText: [String] = []) -> [String: Any] {
         var body: [String: Any] = [
             "cmd": "dictate",
             "engine": engine,
@@ -741,6 +743,8 @@ extension SidecarClient {
         if thaiFormat { body["thai_format"] = true }
         let wire = dictionaryWireEntries(dictionary)
         if !wire.isEmpty { body["dictionary"] = wire }
+        // Names on screen, only with cleanup (the matcher runs inside it).
+        if cleanup, !screenText.isEmpty { body["screen_text"] = screenText }
         return body
     }
 }

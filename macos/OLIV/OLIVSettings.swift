@@ -46,6 +46,7 @@ final class OLIVSettings: ObservableObject {
         static let autoLearnCandidates = "oliv.autoLearnCandidates" // inbox JSON [AutoLearnCandidate]
         static let formatCommands = "oliv.formatCommands" // B4 spoken formatting-command toggle
         static let thaiFormat = "oliv.thaiFormat"         // Thai number/reduplication post-pass toggle
+        static let screenNames = "oliv.screenNames"       // names-on-screen toggle (default off)
         static let historyEnabled = "oliv.historyEnabled" // 0.1.5 recent-transcripts toggle
         static let micDevice = "oliv.micDevice"           // MicSelection sentinel or a device UID
         static let echoCancellation = "oliv.echoCancellation" // 0.1.10 AEC toggle
@@ -245,6 +246,13 @@ final class OLIVSettings: ObservableObject {
         didSet { defaults.set(thaiFormat, forKey: Key.thaiFormat); onChange?() }
     }
 
+    /// Names on screen: at push-to-talk, read the focused window's text so
+    /// this dictation spells the names in it (Accessibility, in memory only,
+    /// on-device cleanup only). Default OFF — opt-in.
+    @Published var screenNames: Bool {
+        didSet { defaults.set(screenNames, forKey: Key.screenNames); onChange?() }
+    }
+
     /// 0.1.5: keep the last few transcripts in the menu's "Recent…" submenu.
     /// Default ON. The retained entries live ONLY in memory (TranscriptLog);
     /// this toggle gates recording, and the coordinator clears what's retained
@@ -363,6 +371,7 @@ final class OLIVSettings: ObservableObject {
         autoLearnCandidates = []
         formatCommands = defaults.object(forKey: Key.formatCommands) as? Bool ?? false
         thaiFormat = defaults.object(forKey: Key.thaiFormat) as? Bool ?? true   // default ON
+        screenNames = defaults.object(forKey: Key.screenNames) as? Bool ?? false
         historyEnabled = defaults.object(forKey: Key.historyEnabled) as? Bool ?? true
         micDevice = defaults.string(forKey: Key.micDevice) ?? MicSelection.builtIn
         echoCancellation = defaults.object(forKey: Key.echoCancellation) as? Bool ?? true

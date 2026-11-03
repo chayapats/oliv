@@ -33,6 +33,7 @@ struct CleanupSettingsView: View {
                                    icon: "info.circle", warning: true)
                 }
             }
+            ScreenNamesSettingsCard()
             SettingsCard(title: "Keep these apps verbatim", icon: "app.badge", subtitle: "Bypass cleanup in selected apps, such as terminals or code editors.") {
                 if settings.verbatimApps.isEmpty {
                     SettingsEmptyState(icon: "app", title: "No app exceptions", detail: "When cleanup is enabled, it applies everywhere. Add an app to keep its transcripts raw.")

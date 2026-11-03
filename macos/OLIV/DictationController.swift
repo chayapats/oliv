@@ -93,6 +93,12 @@ final class DictationController {
     /// the revision a dictation used. Wired by the coordinator.
     weak var dictionarySync: DictionarySync?
 
+    /// Names on screen (Settings, default OFF): read the focused window at
+    /// press so this dictation spells the names in it. See ScreenContext.
+    var screenNames: Bool = false
+    /// This press's capture, taken (or dropped) at release.
+    var screenCapture: ScreenContextCapture?
+
     /// Thai formatting post-pass (Settings default ON): collapse repeated words
     /// to ๆ and write spoken numbers from ten up as digits. Sent per-dictate,
     /// but only when cleanup is EFFECTIVE for this utterance — verbatim apps and
@@ -548,6 +554,7 @@ final class DictationController {
         warmingGeneration &+= 1
         processingTask?.cancel()
         processingTask = nil
+        dropScreenCapture()
         let request = captureRequest
         captureRequest = nil
         request?.cancel()
@@ -616,6 +623,8 @@ final class DictationController {
                 self?.captureDidStart(result, request: request, generation: generation)
             }
         }
+        // After the mic is on its way: reading the screen never delays it.
+        startScreenCapture()
     }
 
     private func captureDidStart(_ result: Result<Void, Error>, request: CaptureStartRequest,
@@ -634,6 +643,7 @@ final class DictationController {
             NSLog("OLIV DictationController: audio start failed (\(error)) — returning to idle")
             appState.status = .idle
             captureRequest = nil
+            dropScreenCapture()
             recordingEngine = nil
             appState.activeEngineID = nil
             // Ungated by showHUD, like every other failure notice here: turning the
@@ -681,6 +691,7 @@ final class DictationController {
             appState.status = .idle
             appState.activeEngineID = nil
             recordingEngine = nil
+            dropScreenCapture()
             hud?.hide()
             return
         }
@@ -712,6 +723,8 @@ final class DictationController {
         }
         let captureSeconds = Self.captureSeconds(for: engine)
         let trial = engine == CloudTrial.engineID
+        let screenCapture = self.screenCapture
+        self.screenCapture = nil
         // Resolve cleanup ONCE, here at release (main actor), against the app the
         // user actually dictated into — NOT at paste time (see frontmostBundleID
         // / app/dictation.py). A per-app verbatim entry passes cleanup:false so
@@ -797,6 +810,10 @@ final class DictationController {
                 outcome = deviceLive || captured.cancelledBeforeStart ? .nothingToDo : .micNotReady
             } else if let provider = provider {
                 do {
+                    // Names on screen: only a walk that finished while the
+                    // user spoke; otherwise this dictation goes without.
+                    var options = options
+                    options.screenText = screenCapture?.take() ?? []
                     let result = try await provider.dictate(samples: samples, options: options)
                     guard !Task.isCancelled else { return }
                     dictionaryRevision = result.dictionaryRevision
@@ -871,6 +888,7 @@ final class DictationController {
             } else {
                 outcome = .nothingToDo
             }
+            screenCapture?.cancel()   // not taken on these paths: stop the walk
 
             // Freeze the worker-local vars for the Sendable hop below (a captured
             // var in concurrent code is a Swift-6 error). The weak `self` binding

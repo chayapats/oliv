@@ -107,6 +107,7 @@ OLIV 0.2.0 removed Python from the app. Text processing and API requests use a s
 | **Dictionary** | Your names, acronyms and jargon guide recognition; add a correction to turn what you say into exact text ("อีเมลของผม" → `me@example.com`). Thai entries also fix near-miss spellings (บางแคร์ → บางแค). Star the words that matter most, import/export CSV, and with the OLIV API it syncs to your other devices. |
 | **Command mode** | Select text, hold a shortcut and say what to change: "ทำให้สุภาพขึ้น" (more polite), "สรุปเป็น bullet", "เขียนเป็นอีเมล". OLIV rewrites it on your Mac and replaces the selection; undo puts the original back. Off by default. |
 | **Speak Thai, type English** | Make your secondary shortcut, or apps you choose, turn Thai dictation into natural English. Names, product names and code terms stay as they are. Off by default. |
+| **Names on screen** | Optional, off by default. When you start dictating, OLIV reads the window you're typing into and spells the names and terms it shows, for that dictation only. Password fields, password managers and verbatim apps are skipped, and your Dictionary always wins. Works with on-device text processing, not yet with the OLIV API engine. |
 | **Verbatim apps** | Paste the raw transcript, without cleanup, in apps you choose. |
 | **Audio** | Pick any microphone, cancel speaker echo, and lower other audio while you talk. Bluetooth headphones keep full playback quality. |
 | **Recent dictations** | Your last 10 results in the menu, kept in memory only. Click one to copy it again, or report one that came out wrong. |
@@ -190,6 +191,7 @@ Your audio goes to Groq while this engine is selected. If Groq fails, OLIV retri
 - With the default on-device engines, audio is processed on your Mac and is never uploaded.
 - Cloud engines are off until you enable one, add a key and select it. The one shortcut is the free trial you can choose while the models first download; it's labelled Cloud and ends by itself when they're ready.
 - Recent dictations are kept in memory only and are cleared when you quit.
+- **Names on screen** (off by default) reads the focused window's text through Accessibility when you start dictating. The text is used for that one dictation, kept in memory only, never saved or logged, and never leaves your Mac, even with a cloud engine.
 - **Copy Diagnostics** creates a plain-text support report that never includes transcripts or API keys.
 - **Report a Wrong Result** (Mac: **Recent… ▸ Report a Wrong Result**; iPhone: History) opens a preview you can edit, then a prefilled **public** GitHub issue in your browser. The report holds what OLIV typed, the raw transcript, what you meant (if you add it), the engine and whether cleanup ran, the app and OS version, and timing. It never includes audio, your server address or API keys. OLIV sends nothing itself: the issue is posted only if you submit it on GitHub.
 - OLIV has no analytics and no telemetry. The network is used for the model download, update checks and any cloud engine you choose.

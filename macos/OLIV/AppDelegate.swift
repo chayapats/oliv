@@ -91,6 +91,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         controller.legacySnippets = settings.legacySnippets
         controller.formatCommands = settings.formatCommands
         controller.thaiFormat = settings.thaiFormat
+        controller.screenNames = settings.screenNames
         controller.showHUD = settings.showRecordingIndicator
         controller.micDevice = settings.micDevice
         controller.echoCancellation = settings.echoCancellation
@@ -159,6 +160,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         controller.legacySnippets = settings.legacySnippets
         controller.formatCommands = settings.formatCommands
         controller.thaiFormat = settings.thaiFormat
+        controller.screenNames = settings.screenNames
         controller.showHUD = settings.showRecordingIndicator
         if !settings.showRecordingIndicator { controller.hud?.hide() }
         controller.micDevice = settings.micDevice

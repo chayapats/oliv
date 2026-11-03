@@ -47,6 +47,16 @@ Sparkle appcast's release notes, so keep entries short and end-user readable.
 - **OLIV speaks Thai.** On a Mac set to Thai, the menu, Settings, the setup
   window, recording notices and error messages are in Thai, with the same
   words as the iPhone app. Macs set to other languages keep English.
+- **Spell names that are on screen.** Optional, off by default (Settings ›
+  Text cleanup). When you start dictating, OLIV reads the window you're typing
+  into and spells the names and terms it shows, such as a coworker in a chat or
+  a customer in an email, without adding them to your Dictionary. The text stays
+  in memory on your Mac for that one dictation and is never saved or sent.
+  Password fields, password managers and verbatim apps are skipped, and your
+  Dictionary always wins. On a public Thai benchmark, names shown on screen
+  were recognized 57% of the time instead of 43%, and a screen full of
+  unrelated names changed about 1 in 2,000 dictations for the worse. Works with
+  on-device text processing, not yet with the OLIV API engine.
 - **Corrections that lead into each other apply once.** With rules like
   `foo → docker` and `docker → X`, a word OLIV already corrected is no longer
   corrected again after the cleanup model changes its capitals or spacing.

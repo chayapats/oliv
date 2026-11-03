@@ -48,6 +48,9 @@ struct DictationOptions {
     /// structured `dictionary` array). The OLIV API applies its own synced copy
     /// instead, so this stays empty for it.
     var dictionary: [DictionaryEntry] = []
+    /// Names on screen: the focused window's text for THIS dictation, sent
+    /// only to the local Rust worker (`screen_text`), never to a server.
+    var screenText: [String] = []
 }
 
 protocol DictationProviding {
@@ -69,7 +72,8 @@ struct SidecarDictationProvider: DictationProviding {
                                    vocabulary: options.vocabulary,
                                    formatCommands: options.formatCommands,
                                    thaiFormat: options.thaiFormat,
-                                   dictionary: options.dictionary)
+                                   dictionary: options.dictionary,
+                                   screenText: options.screenText)
             }) else { throw DictationProviderError.localFailure }
         return result
     }
