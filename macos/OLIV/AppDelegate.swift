@@ -55,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     @Published var needsAttention = false
 
     private var onboarding: OnboardingWindowController?
+    private let resultReport = ResultReportWindowController()
 
     override init() {
         // Before anything else: if a previous run was killed while it had the
@@ -250,6 +251,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     /// HUD tells the user to ⌘V wherever their cursor is.
     func copyTranscript(_ entry: TranscriptLog.Entry) {
         copyToClipboard(entry.text, notice: "Copied — press ⌘V to paste")
+    }
+
+    /// Menu "Report a Wrong Result": show the preview for one Recent entry.
+    /// The browser opens only from the preview's button (ResultReportDraft).
+    func reportTranscript(_ entry: TranscriptLog.Entry) {
+        let info = Bundle.main.infoDictionary
+        let report = ResultReport.mac(
+            entry: entry,
+            appVersion: info?["CFBundleShortVersionString"] as? String ?? "?",
+            build: info?["CFBundleVersion"] as? String ?? "?",
+            macOSVersion: ProcessInfo.processInfo.operatingSystemVersionString)
+        resultReport.show(ResultReportDraft(report: report, open: { NSWorkspace.shared.open($0) }))
     }
 
     /// Shared clipboard+HUD glue for the menu's copy actions — one place to

@@ -657,6 +657,8 @@ final class DictationController {
             // What actually went to the pasteboard — recorded into the menu
             // history below only when the utterance landed (never on failure).
             var pastedText: String?
+            // Kept with the history entry for "Report a Wrong Result…".
+            var details: TranscriptLog.Details?
             var failureNotice: String?
             var trialKeyRejected = false
             var dictionaryRevision: Int?
@@ -686,6 +688,12 @@ final class DictationController {
                                                    microphoneStartupSeconds: captured.stats?.startupSeconds,
                                                    captureBackend: captured.stats?.backend.rawValue)
                         pastedText = text
+                        details = TranscriptLog.Details(
+                            raw: result.raw, engineID: result.engineID ?? engine, cleanup: options.cleanup,
+                            llmRan: result.llmRan, gateReason: result.gateReason,
+                            guardrailFlag: result.guardrailFlag, cleanupFailed: result.cleanupError != nil,
+                            sttSeconds: result.tSTT, cleanupSeconds: result.tCleanup,
+                            audioSeconds: Double(samples.count) / AudioCapture.targetSampleRate)
                     }
                     outcome = text.isEmpty ? .nothingToDo : DictationController.paste(text, with: injector)
                 } catch {
@@ -727,6 +735,7 @@ final class DictationController {
             // is itself a var — rebind it to a let for the same reason.
             let frozenStats = stats
             let frozenPastedText = pastedText
+            let frozenDetails = details
             let frozenFailureNotice = failureNotice
             let frozenTrialKeyRejected = trialKeyRejected
             let frozenRevision = dictionaryRevision
@@ -748,7 +757,7 @@ final class DictationController {
                 // promised was gone.
                 if controller?.historyEnabled == true, let text = frozenPastedText,
                    outcome == .pastedOK || outcome == .pasteNeedsManual {
-                    appState.recordTranscript(text)
+                    appState.recordTranscript(text, details: frozenDetails)
                 }
                 // Remember only a true auto-paste so undo's Cmd+Z matches what
                 // landed at the cursor. pasteNeedsManual left text on the

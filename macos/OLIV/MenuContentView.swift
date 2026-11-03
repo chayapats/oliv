@@ -34,6 +34,16 @@ struct MenuContentView: View {
                         coordinator.copyTranscript(entry)
                     }
                 }
+                // A wrong result → a public GitHub issue the user reviews first
+                // (#21). Its own submenu keeps a plain click on an entry = copy.
+                Divider()
+                Menu("Report a Wrong Result") {
+                    ForEach(appState.transcripts.entries) { entry in
+                        Button(entry.preview) {
+                            coordinator.reportTranscript(entry)
+                        }
+                    }
+                }
             }
         }
 

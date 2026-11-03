@@ -126,7 +126,9 @@ final class AppState: ObservableObject {
     /// what's retained via `clearTranscripts()`.
     @Published private(set) var transcripts = TranscriptLog()
 
-    func recordTranscript(_ text: String) { transcripts.add(text) }
+    func recordTranscript(_ text: String, details: TranscriptLog.Details? = nil) {
+        transcripts.add(text, details: details)
+    }
 
     func clearTranscripts() {
         // Publish-free when already empty: the coordinator calls this on EVERY
