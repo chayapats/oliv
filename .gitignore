@@ -21,6 +21,7 @@ benchmark/*
 !benchmark/.env.example
 !benchmark/README.md
 !benchmark/contextasr.md
+!benchmark/speakers.md
 !benchmark/run_eval_full.sh
 !benchmark/data/
 benchmark/data/*

@@ -328,7 +328,7 @@ fn pcm(path: &Path) -> Result<Vec<u8>> {
     Ok(output.stdout)
 }
 
-fn command_line(program: &str, args: &[&str]) -> Option<String> {
+pub(crate) fn command_line(program: &str, args: &[&str]) -> Option<String> {
     let out = std::process::Command::new(program)
         .args(args)
         .output()
@@ -339,7 +339,7 @@ fn command_line(program: &str, args: &[&str]) -> Option<String> {
 }
 
 /// HF snapshot revision of a model in the app cache, when present.
-fn model_revision(repo: &str) -> Option<String> {
+pub(crate) fn model_revision(repo: &str) -> Option<String> {
     let hf_home = std::env::var_os("HF_HOME").map(PathBuf::from).or_else(|| {
         std::env::var_os("HOME")
             .map(|h| Path::new(&h).join("Library/Application Support/OLIV/models"))

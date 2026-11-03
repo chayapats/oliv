@@ -293,3 +293,209 @@ fn contextasr_compare_restricts_to_a_shard() {
     }
     assert_eq!(sizes.iter().sum::<u64>(), 2);
 }
+
+/// A corpus with five recorded sentences in every bucket the kit draws from.
+fn speaker_corpus(f: &Fixture) -> (PathBuf, PathBuf) {
+    let audio = f.0.join("corpus");
+    std::fs::create_dir_all(audio.join("clips")).unwrap();
+    let mut manifest = String::from("# fixture\n");
+    for bucket in [
+        "th", "xg", "lf", "en", "mx", "hx", "tc", "vb", "pn", "nu", "nm", "fm", "fl",
+    ] {
+        for i in 0..5 {
+            let id = format!("{bucket}{i:02}");
+            std::fs::write(audio.join(format!("clips/{id}.wav")), b"").unwrap();
+            manifest.push_str(
+                &json!({"id":id,"path":format!("clips/{id}.wav"),"reference":format!("PRIVATE-REF {id}")})
+                    .to_string(),
+            );
+            manifest.push('\n');
+        }
+    }
+    let path = f.0.join("manifest.jsonl");
+    std::fs::write(&path, manifest).unwrap();
+    (path, audio)
+}
+fn kit_command(manifest: &PathBuf, audio: &PathBuf, out: &PathBuf, seed: &str) -> Command {
+    let mut c = tool();
+    c.args(["speakers", "kit", "--seed", seed, "--manifests"])
+        .arg(manifest)
+        .arg("--audio-root")
+        .arg(audio)
+        .arg("--out")
+        .arg(out);
+    c
+}
+
+#[test]
+fn speakers_kit_stays_out_of_commits_and_keeps_its_ids_stable() {
+    let f = Fixture::new();
+    let (manifest, audio) = speaker_corpus(&f);
+    let repo = f.0.join("repo");
+    std::fs::create_dir_all(&repo).unwrap();
+    assert!(
+        Command::new("git")
+            .args(["init", "-q"])
+            .arg(&repo)
+            .status()
+            .unwrap()
+            .success()
+    );
+    std::fs::write(repo.join(".gitignore"), "private/\n").unwrap();
+    let tracked = kit_command(&manifest, &audio, &repo.join("public/kit"), "1")
+        .output()
+        .unwrap();
+    assert!(!tracked.status.success());
+    assert!(String::from_utf8_lossy(&tracked.stderr).contains("not ignored"));
+    assert!(!repo.join("public").exists());
+
+    let out = repo.join("private/speakers");
+    let ok = kit_command(&manifest, &audio, &out, "1").output().unwrap();
+    assert!(
+        ok.status.success(),
+        "{}",
+        String::from_utf8_lossy(&ok.stderr)
+    );
+    assert!(!String::from_utf8_lossy(&ok.stdout).contains("PRIVATE-REF"));
+    let kit = std::fs::read_to_string(out.join("kit.jsonl")).unwrap();
+    let rows: Vec<Value> = kit
+        .lines()
+        .filter(|l| !l.starts_with('#'))
+        .map(|l| serde_json::from_str(l).unwrap())
+        .collect();
+    assert_eq!(rows.len(), 30);
+    let script = std::fs::read_to_string(out.join("script.md")).unwrap();
+    assert!(script.contains("ความยินยอม") && script.contains("QuickTime Player"));
+    assert!(script.contains(&format!("(`{}`)", rows[0]["id"].as_str().unwrap())));
+    let consent: Value =
+        serde_json::from_slice(&std::fs::read(out.join("consent.example.json")).unwrap()).unwrap();
+    assert_eq!(consent["agreed"], false);
+
+    // Same seed: same kit. Another seed would rename what people recorded.
+    assert!(
+        kit_command(&manifest, &audio, &out, "1")
+            .status()
+            .unwrap()
+            .success()
+    );
+    let other = kit_command(&manifest, &audio, &out, "2").output().unwrap();
+    assert!(!other.status.success());
+    assert!(String::from_utf8_lossy(&other.stderr).contains("--force"));
+    assert_eq!(std::fs::read_to_string(out.join("kit.jsonl")).unwrap(), kit);
+}
+
+#[test]
+fn speakers_score_needs_consent_before_any_model_starts() {
+    let f = Fixture::new();
+    let (manifest, audio) = speaker_corpus(&f);
+    let dir = f.0.join("speakers");
+    assert!(
+        kit_command(&manifest, &audio, &dir, "1")
+            .status()
+            .unwrap()
+            .success()
+    );
+    let kit = std::fs::read_to_string(dir.join("kit.jsonl")).unwrap();
+    let first: Value = serde_json::from_str(kit.lines().nth(1).unwrap()).unwrap();
+    let id = first["id"].as_str().unwrap();
+    for name in ["s1", "s2"] {
+        std::fs::create_dir_all(dir.join(name)).unwrap();
+        std::fs::write(dir.join(name).join(format!("{id}.m4a")), b"").unwrap();
+    }
+    std::fs::write(dir.join("s1/notes.txt"), b"").unwrap();
+    std::fs::write(
+        dir.join("s2/consent.json"),
+        json!({"agreed": false, "date": "YYYY-MM-DD"}).to_string(),
+    )
+    .unwrap();
+    let score = || {
+        tool()
+            .args(["speakers", "score", "--model-dir"])
+            .arg(f.0.join("no-labse"))
+            .arg("--speakers-dir")
+            .arg(&dir)
+            .arg("--audio-root")
+            .arg(&audio)
+            .args(["--runtime-dir", "/nonexistent/runtime"])
+            .arg("--out")
+            .arg(f.0.join("out"))
+            .output()
+            .unwrap()
+    };
+    let refused = score();
+    assert!(!refused.status.success());
+    let stdout = String::from_utf8_lossy(&refused.stdout);
+    assert!(
+        stdout.contains("Skipped s1: no readable consent.json"),
+        "{stdout}"
+    );
+    assert!(
+        stdout.contains("Skipped s2: consent.json needs"),
+        "{stdout}"
+    );
+    assert!(String::from_utf8_lossy(&refused.stderr).contains("No consented speaker"));
+
+    std::fs::write(
+        dir.join("s2/consent.json"),
+        json!({"agreed": true, "date": "2026-11-03", "mic": "built-in"}).to_string(),
+    )
+    .unwrap();
+    let accepted = score();
+    assert!(!accepted.status.success());
+    // s2 is accepted; the run then stops at the missing LaBSE snapshot.
+    assert!(String::from_utf8_lossy(&accepted.stderr).contains("No LaBSE snapshot"));
+    assert!(!f.0.join("out/results.json").exists());
+}
+
+#[test]
+fn speakers_report_rebuilds_aggregates_without_transcripts() {
+    let f = Fixture::new();
+    let clip = |speaker: &str, sentence: &str, sim: f64| {
+        json!({"speaker":speaker,"sentence":sentence,"group":"everyday","id":sentence,
+            "reference":"SECRET reference","raw":"SECRET raw","final":"SECRET final",
+            "sim":sim,"raw_sim":sim,"wer":0.1,"cer":0.05,"raw_wer":0.2,"raw_cer":0.1,"latency_s":1.2})
+    };
+    let results = f.json(
+        "results.json",
+        &json!({"kind":"speakers","meta":{"git_commit":"0123456789"},
+            "groups":[{"key":"everyday","label":"Everyday","buckets":["th"]}],
+            "speakers":[{"name":"developer","baseline":true},{"name":"s1","mic":"built-in"},{"name":"s2"}],
+            "clips":[clip("developer","th01",0.9),clip("developer","th02",0.9),
+                     clip("s1","th01",0.5),clip("s2","th01",0.9),clip("s2","th02",0.85)]}),
+    );
+    let r = tool()
+        .args(["speakers", "report", "--results"])
+        .arg(&results)
+        .output()
+        .unwrap();
+    assert!(r.status.success(), "{}", String::from_utf8_lossy(&r.stderr));
+    let md = std::fs::read_to_string(f.0.join("report.md")).unwrap();
+    let summary = std::fs::read_to_string(f.0.join("summary.json")).unwrap();
+    for text in [
+        &md,
+        &summary,
+        &String::from_utf8_lossy(&r.stdout).into_owned(),
+    ] {
+        assert!(!text.contains("SECRET"));
+    }
+    assert!(md.contains("All 2 people, pooled"), "{md}");
+    let summary: Value = serde_json::from_str(&summary).unwrap();
+    assert_eq!(summary["speakers"]["s1"]["meaning_match_pct"], 0.0);
+    assert_eq!(summary["against_baseline"]["s2"]["sentences"], 2);
+
+    let fleurs = f.json(
+        "fleurs.json",
+        &json!({"kind":"fleurs","meta":{"seed":"2026","sentences_sampled":1,"sentences_with_readers":3},
+            "clips":[clip("a","1",0.9),clip("b","1",0.6)]}),
+    );
+    std::fs::create_dir_all(f.0.join("fl")).unwrap();
+    std::fs::rename(&fleurs, f.0.join("fl/results.json")).unwrap();
+    let r = tool()
+        .args(["speakers", "report", "--results"])
+        .arg(f.0.join("fl/results.json"))
+        .output()
+        .unwrap();
+    assert!(r.status.success());
+    let md = std::fs::read_to_string(f.0.join("fl/report.md")).unwrap();
+    assert!(md.contains("Readers disagree") && !md.contains("SECRET"));
+}

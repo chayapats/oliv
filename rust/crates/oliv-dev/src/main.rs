@@ -1,6 +1,7 @@
 //! Native developer benchmarks. Private transcripts go only to explicit files.
 mod contextasr;
 mod metrics;
+mod speakers;
 mod worker;
 use base64::Engine;
 use clap::{Parser, Subcommand};
@@ -41,6 +42,11 @@ enum Task {
     Contextasr {
         #[command(subcommand)]
         task: contextasr::Task,
+    },
+    /// Accuracy on other voices: recording kit, per-speaker scoring, FLEURS proxy.
+    Speakers {
+        #[command(subcommand)]
+        task: speakers::Task,
     },
     /// Write a private HTML report; never exports recordings or publishes pages.
     Report {
@@ -153,6 +159,106 @@ fn captured_pcm(path: &Path) -> Result<Vec<u8>> {
     }
     Ok(output.stdout)
 }
+/// The production sidecar configured as `eval` runs it: bucket `fl` removes
+/// fillers, `fm` runs spoken formatting commands and `vb` sends the row's
+/// vocabulary, all only when cleanup is on.
+pub(crate) struct Pipeline {
+    pub engine: String,
+    pub cleanup: bool,
+    pub no_vocab: bool,
+    pub no_llm: bool,
+}
+impl Pipeline {
+    pub(crate) fn start(&self, runtime_dir: &Path) -> Result<Worker> {
+        let mut runtime = Worker::new(runtime_dir, "oliv-sidecar", &[])?;
+        runtime.request(
+            json!({"cmd":"warm","engine":self.engine,"cleanup":self.cleanup}),
+            Duration::from_secs(120),
+        )?;
+        Ok(runtime)
+    }
+    /// One manifest row (with a prefix `bucket`) through the sidecar, scored
+    /// against its reference. `latency_s` includes audio conversion.
+    pub(crate) fn dictate(
+        &self,
+        runtime: &mut Worker,
+        row: &Value,
+        audio: &Path,
+        stt_text: Option<&Value>,
+    ) -> Result<Value> {
+        let start = Instant::now();
+        let pcm = captured_pcm(audio)?;
+        let mut request = json!({"cmd":"dictate","engine":self.engine,"cleanup":self.cleanup,
+            "pcm_b64":base64::engine::general_purpose::STANDARD.encode(&pcm)});
+        if self.no_llm {
+            request["cleanup_llm"] = false.into();
+        }
+        if let Some(raw) = stt_text {
+            request["stt_text"] = raw.clone();
+        }
+        if self.cleanup {
+            match row["bucket"].as_str().ok_or("Clip has no bucket")? {
+                "fl" => request["remove_fillers"] = true.into(),
+                "fm" => request["format_commands"] = true.into(),
+                "vb" if !self.no_vocab => {
+                    if let Some(vocab) = row.get("vocab") {
+                        request["vocabulary"] = vocab.clone();
+                    }
+                }
+                _ => {}
+            }
+        }
+        if let Some(dict) = row.get("dictionary") {
+            request["dictionary"] = dict.clone();
+        }
+        let reply = runtime.request(request, Duration::from_secs(65))?;
+        let final_text = reply["final"]
+            .as_str()
+            .ok_or("Native reply has no final text")?;
+        let reference = row["reference"]
+            .as_str()
+            .ok_or("Manifest row has no reference")?;
+        let mut clip = metrics::score(reference, final_text, &keywords(row));
+        for key in ["id", "bucket", "difficulty", "reference", "keywords"] {
+            clip[key] = row[key].clone();
+        }
+        for key in [
+            "raw",
+            "final",
+            "llm_ran",
+            "guardrail_flag",
+            "gate_reason",
+            "fillers_removed",
+            "format_commands_fired",
+            "replacements_fired",
+            "thai_format_fired",
+            "t_stt",
+            "t_cleanup",
+            "cleanup_error",
+        ] {
+            clip[key] = reply[key].clone();
+        }
+        clip["guardrail"] = reply["guardrail_flag"].clone();
+        clip["exact"] = (metrics::exact(reference) == metrics::exact(final_text)).into();
+        clip["latency_s"] = start.elapsed().as_secs_f64().into();
+        Ok(clip)
+    }
+}
+/// LaBSE cosine of word-segmented texts (unspaced Thai would otherwise become
+/// [UNK]); an empty side scores 0.
+pub(crate) fn similarity(runtime: &mut Worker, reference: &str, hypothesis: &str) -> Result<f64> {
+    if reference.trim().is_empty() || hypothesis.trim().is_empty() {
+        return Ok(0.0);
+    }
+    let reply = runtime.request(
+        json!({"cmd":"similarity","texts":[metrics::segment(reference),metrics::segment(hypothesis)]}),
+        Duration::from_secs(120),
+    )?;
+    Ok(reply["similarity"]
+        .as_f64()
+        .ok_or("Missing similarity")?
+        .clamp(0.0, 1.0))
+}
 fn evaluate(args: Eval) -> Result<()> {
     let manifest = benchmark_path(&args.manifest);
     let audio_root = benchmark_path(&args.audio_root);
@@ -206,72 +312,29 @@ fn evaluate(args: Eval) -> Result<()> {
             .collect(),
         None => BTreeMap::new(),
     };
-    let mut runtime = Worker::new(&args.runtime_dir, "oliv-sidecar", &[])?;
-    runtime.request(
-        json!({"cmd":"warm","engine":args.engine,"cleanup":!args.no_cleanup}),
-        Duration::from_secs(120),
-    )?;
+    let pipeline = Pipeline {
+        engine: args.engine.clone(),
+        cleanup: !args.no_cleanup,
+        no_vocab: args.no_vocab,
+        no_llm: args.no_llm,
+    };
+    let mut runtime = pipeline.start(&args.runtime_dir)?;
     let mut clips = Vec::new();
     for row in &rows {
-        let start = Instant::now();
-        let pcm = captured_pcm(Path::new(row["_audio"].as_str().unwrap()))?;
-        let mut request = json!({"cmd":"dictate","engine":args.engine,"cleanup":!args.no_cleanup,
-            "pcm_b64":base64::engine::general_purpose::STANDARD.encode(&pcm)});
-        if args.no_llm {
-            request["cleanup_llm"] = false.into();
-        }
-        if args.replay.is_some() {
-            let id = row["id"].as_str().unwrap();
-            request["stt_text"] = replay
-                .get(id)
-                .filter(|raw| raw.is_string())
-                .ok_or_else(|| format!("Replay file has no transcript for {id}"))?
-                .clone();
-        }
-        if !args.no_cleanup {
-            match row["bucket"].as_str().unwrap() {
-                "fl" => request["remove_fillers"] = true.into(),
-                "fm" => request["format_commands"] = true.into(),
-                "vb" if !args.no_vocab => {
-                    if let Some(vocab) = row.get("vocab") {
-                        request["vocabulary"] = vocab.clone();
-                    }
-                }
-                _ => {}
+        let stt_text = match &args.replay {
+            Some(_) => {
+                let id = row["id"].as_str().unwrap();
+                Some(
+                    replay
+                        .get(id)
+                        .filter(|raw| raw.is_string())
+                        .ok_or_else(|| format!("Replay file has no transcript for {id}"))?,
+                )
             }
-        }
-        if let Some(dict) = row.get("dictionary") {
-            request["dictionary"] = dict.clone();
-        }
-        let reply = runtime.request(request, Duration::from_secs(65))?;
-        let final_text = reply["final"]
-            .as_str()
-            .ok_or("Native reply has no final text")?;
-        let reference = row["reference"].as_str().unwrap();
-        let mut clip = metrics::score(reference, final_text, &keywords(row));
-        for key in ["id", "bucket", "difficulty", "reference", "keywords"] {
-            clip[key] = row[key].clone();
-        }
-        for key in [
-            "raw",
-            "final",
-            "llm_ran",
-            "guardrail_flag",
-            "gate_reason",
-            "fillers_removed",
-            "format_commands_fired",
-            "replacements_fired",
-            "thai_format_fired",
-            "t_stt",
-            "t_cleanup",
-            "cleanup_error",
-        ] {
-            clip[key] = reply[key].clone();
-        }
-        clip["guardrail"] = reply["guardrail_flag"].clone();
-        clip["exact"] = (metrics::exact(reference) == metrics::exact(final_text)).into();
-        clip["latency_s"] = start.elapsed().as_secs_f64().into();
-        clips.push(clip);
+            None => None,
+        };
+        let audio = PathBuf::from(row["_audio"].as_str().unwrap());
+        clips.push(pipeline.dictate(&mut runtime, row, &audio, stt_text)?);
         println!("Evaluated {}/{} clips", clips.len(), rows.len());
     }
     let label = if args.label.is_empty() {
@@ -347,11 +410,7 @@ fn semantic(results: &Path, model_dir: &Path, tools_dir: &Path) -> Result<()> {
         let mut by_bucket: BTreeMap<String, Vec<f64>> = BTreeMap::new();
         for row in rows {
             let (reference, hypothesis) = fields(row)?;
-            let sim = if reference.trim().is_empty() || hypothesis.trim().is_empty() {
-                0.0
-            } else {
-                runtime.request(json!({"cmd":"similarity","texts":[metrics::segment(reference),metrics::segment(hypothesis)]}),Duration::from_secs(120))?["similarity"].as_f64().ok_or("Missing similarity")?.clamp(0.0,1.0)
-            };
+            let sim = similarity(&mut runtime, reference, hypothesis)?;
             let id = row["id"].as_str().ok_or("Clip has no id")?;
             let bucket = metrics::bucket(id);
             by_bucket.entry(bucket.clone()).or_default().push(sim);
@@ -427,5 +486,6 @@ fn main() -> Result<()> {
         } => semantic(&results, &model_dir, &tools_dir),
         Task::Report { input, out } => html_report(&input, &out),
         Task::Contextasr { task } => contextasr::main(task),
+        Task::Speakers { task } => speakers::main(task),
     }
 }
