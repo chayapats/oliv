@@ -21,7 +21,10 @@ final class LocalizedMessagesTests: XCTestCase {
 
     func testMenuLineNamesTheEngine() {
         let stats = LastDictationStats(chars: 38, sttSeconds: 0.9, cleanupSeconds: 0.5, engineID: "typhoon-turbo-mlx")
-        XCTAssertEqual(stats.menuLine, "Last: On-device · Typhoon · 1.4s · 38 chars")
+        // The scheme pins the language, not the region: the decimal separator
+        // follows the Mac's region ("1.4" or "1,4"), so expect the same format.
+        let seconds = (0.9 + 0.5).formatted(.number.precision(.fractionLength(1)))
+        XCTAssertEqual(stats.menuLine, "Last: On-device · Typhoon · \(seconds)s · 38 chars")
     }
 
     func testSupportReportStaysEnglish() {
