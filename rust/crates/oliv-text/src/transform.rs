@@ -578,6 +578,27 @@ fn is_small(key: &str) -> bool {
     !key.contains(':') && key.len() <= 2 && key.parse::<u32>().is_ok_and(|v| v <= 12)
 }
 
+/// A clock time the source says in words: เก้าโมงสิบนาที → 9:10, เก้าโมง
+/// ครึ่ง → 9:30. `apply_thai_format` writes the minutes as digits but leaves
+/// the hour in words, so the time is accepted when its hour is one an output
+/// may add (or one the source states, or a 24-hour form of one) and its
+/// minutes are stated (or are the half hour, said as ครึ่ง).
+fn spoken_time(key: &str, have: &HashSet<String>, source: &str) -> bool {
+    let Some((hour, minutes)) = key.split_once(':') else {
+        return false;
+    };
+    let (Ok(h), Ok(m)) = (hour.parse::<u32>(), minutes.parse::<u32>()) else {
+        return false;
+    };
+    if h > 24 || m > 59 || minutes.len() != 2 {
+        return false;
+    }
+    let hour_ok =
+        is_small(hour) || have.contains(hour) || (h > 12 && is_small(&(h - 12).to_string()));
+    let minutes_ok = have.contains(&m.to_string()) || (m == 30 && source.contains("ครึ่ง"));
+    hour_ok && minutes_ok
+}
+
 /// Numbers in `out` that the source never stated, small ones aside. By
 /// value: restating a figure the source gives (an email's subject and body)
 /// invents nothing.
@@ -585,7 +606,7 @@ fn invented_numbers(source: &str, out: &str) -> Vec<String> {
     let have = source_numbers(source);
     let mut invented: Vec<String> = numbers(out)
         .into_iter()
-        .filter(|n| !have.contains(n) && !is_small(n))
+        .filter(|n| !have.contains(n) && !is_small(n) && !spoken_time(n, &have, source))
         .collect();
     invented.sort();
     invented.dedup();
@@ -1292,6 +1313,37 @@ mod tests {
         assert_eq!(
             invented_numbers("ห้าโมง", "at 2026"),
             vec!["2026".to_string()]
+        );
+    }
+
+    #[test]
+    fn spoken_times_may_be_written_as_clock_times() {
+        let none = Vec::<String>::new();
+        assert_eq!(
+            invented_numbers("ประชุมตอนเก้าโมงสิบนาที", "The meeting is at 9:10."),
+            none
+        );
+        assert_eq!(
+            invented_numbers("ประชุมตอนเก้าโมงครึ่ง", "The meeting is at 9:30."),
+            none
+        );
+        assert_eq!(
+            invented_numbers("ประชุมตอนบ่ายสามโมงสิบห้านาที", "The meeting is at 15:15."),
+            none
+        );
+        // The minutes still have to be the ones said.
+        assert_eq!(
+            invented_numbers("ประชุมตอนเก้าโมงสิบนาที", "The meeting is at 9:20."),
+            vec!["9:20".to_string()]
+        );
+        // A decimal is not a time: 1.2 → 2.1 stays refused.
+        assert_eq!(
+            invented_numbers("ยอดขาย 1.2 ล้านบาท", "Sales were 2.1 million baht."),
+            vec!["2:1".to_string()]
+        );
+        assert_eq!(
+            check_translation("ประชุมตอนเก้าโมงสิบนาที", "The meeting is at 9:10."),
+            Ok(())
         );
     }
 
