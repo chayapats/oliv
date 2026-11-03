@@ -185,6 +185,20 @@ fn is_pali_letter(c: char) -> bool {
     "ฆฌญฎฏฐฑฒณศษภ".contains(c)
 }
 
+/// English loanwords whose usual Thai spelling has a Pali letter anyway
+/// (the ศ of ออฟฟิศ): there it is no sign of a Thai name.
+const PALI_LOANWORDS: &[&str] = &["ออฟฟิศ", "ไอศกรีม", "ไอศครีม"];
+
+/// A span spelled like a Thai word or name: a Pali letter outside the
+/// loanwords above.
+fn spelled_thai(old: &[char]) -> bool {
+    let mut text: String = old.iter().collect();
+    for word in PALI_LOANWORDS {
+        text = text.replace(word, "");
+    }
+    text.chars().any(is_pali_letter)
+}
+
 /// The largest Thai edit kept without a closer look, in letters changed: a
 /// letter or two (เจส → เศส, รุกรัน → รุกราน, ลูก → รูป).
 const THAI_EDIT_MAX_CHARS: usize = 2;
@@ -227,7 +241,7 @@ pub fn keep_thai_speech(dict_text: &str, cand: &str, vocab: &[String]) -> (Strin
             let new: Vec<char> = run.b.iter().map(|&k| b[k]).collect();
             let old: Vec<char> = run.a.iter().map(|&k| a[k]).collect();
             if new.iter().any(char::is_ascii_alphabetic) {
-                return old.iter().copied().any(is_pali_letter);
+                return spelled_thai(&old);
             }
             // ๆ (mai yamok) only abbreviates a repeated word (ต่างต่าง → ต่างๆ).
             if old.iter().any(char::is_ascii_alphabetic)
@@ -394,6 +408,12 @@ mod thai_speech_tests {
         assert_eq!(k(dict, cand, &["Nattapong"]), (cand.to_string(), 0));
         // …but only the whole term: a listed NAT is not Nattapong.
         assert_eq!(k(dict, cand, &["NAT"]), (dict.to_string(), 1));
+        // A name and a loanword in one sentence: only the name goes back.
+        let dict = "ณัฐพงศ์บอกว่าพรุ่งนี้ไปออฟฟิศ";
+        assert_eq!(
+            k(dict, "Nattapong บอกว่าพรุ่งนี้ไป office", &[]).0,
+            "ณัฐพงศ์บอกว่าพรุ่งนี้ไป office"
+        );
     }
 
     #[test]
@@ -402,6 +422,9 @@ mod thai_speech_tests {
             // Thai-spelled English restored, including a listed brand.
             ("รีสตาร์ทเซิร์ฟเวอร์แล้วเช็คล็อก", "restart server แล้วเช็ค log"),
             ("ส่งเอกสารให้ทีมแอนโทรปิก", "ส่งเอกสารให้ทีม Anthropic"),
+            // A loanword whose Thai spelling has a Pali letter (ศ).
+            ("ไปออฟฟิศแล้วเช็คล็อก", "ไป office แล้วเช็ค log"),
+            ("ซื้อไอศกรีมให้ทีม", "ซื้อ ice cream ให้ทีม"),
             // FLEURS Thai: spelling repairs of a letter or two, homophone
             // re-spellings and a repeated word removed.
             ("ปกครองโดยชาวฝรั่งเจส", "ปกครองโดยชาวฝรั่งเศส"),
