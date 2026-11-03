@@ -582,14 +582,18 @@ fn numbers(text: &str) -> Vec<String> {
     let mut all = Vec::new();
     for m in NUMBER.find_iter(text) {
         let mut token = m.as_str();
-        // A minus is the number's sign only where it starts a word: -15, (−3).
-        // Between two words or numbers it's a hyphen or a range (2024-2025,
-        // 14:00-15:00, ค่า-5).
+        // The minus sign − is always a sign. A hyphen-minus is one too,
+        // except right after a Latin letter or a digit, where it joins words
+        // or makes a range (A-5, 2024-2025, 14:00-15:00). Thai doesn't join
+        // words with hyphens, so อุณหภูมิ-15 is minus fifteen.
         let mut sign = "";
-        if let Some(rest) = token.strip_prefix(['-', '−']) {
+        if let Some(rest) = token.strip_prefix('−') {
+            token = rest;
+            sign = "-";
+        } else if let Some(rest) = token.strip_prefix('-') {
             token = rest;
             let before = text[..m.start()].chars().next_back();
-            if !before.is_some_and(char::is_alphanumeric) {
+            if !before.is_some_and(|c| c.is_ascii_alphanumeric()) {
                 sign = "-";
             }
         }
@@ -1490,6 +1494,23 @@ mod tests {
         assert_eq!(
             lost_numbers("ขาดทุน -250,000 บาท", "a loss of 250,000 baht"),
             vec!["-250000".to_string()]
+        );
+        // Spacing around a signed number may change, Thai or not.
+        assert_eq!(
+            lost_numbers("อุณหภูมิ -15 องศา", "อุณหภูมิ−15 องศา"),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            lost_numbers("อุณหภูมิ -15 องศา", "อุณหภูมิ-15องศา"),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            lost_numbers("It is −15 today", "It's -15 today"),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            check_command("แก้คำผิด", "อุณหภูมิ -15 องศา", "อุณหภูมิ−15 องศา"),
+            Ok(())
         );
         // Hyphens and ranges are not signs.
         assert_eq!(
