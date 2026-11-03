@@ -35,7 +35,7 @@ enum DictationStatus: Equatable {
 
 /// User-visible execution location; unknown engines never imply local privacy.
 enum DictationExecution: Equatable {
-    case onDevice(String), olivAPI, groq, unknown
+    case onDevice(String), olivAPI, olivTrial, groq, unknown
 
     init(engineID: String) {
         switch engineID {
@@ -43,6 +43,7 @@ enum DictationExecution: Equatable {
         case "pathumma-mlx": self = .onDevice("Pathumma")
         case "mlx-large-v3": self = .onDevice("Whisper")
         case OLIVAPIClient.engineID: self = .olivAPI
+        case CloudTrial.engineID: self = .olivTrial
         case SidecarClient.cloudEngine: self = .groq
         default: self = .unknown
         }
@@ -52,6 +53,7 @@ enum DictationExecution: Equatable {
         switch self {
         case .onDevice(let name): return "On-device · \(name)"
         case .olivAPI: return "Cloud · OLIV API"
+        case .olivTrial: return "Cloud · OLIV free trial"
         case .groq: return "Cloud · Groq"
         case .unknown: return "Unknown engine"
         }
@@ -60,7 +62,7 @@ enum DictationExecution: Equatable {
     var systemImage: String {
         switch self {
         case .onDevice: return "desktopcomputer"
-        case .olivAPI, .groq: return "cloud"
+        case .olivAPI, .olivTrial, .groq: return "cloud"
         case .unknown: return "questionmark.circle"
         }
     }
@@ -69,6 +71,7 @@ enum DictationExecution: Equatable {
         switch self {
         case .onDevice: return "Audio stays on this Mac."
         case .olivAPI: return "Audio is sent to OLIV API for transcription and cleanup."
+        case .olivTrial: return "Free trial: audio is sent to the OLIV server until the on-device models finish downloading."
         case .groq: return "Audio is sent to Groq for transcription. Cleanup, when enabled, runs on this Mac."
         case .unknown: return "Check the selected dictation engine."
         }

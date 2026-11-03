@@ -53,7 +53,8 @@ final class OLIVAPILoopbackTests: XCTestCase {
     }
 }
 
-private final class LoopbackAPIServer {
+/// Shared with the free-trial tests (CloudTrialTests).
+final class LoopbackAPIServer {
     private let process = Process()
     let url: String
     private let exited = DispatchSemaphore(value: 0)

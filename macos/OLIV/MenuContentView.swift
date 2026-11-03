@@ -12,7 +12,7 @@ struct MenuContentView: View {
         // Status line: reflects DictationStatus live (the icon shows it too,
         // but the text names it for clarity).
         Text("OLIV — \(appState.status.label)")
-        let execution = DictationExecution(engineID: appState.activeEngineID ?? settings.engineID)
+        let execution = DictationExecution(engineID: appState.activeEngineID ?? coordinator.effectiveEngineID)
         Label("Engine: \(execution.label)", systemImage: execution.systemImage)
         if let stats = appState.lastDictation {
             Text(stats.menuLine)

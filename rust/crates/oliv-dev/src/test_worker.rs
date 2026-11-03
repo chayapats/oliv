@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 fn emit(value: Value) -> io::Result<()> {
     let mut out = io::stdout().lock();
@@ -92,6 +92,7 @@ fn http(stream: impl Read + Write, counts: &mut BTreeMap<&str, usize>) -> io::Re
     let mut first = String::new();
     reader.read_line(&mut first)?;
     let words: Vec<_> = first.split_whitespace().collect();
+    let method = words.first().copied().unwrap_or("");
     let path = words.get(1).copied().unwrap_or("");
     let mut headers = BTreeMap::new();
     let mut size = first.len();
@@ -139,6 +140,46 @@ fn http(stream: impl Read + Write, counts: &mut BTreeMap<&str, usize>) -> io::Re
                 "",
             )
         }
+        // Free-trial sign-up (server/vm/trial_keys.py): a key for "dummy",
+        // which /v1/dictate accepts, valid for a week.
+        "/try/key" => {
+            let app = headers
+                .get("user-agent")
+                .is_some_and(|v| v.starts_with("oliv-macos/"));
+            if method == "POST" && app {
+                *counts.get_mut("trial_keys").unwrap() += 1;
+            }
+            let week = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_or(0, |d| d.as_secs())
+                + 7 * 86_400;
+            respond(
+                &mut stream,
+                200,
+                &json!({"ok":true,"token":"dummy","expires_at":week,
+                    "requests_per_minute":6,"daily_requests":60}),
+                "",
+            )
+        }
+        // `/refuse/<code>/try/key`: the issuer's refusals, with its statuses.
+        _ if path.starts_with("/refuse/") && path.ends_with("/try/key") => {
+            *counts.get_mut("trial_refusals").unwrap() += 1;
+            let code = path.split('/').nth(2).unwrap_or("");
+            let status = if matches!(code, "closed" | "unavailable") {
+                503
+            } else {
+                429
+            };
+            respond(&mut stream, status, &json!({"ok":false,"error":code}), "")
+        }
+        // A trial key that expired or was revoked, and one over its quota.
+        "/expired/v1/dictate" => respond(&mut stream, 401, &json!({"ok":false}), ""),
+        "/quota/v1/dictate" => respond(
+            &mut stream,
+            429,
+            &json!({"ok":false}),
+            "Retry-After: 30\r\n",
+        ),
         "/v1/dictate" => {
             let body: Value = serde_json::from_slice(&bytes)?;
             let wav = base64::engine::general_purpose::STANDARD
@@ -214,6 +255,8 @@ fn loopback(tls: bool) -> Result<(), Box<dyn std::error::Error>> {
         ("targets", 0),
         ("valid_requests", 0),
         ("health_keys", 0),
+        ("trial_keys", 0),
+        ("trial_refusals", 0),
     ]);
     for socket in listener.incoming() {
         let socket = socket?;

@@ -26,8 +26,10 @@ final class OnboardingWindowLifecycleTests: XCTestCase {
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
         let settings = OLIVSettings(defaults: defaults, keychain: InMemoryKeychain())
+        let trial = CloudTrial(serverURL: "", keychain: InMemoryKeychain(), defaults: defaults)
         let controller = OnboardingWindowController(
-            permissions: PermissionsModel(), models: ModelState(), settings: settings, onClose: {})
+            permissions: PermissionsModel(), models: ModelState(), settings: settings, trial: trial,
+            onStartTrial: {}, onStopTrial: {}, onClose: {})
         controller.show()
         guard let first = controller.window else {
             return XCTFail("show() must create the window")

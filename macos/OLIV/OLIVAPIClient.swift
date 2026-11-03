@@ -129,15 +129,22 @@ enum OLIVAPIError: Error, LocalizedError {
 final class OLIVAPIRequestState {
     static let shared = OLIVAPIRequestState()
     static let deadlineKey = "oliv.api.retryAfter"
+    /// The free trial's key has its own quota: its cooldown must not hold up
+    /// the user's own OLIV API key, or the reverse.
+    static let trial = OLIVAPIRequestState(deadlineKey: "oliv.trial.retryAfter")
     private let defaults: UserDefaults
+    private let deadlineKey: String
     private let lock = NSLock()
     private var busy = false
 
-    init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+    init(defaults: UserDefaults = .standard, deadlineKey: String = OLIVAPIRequestState.deadlineKey) {
+        self.defaults = defaults
+        self.deadlineKey = deadlineKey
+    }
 
     func begin(now: Date) throws {
         lock.lock(); defer { lock.unlock() }
-        let remaining = (defaults.object(forKey: Self.deadlineKey) as? Date)?.timeIntervalSince(now) ?? 0
+        let remaining = (defaults.object(forKey: deadlineKey) as? Date)?.timeIntervalSince(now) ?? 0
         if remaining > 0 { throw OLIVAPIError.cooldown(remaining) }
         guard !busy else { throw OLIVAPIError.busy }
         busy = true
@@ -147,8 +154,8 @@ final class OLIVAPIRequestState {
 
     func postpone(until: Date) {
         lock.lock(); defer { lock.unlock() }
-        let previous = defaults.object(forKey: Self.deadlineKey) as? Date ?? .distantPast
-        defaults.set(max(previous, until), forKey: Self.deadlineKey)
+        let previous = defaults.object(forKey: deadlineKey) as? Date ?? .distantPast
+        defaults.set(max(previous, until), forKey: deadlineKey)
     }
 }
 

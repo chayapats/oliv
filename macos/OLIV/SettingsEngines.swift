@@ -3,12 +3,16 @@ import SwiftUI
 struct EngineSettingsView: View {
     @EnvironmentObject private var settings: OLIVSettings
     @EnvironmentObject private var models: ModelState
+    @EnvironmentObject private var coordinator: AppDelegate
+    @EnvironmentObject private var trial: CloudTrial
     var onOpenCloud: () -> Void
     @State private var enginePresence: [String: Bool] = [:]
 
     var body: some View {
         SettingsPane {
-            let execution = DictationExecution(engineID: settings.engineID)
+            // What dictation uses now: the free trial stands in while the
+            // selected on-device engine's models download.
+            let execution = DictationExecution(engineID: coordinator.effectiveEngineID)
             SettingsNotice(text: execution.detail, icon: execution.systemImage)
             SettingsCard(title: "On-device engines", icon: "desktopcomputer", subtitle: "Audio is processed on this Mac. Works offline after downloading models.") {
                 VStack(spacing: 10) {
@@ -37,6 +41,8 @@ struct EngineSettingsView: View {
                         SettingsNotice(text: error, icon: "exclamationmark.triangle", warning: true)
                     }
                 }
+                CloudTrialOfferView(trial: trial, offered: coordinator.cloudTrialOffered,
+                                    onStart: { coordinator.startCloudTrial() }, onStop: { coordinator.stopCloudTrial() })
             }
             SettingsCard(title: "Cloud engines", icon: "cloud", subtitle: "Audio is uploaded only when you select a cloud engine.") {
                 let remote = settings.availableEngines.filter { $0.repo == nil }

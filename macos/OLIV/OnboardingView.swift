@@ -14,7 +14,11 @@ struct OnboardingView: View {
     @ObservedObject var permissions: PermissionsModel
     @ObservedObject var models: ModelState
     @ObservedObject var settings: OLIVSettings
+    /// The opt-in free trial offered while the models download (CloudTrial).
+    @ObservedObject var trial: CloudTrial
     var onDone: () -> Void
+    var onStartTrial: () -> Void = {}
+    var onStopTrial: () -> Void = {}
 
     private let poll = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
@@ -61,6 +65,10 @@ struct OnboardingView: View {
             if permissions.allGranted && models.arePresent(settings.requiredModelRepos) {
                 Label("You're all set", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
+            } else if permissions.allGranted && trial.phase == .on {
+                Label("Ready: dictating through the OLIV server until the download finishes",
+                      systemImage: "cloud")
+                    .font(.footnote)
             } else {
                 Text("You can close this and finish setup later from the menu › Setup…")
                     .font(.footnote)
@@ -164,6 +172,12 @@ struct OnboardingView: View {
             if let err = models.lastError {
                 Text(err).font(.caption).foregroundStyle(.red)
             }
+
+            CloudTrialOfferView(
+                trial: trial,
+                offered: trial.isOffered(selectedEngine: settings.engineID,
+                                         modelsReady: models.arePresent(settings.requiredModelRepos)),
+                onStart: onStartTrial, onStop: onStopTrial)
 
             if !settings.requiredModelRepos.isEmpty {
                 Text("Stored at: \(models.storagePath)")

@@ -119,6 +119,8 @@ OLIV 0.2.0 removed Python from the app. Text processing and API requests use a s
 4. On first run, OLIV downloads its models from Hugging Face, about **5 GB** once:
    - Speech: [`chayapats/typhoon-whisper-turbo-mlx`](https://huggingface.co/chayapats/typhoon-whisper-turbo-mlx), about 1.5 GB (an MLX conversion of SCB 10X's Typhoon)
    - Cleanup: [`mlx-community/gemma-4-e2b-it-4bit`](https://huggingface.co/mlx-community/gemma-4-e2b-it-4bit), about 3.3 GB
+
+   Don't want to wait? In Setup, **Try it now through the OLIV server** starts a free trial: until the download finishes, your recordings are sent to the OLIV server for transcription (your Dictionary isn't). When the models are ready, OLIV switches back to your Mac and tells you. It's off unless you choose it, and only builds that come with a server (like the DMG above) offer it.
 5. Hold **Right ⌥ Option**, speak, and let go.
 
 **Requirements:** an Apple Silicon Mac (M1 or newer) with macOS 14 Sonoma or later. The OLIV API engine needs an internet connection and an API key instead of local models.
@@ -183,7 +185,7 @@ Your audio goes to Groq while this engine is selected. If Groq fails, OLIV retri
 ## Privacy
 
 - With the default on-device engines, audio is processed on your Mac and is never uploaded.
-- Cloud engines are off until you enable one, add a key and select it.
+- Cloud engines are off until you enable one, add a key and select it. The one shortcut is the free trial you can choose while the models first download; it's labelled Cloud and ends by itself when they're ready.
 - Recent dictations are kept in memory only and are cleared when you quit.
 - **Copy Diagnostics** creates a plain-text support report that never includes transcripts or API keys.
 - OLIV has no analytics and no telemetry. The network is used for the model download, update checks and any cloud engine you choose.

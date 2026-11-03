@@ -58,6 +58,11 @@ final class DictationController {
     /// STT engine id handed to the sidecar (its DEFAULT_ENGINE).
     var sttEngine: String = SidecarClient.defaultEngine
     var olivAPIConfiguration: OLIVAPIConfiguration?
+    /// The free trial's server and key while it is on (CloudTrial), else nil.
+    /// The coordinator sets `sttEngine` to `CloudTrial.engineID` meanwhile.
+    var trialConfiguration: OLIVAPIConfiguration?
+    /// A trial dictation got 401: the trial key expired or was revoked.
+    var onTrialKeyRejected: (() -> Void)?
     private var recordingEngine: String?
 
     /// Cleanup global on/off (menu/Settings default on). The Wave-2 per-app
@@ -406,7 +411,7 @@ final class DictationController {
     /// on a background queue and the app stays responsive. A failed warm is
     /// non-fatal — STT/cleanup just load lazily on the first dictate. Idempotent.
     private func warmSidecarIfNeeded() {
-        guard sttEngine != OLIVAPIClient.engineID, let sidecar = sidecar, !didWarmSidecar else { return }
+        guard !Self.isRemote(sttEngine), let sidecar = sidecar, !didWarmSidecar else { return }
         didWarmSidecar = true
         let engine = sttEngine
         let cleanup = cleanupEnabled
@@ -440,6 +445,14 @@ final class DictationController {
                     + "lazily on the first dictate")
             }
         }
+    }
+
+    /// The on-device models just finished downloading and dictation is back on
+    /// this Mac (the free trial handed over): load them now, so the first
+    /// local dictation doesn't wait. The launch warm had nothing to load.
+    func warmAfterDownload() {
+        didWarmSidecar = false
+        warmSidecarIfNeeded()
     }
 
     /// Tear down the tap. The monitor's stop() fires a balancing release if a
@@ -582,20 +595,13 @@ final class DictationController {
         let appState = self.appState
         // Freeze the engine at press, so changing settings during a hold cannot
         // route a 10-minute local recording into the 2-minute remote provider.
-        let engine = recordingEngine ?? self.sttEngine
+        let engine = Self.releaseEngine(recorded: recordingEngine ?? self.sttEngine, current: sttEngine,
+                                        trialAvailable: trialConfiguration != nil)
         recordingEngine = nil
-        let provider = Self.provider(engine: engine, sidecar: sidecar, apiConfiguration: olivAPIConfiguration)
+        let provider = Self.provider(engine: engine, sidecar: sidecar, apiConfiguration: olivAPIConfiguration,
+                                     trialConfiguration: trialConfiguration)
         let captureSeconds = Self.captureSeconds(for: engine)
-        let removeFillers = self.removeFillers
-        // Dictionary routing, frozen at release: local engines get the entries;
-        // the OLIV API applies its own synced copy, and only a server without
-        // dictionary sync (or one not confirmed yet) gets derived vocabulary /
-        // replacements instead.
-        let entries = self.dictionaryEntries
-        let remote = engine == OLIVAPIClient.engineID
-        let deriveForServer = remote && dictionarySync?.serverAppliesDictionary != true
-        let formatCommands = self.formatCommands
-        let thaiFormat = self.thaiFormat
+        let trial = engine == CloudTrial.engineID
         // Resolve cleanup ONCE, here at release (main actor), against the app the
         // user actually dictated into — NOT at paste time (see frontmostBundleID
         // / app/dictation.py). A per-app verbatim entry passes cleanup:false so
@@ -604,16 +610,11 @@ final class DictationController {
             globalEnabled: cleanupEnabled,
             verbatimApps: verbatimApps,
             frontmostBundleID: frontmostBundleID())
-        let options = DictationOptions(
-            cleanup: cleanup, removeFillers: removeFillers,
-            // Snippets kept from 0.2.0 apply on every engine, after the
-            // dictionary (a dictionary correction wins the same phrase).
-            replacements: (deriveForServer ? DictionaryEntry.replacements(from: entries) : [:])
-                .merging(self.legacySnippets) { dictionary, _ in dictionary },
-            vocabulary: deriveForServer ? DictionaryEntry.vocabulary(from: entries) : [],
-            formatCommands: formatCommands && !remote,
-            thaiFormat: Self.effectiveThaiFormat(setting: thaiFormat, cleanup: cleanup),
-            dictionary: remote ? [] : entries)
+        let options = Self.dictationOptions(
+            engine: engine, cleanup: cleanup, removeFillers: removeFillers,
+            entries: dictionaryEntries, legacySnippets: legacySnippets,
+            serverAppliesDictionary: dictionarySync?.serverAppliesDictionary == true,
+            formatCommands: formatCommands, thaiFormat: thaiFormat)
 
         // Off-main worker: bounded stop → transcribe → paste. Any failure here
         // is swallowed + logged; we always return to idle so the app can't get
@@ -641,6 +642,7 @@ final class DictationController {
             // history below only when the utterance landed (never on failure).
             var pastedText: String?
             var failureNotice: String?
+            var trialKeyRejected = false
             var dictionaryRevision: Int?
 
             if samples.isEmpty {
@@ -671,13 +673,23 @@ final class DictationController {
                     }
                     outcome = text.isEmpty ? .nothingToDo : DictationController.paste(text, with: injector)
                 } catch {
-                    failureNotice = (error as? OLIVAPIError)?.errorDescription
+                    if trial {
+                        failureNotice = CloudTrial.notice(for: error)
+                        trialKeyRejected = CloudTrial.rejectsKey(error)
+                    } else {
+                        failureNotice = (error as? OLIVAPIError)?.errorDescription
+                    }
                     outcome = .transcribeFailed
                 }
             } else if engine == OLIVAPIClient.engineID {
                 // Opt-in/key can be cleared during recording. Never silently
                 // upload with an old key or switch this utterance to a sidecar.
                 failureNotice = "OLIV API is disabled or incomplete — check Settings"
+                outcome = .transcribeFailed
+            } else if trial {
+                // The trial ended during the hold and no on-device engine took
+                // over (see releaseEngine): nothing is uploaded.
+                failureNotice = "The free trial is off — nothing was sent"
                 outcome = .transcribeFailed
             } else if let transcriber = transcriber {
                 // W3-T2 fallback seam (tests / no sidecar): nil is "no-op", not a
@@ -700,10 +712,12 @@ final class DictationController {
             let frozenStats = stats
             let frozenPastedText = pastedText
             let frozenFailureNotice = failureNotice
+            let frozenTrialKeyRejected = trialKeyRejected
             let frozenRevision = dictionaryRevision
             let controller = self
             await MainActor.run {
                 controller?.dictionarySync?.noteServerRevision(frozenRevision)
+                if frozenTrialKeyRejected { controller?.onTrialKeyRejected?() }
                 guard controller?.warmingGeneration == generation else { return }
                 controller?.processingTask = nil
                 appState.status = .idle
@@ -765,16 +779,63 @@ final class DictationController {
         return "Dictionary suggestion: \(change) · review it in the OLIV menu"
     }
 
+    /// Engines that send audio to an OLIV server instead of the sidecar.
+    nonisolated static func isRemote(_ engine: String) -> Bool {
+        engine == OLIVAPIClient.engineID || engine == CloudTrial.engineID
+    }
+
     nonisolated static func captureSeconds(for engine: String) -> TimeInterval {
-        engine == OLIVAPIClient.engineID ? OLIVAPIClient.maxCaptureSeconds : AudioCapture.maxCaptureSeconds
+        isRemote(engine) ? OLIVAPIClient.maxCaptureSeconds : AudioCapture.maxCaptureSeconds
+    }
+
+    /// The engine a released utterance goes to: the one frozen at press, except
+    /// when that was the free trial and the trial ended during the hold (models
+    /// ready, or stopped). Then an on-device selection takes it; anything else
+    /// keeps the trial id, which has no provider, so nothing is uploaded.
+    nonisolated static func releaseEngine(recorded: String, current: String, trialAvailable: Bool) -> String {
+        guard recorded == CloudTrial.engineID, !trialAvailable, CloudTrial.isLocal(current) else {
+            return recorded
+        }
+        return current
     }
 
     nonisolated static func provider(engine: String, sidecar: SidecarClient?,
-                                     apiConfiguration: OLIVAPIConfiguration?) -> DictationProviding? {
+                                     apiConfiguration: OLIVAPIConfiguration?,
+                                     trialConfiguration: OLIVAPIConfiguration? = nil) -> DictationProviding? {
         if engine == OLIVAPIClient.engineID {
             return apiConfiguration.map { OLIVAPIClient(configuration: $0) }
         }
+        // Only ever the trial's own key: never the user's OLIV API key.
+        if engine == CloudTrial.engineID {
+            return trialConfiguration.map { CloudTrialProvider(configuration: $0) }
+        }
         return sidecar.map { SidecarDictationProvider(client: $0, engine: engine) }
+    }
+
+    /// Dictionary routing, frozen at release: local engines get the entries;
+    /// the OLIV API applies its own synced copy, and only a server without
+    /// dictionary sync (or one not confirmed yet) gets derived vocabulary /
+    /// replacements instead. The free trial gets none of it: the user agreed
+    /// to send audio, and the trial key's server profile isn't theirs.
+    nonisolated static func dictationOptions(
+        engine: String, cleanup: Bool, removeFillers: Bool,
+        entries: [DictionaryEntry], legacySnippets: [String: String],
+        serverAppliesDictionary: Bool, formatCommands: Bool, thaiFormat: Bool
+    ) -> DictationOptions {
+        let remote = isRemote(engine)
+        let trial = engine == CloudTrial.engineID
+        let deriveForServer = engine == OLIVAPIClient.engineID && !serverAppliesDictionary
+        // Snippets kept from 0.2.0 apply on every engine but the trial, after
+        // the dictionary (a dictionary correction wins the same phrase).
+        let replacements = trial ? [:] : (deriveForServer ? DictionaryEntry.replacements(from: entries) : [:])
+            .merging(legacySnippets) { dictionary, _ in dictionary }
+        return DictationOptions(
+            cleanup: cleanup, removeFillers: removeFillers,
+            replacements: replacements,
+            vocabulary: deriveForServer ? DictionaryEntry.vocabulary(from: entries) : [],
+            formatCommands: formatCommands && !remote,
+            thaiFormat: effectiveThaiFormat(setting: thaiFormat, cleanup: cleanup),
+            dictionary: remote ? [] : entries)
     }
 
     /// Paste `text` and classify the result for the end-of-utterance HUD notice

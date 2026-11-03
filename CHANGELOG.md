@@ -6,6 +6,13 @@ the matching `## [X.Y.Z]` section (falling back to `## [Unreleased]`) into the
 Sparkle appcast's release notes, so keep entries short and end-user readable.
 
 ## [Unreleased]
+- **Dictate while the models download.** On a new Mac, OLIV no longer has to
+  sit idle through the 5 GB download: in Setup, **Try it now through the OLIV
+  server** starts a free trial that sends your recordings to the OLIV server
+  until the models are ready. It's off unless you choose it, shows as Cloud in
+  the menu, the recording pill and Settings, never sends your Dictionary, and
+  switches back to your Mac by itself (it tells you when). If the download
+  stops, the trial stops too.
 - **Corrections that lead into each other apply once.** With rules like
   `foo → docker` and `docker → X`, a word OLIV already corrected is no longer
   corrected again after the cleanup model changes its capitals or spacing.

@@ -11,6 +11,7 @@
 // OnboardingWindowController) so it can be shown/activated programmatically.
 
 import AppKit
+import Combine
 import SwiftUI
 import Sparkle
 
@@ -25,6 +26,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     let dictionarySync = DictionarySync()
     /// Last API configuration pushed to sync; a change triggers a resync.
     private var syncedAPIConfiguration: OLIVAPIConfiguration?
+    /// Opt-in: dictate through the OLIV server while the models download.
+    let trial = CloudTrial()
+    /// What dictation uses right now: the selected engine, or the free trial
+    /// in its place while that engine's models download. Menu and Settings
+    /// label this, so "Cloud" shows whenever audio would leave the Mac.
+    @Published private(set) var effectiveEngineID = SidecarClient.defaultEngine
+    /// A trial hand-back to tell the user, held until nothing is recording.
+    private var pendingAnnouncement: TrialAnnouncement?
+    private var observers: Set<AnyCancellable> = []
 
     /// Sparkle auto-update (W5-T1). Owns the updater + its standard AppKit user
     /// driver (the update window/prompts). `startingUpdater: true` starts the
@@ -89,9 +99,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         // Undo→redictate suggestions go to the settings inbox (gated there on
         // the auto-learn toggle and history; approval is always required).
         controller.autoLearnSettings = settings
+        effectiveEngineID = settings.engineID
 
         // Live-apply: any settings change re-pushes into the running controller.
         settings.onChange = { [weak self] in self?.applyLiveSettings() }
+        trial.onChange = { [weak self] in self?.applyEngine() }
+        controller.onTrialKeyRejected = { [weak self] in self?.trial.keyRejected() }
+        // Download start/finish and model presence decide whether the trial
+        // still applies. Received on the next main-queue turn, so a finished
+        // download is judged after its disk re-scan, not before.
+        models.$isDownloading.combineLatest(models.$repos.map { $0.map(\.present) })
+            .removeDuplicates { $0.0 == $1.0 && $0.1 == $1.1 }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.applyEngine() }
+            .store(in: &observers)
+        appState.$status
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in if status == .idle { self?.flushAnnouncement(after: 3) } }
+            .store(in: &observers)
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -116,7 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     /// verbatim take effect on the NEXT utterance (read at release); a hotkey
     /// change restarts the tap immediately.
     private func applyLiveSettings() {
-        controller.sttEngine = settings.engineID
+        applyEngine()
         controller.olivAPIConfiguration = settings.olivAPIConfiguration
         controller.cleanupEnabled = settings.cleanupEnabled
         controller.verbatimApps = settings.verbatimApps
@@ -145,6 +170,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             dictionarySync.configurationChanged()
         }
         refreshReadiness()
+    }
+
+    // MARK: Free trial while the models download (CloudTrial)
+
+    var cloudTrialOffered: Bool {
+        trial.isOffered(selectedEngine: settings.engineID,
+                        modelsReady: models.arePresent(settings.requiredModelRepos))
+    }
+
+    /// Onboarding / Settings: the user opted in. The trial lasts as long as
+    /// the download, so this starts the download too.
+    func startCloudTrial() {
+        guard cloudTrialOffered, trial.phase == .off else { return }
+        if !models.isDownloading { models.download(settings.requiredModelRepos) }
+        Task { await trial.start() }
+    }
+
+    func stopCloudTrial() { trial.stop() }
+
+    /// Decide the engine dictation uses: end the trial when the models are
+    /// ready, the download stopped, the key ran out, or the user chose a cloud
+    /// engine; otherwise the trial stands in for the on-device engine.
+    private func applyEngine() {
+        let ready = models.arePresent(settings.requiredModelRepos)
+        let announcement = trial.reconcile(selectedEngine: settings.engineID, modelsReady: ready,
+                                           downloading: models.isDownloading)
+        controller.trialConfiguration = trial.configuration
+        let engine = trial.effectiveEngine(selected: settings.engineID, modelsReady: ready)
+        controller.sttEngine = engine
+        if effectiveEngineID != engine { effectiveEngineID = engine }
+        if let announcement {
+            if ready { controller.warmAfterDownload() }
+            pendingAnnouncement = announcement
+            flushAnnouncement(after: 0)
+        }
+    }
+
+    /// Say it once, when no dictation is using the HUD (the status observer
+    /// retries after each one).
+    private func flushAnnouncement(after delay: TimeInterval) {
+        guard pendingAnnouncement != nil else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.appState.status == .idle, let announcement = self.pendingAnnouncement else { return }
+            self.pendingAnnouncement = nil
+            self.controller.hud?.notice(announcement.text, systemImage: announcement.systemImage, duration: 6)
+        }
     }
 
     /// Re-scan permissions + models, retry the hotkey tap (in case Input
@@ -195,7 +266,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             appVersion: info?["CFBundleShortVersionString"] as? String ?? "?",
             build: info?["CFBundleVersion"] as? String ?? "?",
             macOSVersion: ProcessInfo.processInfo.operatingSystemVersionString,
-            engineID: settings.engineID,
+            engineID: effectiveEngineID,
             // The RESOLVED keys — a malformed stored id falls back to the
             // default, and the report must name what the tap actually
             // listens on, not what defaults happens to hold.
@@ -229,6 +300,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
                 permissions: permissions,
                 models: models,
                 settings: settings,
+                trial: trial,
+                onStartTrial: { [weak self] in self?.startCloudTrial() },
+                onStopTrial: { [weak self] in self?.stopCloudTrial() },
                 onClose: { [weak self] in self?.refreshReadiness() })
         }
         onboarding?.show()
@@ -245,12 +319,19 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
     private let permissions: PermissionsModel
     private let models: ModelState
     private let settings: OLIVSettings
+    private let trial: CloudTrial
+    private let onStartTrial: () -> Void
+    private let onStopTrial: () -> Void
     private let onClose: () -> Void
 
-    init(permissions: PermissionsModel, models: ModelState, settings: OLIVSettings, onClose: @escaping () -> Void) {
+    init(permissions: PermissionsModel, models: ModelState, settings: OLIVSettings, trial: CloudTrial,
+         onStartTrial: @escaping () -> Void, onStopTrial: @escaping () -> Void, onClose: @escaping () -> Void) {
         self.permissions = permissions
         self.models = models
         self.settings = settings
+        self.trial = trial
+        self.onStartTrial = onStartTrial
+        self.onStopTrial = onStopTrial
         self.onClose = onClose
         super.init()
     }
@@ -261,7 +342,10 @@ final class OnboardingWindowController: NSObject, NSWindowDelegate {
                 permissions: permissions,
                 models: models,
                 settings: settings,
-                onDone: { [weak self] in self?.window?.close() })
+                trial: trial,
+                onDone: { [weak self] in self?.window?.close() },
+                onStartTrial: onStartTrial,
+                onStopTrial: onStopTrial)
             let hosting = NSHostingController(rootView: root)
             let win = NSWindow(contentViewController: hosting)
             win.title = "OLIV Setup"

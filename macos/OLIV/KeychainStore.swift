@@ -36,6 +36,8 @@ final class KeychainStore: KeychainStoring {
     static let service = "com.oliv.app"
     static let groqAccount = "groq-api-key"
     static let olivAPIAccount = "oliv-api-key"
+    /// The free-trial key (CloudTrial), kept apart from the user's own key.
+    static let olivTrialAccount = "oliv-trial-key"
 
     static let shared = KeychainStore()
 

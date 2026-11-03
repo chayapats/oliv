@@ -39,6 +39,7 @@ struct OLIVApp: App {
                 .environmentObject(appDelegate.dictionarySync)
                 .environmentObject(appDelegate.models)
                 .environmentObject(appDelegate.permissions)
+                .environmentObject(appDelegate.trial)
                 .environmentObject(appDelegate)
         }
         .defaultSize(width: 980, height: 740)
