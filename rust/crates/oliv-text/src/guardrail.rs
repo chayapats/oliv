@@ -9,6 +9,7 @@ use crate::dictionary::CANONICAL_CASE;
 use crate::gate::latin_spans;
 use crate::metrics;
 use crate::pyu::{has_thai, lower, remove_ws, strip};
+use crate::script::adds_foreign;
 use crate::tokenize::word_tokenize;
 
 /// `STOPS`: generation is cut at the first of each, in order.
@@ -193,6 +194,11 @@ pub fn guardrail(dict_text: &str, generation: &str) -> (String, &'static str) {
     let fallback = |flag| (dict_text.to_string(), flag);
     if c.is_empty() {
         return fallback("empty->dict");
+    }
+    // Not in the Python reference: letters of another script (a Hangul or Lao
+    // syllable inside a Thai name) are never a restoration.
+    if adds_foreign(dict_text, &c) {
+        return fallback("script->dict");
     }
     let rt = metrics::tokenize(&metrics::normalize(dict_text)).len() as f64;
     let ct = metrics::tokenize(&metrics::normalize(&c)).len() as f64;

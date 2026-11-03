@@ -83,3 +83,58 @@ fn llm_failure_keeps_dictionary_corrections() {
     assert_eq!(result.outcome.guardrail_flag, "llmError->dict");
     assert!(result.outcome.cleanup_error.is_some());
 }
+
+struct Fixed(&'static str);
+impl Llm for Fixed {
+    fn generate(&self, _: &Request) -> Result<String, LlmError> {
+        Ok(self.0.into())
+    }
+}
+
+#[test]
+fn other_scripts_in_a_transcript_are_dropped() {
+    let opts = Options {
+        cleanup: false,
+        remove_fillers: false,
+        thai_format: false,
+        ..Options::default()
+    };
+    // FLEURS Thai: a hallucinated tail ended in Cyrillic and an undecodable byte.
+    let result = local::clean("ที่ควิเ\u{fffd} Ал", Some(5.), &opts, false, &MustNotRun);
+    assert_eq!(result.outcome.final_text, "ที่ควิเ");
+    // Nothing else left: no speech, like a CJK-only caption.
+    assert!(
+        local::clean("Ал", Some(2.), &opts, false, &MustNotRun)
+            .outcome
+            .no_speech
+    );
+}
+
+#[test]
+fn cleanup_that_writes_another_script_is_rejected() {
+    let opts = Options {
+        remove_fillers: false,
+        thai_format: false,
+        ..Options::default()
+    };
+    // FLEURS Thai: the cleanup model wrote a Hangul syllable for ทูป, and Lao
+    // letters into ซึนดาบันส์.
+    let cases = [
+        (
+            "ส่งผลให้ ทูปปัว ธามาซิส รีรอฟฟิ ผู้เป็นหัวหน้าใหญ่",
+            Fixed("ส่งผลให้ 투ปัวธามาซิสรีรอฟฟิผู้เป็นหัวหน้าใหญ่"),
+            "ส่งผลให้ทูปปัวธามาซิสรีรอฟฟิผู้เป็นหัวหน้าใหญ่",
+        ),
+        (
+            "องค์กร UNESCO ประกาศให้ซึนดาบันส์ เป็นมรดกโลก",
+            Fixed("องค์กร UNESCO ประกาศให้\u{e8a}ึน\u{e94}\u{eb2}\u{e9a}\u{eb1}\u{e99}ส์เป็นมรดกโลก"),
+            "องค์กร UNESCO ประกาศให้ซึนดาบันส์เป็นมรดกโลก",
+        ),
+    ];
+    for (text, llm, expected) in cases {
+        let result = local::clean(text, None, &opts, false, &llm);
+        assert!(result.outcome.llm_ran);
+        assert_eq!(result.outcome.guardrail_flag, "script->dict");
+        assert_eq!(result.outcome.final_text, expected);
+    }
+}

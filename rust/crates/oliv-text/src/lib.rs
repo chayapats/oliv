@@ -18,6 +18,7 @@ pub mod llm;
 pub mod local;
 pub mod pipeline;
 mod prompts_text;
+pub mod script;
 pub mod spacing;
 pub mod stt;
 pub mod thai_format;

@@ -1,5 +1,5 @@
 //! The sidecar dictate text path after STT (`/v1/clean`, and `/v1/dictate` once
-//! STT has run): CJK strip -> hallucination gate -> fillers -> `clean_ex` ->
+//! STT has run): foreign-script strip -> hallucination gate -> fillers -> `clean_ex` ->
 //! user dictionary + replacements -> Thai format. Audio-only gates and spoken formatting
 //! commands are not part of the server/desktop pipeline.
 
@@ -7,7 +7,7 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 
 use crate::fillers::remove_fillers;
-use crate::hallucination::{strip_cjk, text_hallucination};
+use crate::hallucination::{strip_foreign, text_hallucination};
 use crate::llm::{Llm, Prompt};
 use crate::pyu::is_blank;
 use crate::thai_format::apply_thai_format;
@@ -162,7 +162,7 @@ pub fn clean_text(text: &str, opts: &Options, llm: &dyn Llm) -> Outcome {
         ..Default::default()
     };
 
-    let mut t = strip_cjk(text);
+    let mut t = strip_foreign(text);
     if !is_blank(text) && is_blank(&t) {
         return no_speech("no_speech");
     }

@@ -19,7 +19,7 @@ pub fn clean(
     format: bool,
     llm: &dyn Llm,
 ) -> LocalOutcome {
-    let mut t = crate::hallucination::strip_cjk(text);
+    let mut t = crate::hallucination::strip_foreign(text);
     let reason = if !is_blank(text) && is_blank(&t) {
         Some("no_speech")
     } else if !is_blank(&t) && crate::hallucination::text_hallucination(&t) {

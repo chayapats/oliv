@@ -13,6 +13,10 @@
   vocabulary goldens (one 5-term Latin list) are unaffected.
 - An LLM edit that touches a listed Thai-script vocabulary term is reverted
   (`guardrail_flag` `ok-termKept`).
+- Transcripts lose every letter outside the Thai and Latin scripts, not only
+  CJK, kana and Hangul, plus U+FFFD (`hallucination::strip_foreign`; the
+  reference `strip_cjk` is kept for parity). A generation that adds such a
+  letter falls back to the dictionary text (`script->dict`).
 
 Mac formatting commands and audio gates are implemented in `commands.rs`,
 `audio.rs` and `local.rs`. Typhoon avoids an STT initial prompt, while other

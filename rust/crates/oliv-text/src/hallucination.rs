@@ -1,5 +1,5 @@
-//! Sidecar no-speech gates on the transcript: CJK strip (B) and caption-phrase /
-//! repetition-loop hallucinations (D).
+//! Sidecar no-speech gates on the transcript: CJK strip (B; foreign-script strip
+//! in the pipeline) and caption-phrase / repetition-loop hallucinations (D).
 
 use std::collections::HashMap;
 
@@ -16,10 +16,22 @@ fn is_cjk(c: char) -> bool {
 
 /// `_strip_cjk`: drop CJK / kana / hangul, then squeeze whitespace runs.
 pub fn strip_cjk(text: &str) -> String {
-    if !text.chars().any(is_cjk) {
+    strip_chars(text, is_cjk)
+}
+
+/// [`strip_cjk`] for every script but Thai and Latin ([`crate::script::is_foreign`]),
+/// plus undecodable bytes (U+FFFD); not in the Python reference. OLIV dictates
+/// Thai and English, so such letters in a transcript are recognition artifacts
+/// (a Cyrillic tail after a hallucinated FLEURS transcript), never words to type.
+pub fn strip_foreign(text: &str) -> String {
+    strip_chars(text, crate::script::is_foreign)
+}
+
+fn strip_chars(text: &str, drop: fn(char) -> bool) -> String {
+    if !text.chars().any(drop) {
         return text.to_string();
     }
-    let kept: Vec<char> = text.chars().filter(|&c| !is_cjk(c)).collect();
+    let kept: Vec<char> = text.chars().filter(|&c| !drop(c)).collect();
     // re.sub(r"\s{2,}", " ", ...)
     let mut out = String::with_capacity(text.len());
     let mut i = 0;
