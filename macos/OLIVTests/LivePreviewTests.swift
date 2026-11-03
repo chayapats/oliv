@@ -584,7 +584,8 @@ final class LivePreviewSidecarTests: XCTestCase {
         XCTAssertLessThan(Date().timeIntervalSince(released), 5)
         XCTAssertEqual(final.final, "final words")
         wait(for: [previewed], timeout: 5)
-        XCTAssertEqual(preview, LivePreviewResult(text: "", skipped: "cancelled"))
+        XCTAssertEqual(preview?.text, "")
+        XCTAssertEqual(preview?.skipped, "cancelled")
     }
 
     func testCloudEnginesAreRefusedBySidecar() throws {
