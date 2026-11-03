@@ -556,6 +556,17 @@ pub fn context_field(
     }
 }
 
+/// The terms that reach the STT prompt for one pair, for the transcript
+/// cache key: a `vocabulary` list does, a `screen` list never does (it goes
+/// only to the text matcher). A screen-only run must not reuse a transcript
+/// decoded with those names in the prompt.
+pub fn stt_prompt_terms(context: &str, list: &[&String]) -> Value {
+    match context {
+        "vocabulary" => json!(list),
+        _ => json!([]),
+    }
+}
+
 fn run(args: RunArgs) -> Result<()> {
     let data = Dataset::load(&data_dir(args.data_dir.clone())?, !args.allow_unpinned)?;
     let conditions = parse_conditions(&args.conditions)?;
@@ -720,7 +731,7 @@ fn run(args: RunArgs) -> Result<()> {
                 request[field] = value;
             }
             let prompt_input = if prompt_dependent {
-                json!(vocabulary)
+                stt_prompt_terms(&args.context, &vocabulary)
             } else {
                 Value::Null
             };
@@ -861,6 +872,22 @@ fn run(args: RunArgs) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn screen_lists_never_reach_the_stt_cache_key() {
+        let a = "Nattapong".to_string();
+        let b = "LaunchDarkly".to_string();
+        let list = vec![&a, &b];
+        assert_eq!(
+            stt_prompt_terms("vocabulary", &list),
+            json!(["Nattapong", "LaunchDarkly"])
+        );
+        assert_eq!(stt_prompt_terms("screen", &list), json!([]));
+        assert_ne!(
+            stt_prompt_terms("screen", &list),
+            stt_prompt_terms("vocabulary", &list)
+        );
+    }
+
     #[test]
     fn conditions_and_pipelines_are_validated() {
         assert_eq!(parse_conditions(STANDARD_CONDITIONS).unwrap().len(), 4);
