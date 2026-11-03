@@ -76,7 +76,8 @@ oliv-api/   Rust crate: lib `oliv_pipeline`, bins `oliv-api` (HTTP server) and `
 vm/         everything that lives in ~/oliv on the server: start.sh/stop.sh, systemd/ user units,
             config.toml, whisper_server.py, qwen_asr.py, dashboard, consumer_tunnel.py, tests
 deploy/     deploy.sh: build, then push binaries + vm/ to the server with backup and health checks
-scripts/    build-release.sh: reproducible static build in a pinned Docker image
+scripts/    build-release.sh: reproducible static build in a pinned Docker image;
+            uptime_check.py: the scheduled public /health check (see Uptime check)
 eval/       eval scoring helpers (bring your own clips and results; see eval/README.md)
 docs/       API contract, dictionary, dashboard
 ```
@@ -141,6 +142,7 @@ it changes the output bytes. Output: `server/oliv-api/target/release/`.
 ```sh
 cargo test --locked --manifest-path server/oliv-api/Cargo.toml --all-targets   # Linux
 python3 -m unittest discover -s server/vm -p 'test_*.py'                     # Linux
+python3 -m unittest discover -s server/scripts -p 'test_*.py'                # any OS
 ```
 
 The Rust suite includes the offline golden tests: public fixtures with mocked
@@ -320,6 +322,47 @@ bash 4 and GNU rsync; on macOS use `deploy/deploy-in-container.sh` with the
 same arguments. It never touches `config.toml`, keys, tokens, tunnel
 configuration or `qwen-profile.json`, never restarts Gemma, and never deletes
 anything on the server.
+
+## Uptime check
+
+[`.github/workflows/uptime.yml`](../.github/workflows/uptime.yml) checks the
+public `/health` from GitHub every 15 minutes, so you hear about an outage
+before your users do. It needs HTTP 200 with `"ok": true` and no redirect, and
+tries once more 30 seconds later before it calls the server down. `/health`
+shows that the API answers through your ingress; it doesn't prove the models
+are loaded.
+
+To turn it on, add a repository secret named `OLIV_HEALTH_URL` (Settings ▸
+Secrets and variables ▸ Actions) set to your server's health URL, such as
+`https://oliv.example.com/health`; a URL with no path checks `/health`. Without
+the secret, as in forks, each run skips with a notice. The URL stays out of the
+source and the logs: GitHub masks the secret, and the check masks its host as
+well and prints neither.
+
+When the server is down:
+
+- The run fails. GitHub emails a failed scheduled run to whoever last changed
+  the workflow's `cron` line, if Actions notifications are on for them
+  (GitHub Settings ▸ Notifications ▸ Actions).
+- The run opens one issue, **OLIV server is down**, labelled `server-down`,
+  with the reason and no URL. Later failures in the same outage don't add
+  issues, and the next good check closes it with a comment.
+
+A secret that isn't an http(s) URL also fails the run, without an issue. To see
+the alert work, open Actions ▸ Server uptime ▸ Run workflow and tick the
+closed-port option: that run fails and opens the issue, and the next scheduled
+check closes it.
+
+To run the same check by hand:
+
+```sh
+OLIV_HEALTH_URL=https://oliv.example.com/health python3 server/scripts/uptime_check.py
+```
+
+It identifies itself as `oliv-uptime-check/1.0`, because Cloudflare refuses
+Python's default User-Agent ([`error code: 1010`](docs/PUBLIC-API.md#test-scripts-rejected-by-cloudflare)).
+GitHub pauses scheduled workflows in a public repository after 60 days without
+commits; turn it back on from the Actions tab.
 
 ## Data and privacy
 

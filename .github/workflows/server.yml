@@ -47,6 +47,7 @@ jobs:
         run: |
           python3 -m unittest discover -s server/vm -p 'test_*.py'
           python3 -m unittest discover -s server/eval -p 'test_*.py'
+          python3 -m unittest discover -s server/scripts -p 'test_*.py'
           bash -n server/deploy/deploy.sh server/deploy/deploy-in-container.sh server/vm/start.sh server/vm/stop.sh server/vm/dashboard.sh server/scripts/build-release.sh
       - name: Reproducible release build (pinned image)
         run: server/scripts/build-release.sh

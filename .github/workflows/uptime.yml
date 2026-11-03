@@ -1,0 +1,97 @@
+name: Server uptime
+
+# Checks the OLIV server's public /health from outside, every 15 minutes.
+# The URL is the OLIV_HEALTH_URL repository secret; it is never printed.
+# A down server fails the run, which GitHub emails to whoever last changed the
+# schedule below, and opens one issue labelled server-down that the next good
+# check closes. See server/README.md#uptime-check.
+
+on:
+  schedule:
+    # Off the hour, when GitHub's scheduler is busiest.
+    - cron: '4,19,34,49 * * * *'
+  workflow_dispatch:
+    inputs:
+      check_failing_url:
+        description: 'Check a closed port instead of the server, to see the alert (the next good check closes its issue)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  health:
+    name: Public /health
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    env:
+      LABEL: server-down
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: server/scripts
+
+      # Skips with a notice when the secret is missing (forks). Retries once.
+      - name: Check /health
+        id: check
+        continue-on-error: true
+        env:
+          OLIV_HEALTH_URL: ${{ inputs.check_failing_url && 'http://127.0.0.1:9/health' || secrets.OLIV_HEALTH_URL }}
+        run: python3 server/scripts/uptime_check.py
+
+      - name: Open the server-down issue
+        if: steps.check.outputs.state == 'down'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REASON: ${{ steps.check.outputs.reason }}
+          DRILL: ${{ inputs.check_failing_url && 'true' || 'false' }}
+        run: |
+          open="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "$LABEL" --json number --jq '.[0].number // empty')"
+          if [ -n "$open" ]; then
+            echo "Issue #$open is already open."
+            exit 0
+          fi
+          if [ "$DRILL" = true ]; then
+            note="This is a drill: a manual run checked a closed port instead of the server. The next good check closes this issue."
+          else
+            note="The next good check closes this issue."
+          fi
+          body="The uptime check got no \`\"ok\": true\` from the OLIV server's public \`/health\` at $(date -u '+%Y-%m-%d %H:%M UTC'), on two tries 30 seconds apart.
+
+          Last result: $REASON
+
+          $note
+
+          Run: $RUN_URL"
+          gh label create "$LABEL" --repo "$GITHUB_REPOSITORY" --color B60205 \
+            --description "Opened and closed by the uptime check" --force
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "OLIV server is down" --label "$LABEL" --body "$body"
+
+      - name: Close the server-down issue
+        if: steps.check.outputs.state == 'up'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for number in $(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "$LABEL" --json number --jq '.[].number'); do
+            gh issue close "$number" --repo "$GITHUB_REPOSITORY" \
+              --comment "Back up: /health answered at $(date -u '+%Y-%m-%d %H:%M UTC'). Run: $RUN_URL"
+          done
+
+      # Down, a misconfigured secret, or a crashed check: a failed run is the alert.
+      - name: Fail the run
+        if: ${{ !cancelled() && steps.check.outputs.state != 'up' && steps.check.outputs.state != 'skipped' }}
+        env:
+          STATE: ${{ steps.check.outputs.state }}
+        run: |
+          echo "::error title=Uptime check failed::state=${STATE:-crashed}"
+          exit 1
