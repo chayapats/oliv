@@ -232,10 +232,28 @@ final class SelectionReader {
     /// how it was captured, or copied again (⌘C, clipboard restored) when
     /// the app only answers ⌘C. Anything else must not be pasted over.
     func verify(_ capture: SelectionCapture) -> TargetCheck {
-        guard let was = capture.focus, let pid = was.processID, let element = was.element else {
-            return .unverifiable
-        }
+        guard let was = capture.focus else { return .unverifiable }
         let now = accessibility.focusSnapshot()
+        if let moved = Self.moved(from: was, to: now) { return moved }
+        switch capture.source {
+        case .accessibility, .recentPaste:
+            guard let text = now.selectedText else { return .unverifiable }
+            return text == capture.text ? .same : .changed
+        case .copy:
+            if secureInputCheck() || accessibility.focusedIsSecure() { return .unverifiable }
+            guard let copied = copySelection() else { return .changed }
+            guard copied == capture.text else { return .changed }
+            // The copy takes a moment: the user may have moved the cursor or
+            // switched apps meanwhile, and the copied text proves nothing about
+            // what is selected now. Look again before allowing the replace.
+            return Self.moved(from: was, to: accessibility.focusSnapshot()) ?? .same
+        }
+    }
+
+    /// Why `now` is no longer the app, field, window and selection of `was`,
+    /// or nil when it still is.
+    static func moved(from was: FocusSnapshot, to now: FocusSnapshot) -> TargetCheck? {
+        guard let pid = was.processID, let element = was.element else { return .unverifiable }
         guard let nowPID = now.processID else { return .unverifiable }
         if nowPID != pid { return .otherApp }
         guard let nowElement = now.element else { return .unverifiable }
@@ -245,15 +263,7 @@ final class SelectionReader {
             guard let nowRange = now.selectedRange else { return .unverifiable }
             guard nowRange == range else { return .changed }
         }
-        switch capture.source {
-        case .accessibility, .recentPaste:
-            guard let text = now.selectedText else { return .unverifiable }
-            return text == capture.text ? .same : .changed
-        case .copy:
-            if secureInputCheck() || accessibility.focusedIsSecure() { return .unverifiable }
-            guard let copied = copySelection() else { return .changed }
-            return copied == capture.text ? .same : .changed
-        }
+        return nil
     }
 
     /// The copy fallback: ⌘C, read the text, put the user's clipboard back.

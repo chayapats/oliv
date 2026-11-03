@@ -341,6 +341,32 @@ final class VoiceEditingTests: XCTestCase {
         XCTAssertEqual(pastes.all, ["edited"])
     }
 
+    /// The re-copy takes a moment: moving the cursor, the window or the app
+    /// while it runs must not let the edit replace what is selected after.
+    func testFocusThatMovesDuringTheReCopyIsCaught() {
+        ax.selected = nil
+        ax.range = NSRange(location: 0, length: 17)
+        let copied = Box<String?>("selected in Slack")
+        let reader = reader(copying: copied)
+        guard let target = captured(reader.capture(recentPaste: nil)) else { return XCTFail("no capture") }
+        XCTAssertEqual(target.source, .copy)
+        let copy = reader.copyPoster
+        let ax = self.ax!
+        let moves: [(String, () -> Void, TargetCheck)] = [
+            ("another app", { ax.pid = 43 }, .otherApp),
+            ("another window", { ax.window = "window-2" }, .changed),
+            ("the cursor", { ax.range = NSRange(location: 3, length: 0) }, .changed),
+        ]
+        for (name, move, expected) in moves {
+            let saved = (ax.pid, ax.window, ax.range)
+            reader.copyPoster = { let posted = copy(); move(); return posted }
+            XCTAssertEqual(reader.verify(target), expected, name)
+            (ax.pid, ax.window, ax.range) = saved
+        }
+        reader.copyPoster = copy
+        XCTAssertEqual(reader.verify(target), .same, "nothing moved")
+    }
+
     func testCommandModeRefusesVerbatimAppsAndPasswordManagersBeforeReading() {
         ax.selected = "secret selection"
         let transformer = FakeTransformer { _, _, _ in XCTFail("must not transform"); throw ModelDown() }
