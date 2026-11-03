@@ -711,12 +711,40 @@ fn spoken_times(source: &str) -> HashSet<String> {
 /// Numbers in `out` that the source never stated, small ones aside. By
 /// value: restating a figure the source gives (an email's subject and body)
 /// invents nothing.
+/// A key with the trailing zeros of its last part dropped (1:50 → 1:5), so
+/// 1.50 and 1.5 meet. Clock times keep their exact form in `number_key`; this
+/// only adds a second way to match.
+fn decimal_form(key: &str) -> String {
+    match key.rsplit_once(':') {
+        Some((head, last)) if last.len() > 1 && last.ends_with('0') => {
+            let last = last.trim_end_matches('0');
+            if last.is_empty() {
+                head.to_owned()
+            } else {
+                format!("{head}:{last}")
+            }
+        }
+        _ => key.to_owned(),
+    }
+}
+
+/// Whether two number keys write the same value.
+fn same_number(a: &str, b: &str) -> bool {
+    a == b || decimal_form(a) == decimal_form(b)
+}
+
 fn invented_numbers(source: &str, out: &str) -> Vec<String> {
     let have = source_numbers(source);
+    let have_decimal: HashSet<String> = have.iter().map(|n| decimal_form(n)).collect();
     let times = spoken_times(source);
     let mut invented: Vec<String> = numbers(out)
         .into_iter()
-        .filter(|n| !have.contains(n) && !is_small(n) && !times.contains(n))
+        .filter(|n| {
+            !have.contains(n)
+                && !have_decimal.contains(&decimal_form(n))
+                && !is_small(n)
+                && !times.contains(n)
+        })
         .collect();
     invented.sort();
     invented.dedup();
@@ -729,7 +757,7 @@ fn lost_numbers(source: &str, out: &str) -> Vec<String> {
     let mut have = numbers(out);
     let mut lost = Vec::new();
     for n in numbers(source) {
-        match have.iter().position(|h| *h == n) {
+        match have.iter().position(|h| same_number(h, &n)) {
             Some(i) => {
                 have.swap_remove(i);
             }
@@ -1474,6 +1502,32 @@ mod tests {
         assert_eq!(
             invented_numbers("ห้าโมง", "at 2026"),
             vec!["2026".to_string()]
+        );
+    }
+
+    #[test]
+    fn equal_decimals_match() {
+        let none = Vec::<String>::new();
+        assert_eq!(
+            lost_numbers("ราคา 1.50 บาท", "The price is 1.5 baht."),
+            none
+        );
+        assert_eq!(
+            invented_numbers("ราคา 1.5 บาท", "The price is 1.50 baht."),
+            none
+        );
+        assert_eq!(
+            check_translation("ราคา 1.50 บาท", "The price is 1.5 baht."),
+            Ok(())
+        );
+        // A different value is still a different value.
+        assert_eq!(
+            lost_numbers("ราคา 1.50 บาท", "The price is 1.05 baht."),
+            vec!["1:50".to_string()]
+        );
+        assert_eq!(
+            lost_numbers("ประชุม 14:30", "Meeting at 14:03."),
+            vec!["14:30".to_string()]
         );
     }
 
