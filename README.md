@@ -42,13 +42,16 @@ Then you fix every word by hand. OLIV turns those words back into English, leave
 - ⚡ **About a second.** Median 1.0 s from releasing the key to text, measured on an M4 Pro.
 - ⌨️ **Works in any app.** Slack, VS Code, Terminal with Claude Code, Notes, a browser: OLIV pastes wherever your cursor is.
 - ✍️ **Edit by voice.** Select text and say "ทำให้สุภาพขึ้น", or speak Thai and get English. Both run on your Mac. *(new in 0.2.3)*
-- 📖 **Learns your words.** Names and jargon in your Dictionary come out spelled your way.
+- 👀 **See your words as you speak.** The pill shows what OLIV has heard while you hold the key, so you know early if it misheard. *(new in 0.2.3)*
+- 📖 **Learns your words.** Names and jargon in your Dictionary come out spelled your way. Turn on *Names on screen* and so do the names in the window you're typing into. *(new in 0.2.3)*
 - 🌏 **Thai interface.** On a Mac set to Thai, OLIV's menus, Settings and notices are in Thai. *(new in 0.2.3)*
 - 🆓 **Free and MIT-licensed.** No subscription, no account, no telemetry.
 
 ## What's new in 0.2.3
 
 - **[Voice editing](#voice-editing).** *Command mode* rewrites the text you select from a spoken instruction. *Speak Thai, type English* translates your dictation. Both are off by default.
+- **[See your words as you speak](#see-your-words-as-you-speak).** While you hold the key, the pill shows what OLIV has heard so far. On by default with on-device engines; the text OLIV types still comes from the full pass after you let go.
+- **[Names on screen](#names-on-screen).** Optional: OLIV reads the window you're dictating into and spells the names it shows, for that one dictation. That text never leaves your Mac.
 - **[Dictate while the models download](#first-run-download-or-free-trial).** An opt-in free trial through the OLIV server while the 5 GB download runs. It ends by itself.
 - **[Report a wrong result](#recent-dictations-and-wrong-result-reports).** Preview a report, edit it, then open it as a GitHub issue. OLIV sends nothing itself.
 - **[Thai interface](#thai-interface)** on Macs set to Thai.
@@ -64,9 +67,9 @@ Every release is in the [changelog](CHANGELOG.md).
   <img src="docs/img/readme/pipeline-light.png" alt="How OLIV works. Dictation, all on the Mac: hold a key and speak; Typhoon Whisper Turbo transcribes on MLX; the Rust core fixes known words, numbers and your Dictionary; Gemma E2B restores English words while guards keep your Thai; the text is pasted at the cursor. Voice editing, also on the Mac and off by default: Command mode takes selected text and a spoken instruction such as ทำให้สุภาพขึ้น, Gemma E2B rewrites it and guardrails check it, and it replaces the selection; Thai to English transcribes and cleans your Thai, Gemma E2B translates it, and English is pasted. Example: raw speech-to-text ตัวบิวท์เฟลล์เพราะดิเพนเดนซี่เวอร์ชั่นไม่ตรง becomes ตัว build fail เพราะ dependency version ไม่ตรง." width="100%">
 </picture>
 
-1. **Speak.** Hold the push-to-talk key (Right ⌥ by default). A small pill shows that OLIV is listening and which engine it's using.
+1. **Speak.** Hold the push-to-talk key (Right ⌥ by default). A small pill shows that OLIV is listening, which engine it's using and, with on-device engines, the words it has heard so far.
 2. **Transcribe.** Typhoon Whisper Turbo runs on the GPU with [MLX](https://github.com/ml-explore/mlx).
-3. **Fix known words.** A Rust core applies a built-in dictionary, sound-alike matching, number and `ๆ` formatting, and your Dictionary.
+3. **Fix known words.** A Rust core applies a built-in dictionary, sound-alike matching, number and `ๆ` formatting, and your Dictionary. With Names on screen on, names from the window you're typing into count too, ranked below your Dictionary.
 4. **Restore English.** A small on-device language model, [Gemma E2B](https://huggingface.co/mlx-community/gemma-4-e2b-it-4bit), turns Thai-spelled jargon back into English. Guards put back Thai the model rewrote, such as a changed number or a Thai name spelled in English.
 5. **Paste.** The text appears at your cursor. In apps you mark as verbatim, OLIV pastes the raw transcript.
 
@@ -103,6 +106,8 @@ The [interactive benchmark](https://chayapats.github.io/oliv/) has failures, pla
 | **Speech engines** | Typhoon Whisper Turbo (default, Thai + English), Pathumma, or Whisper large-v3 for mostly-English dictation. Each downloads in Settings with a progress bar. |
 | **Text cleanup** | Restores English words, removes fillers (อืม, เอ่อ, um), and formats Thai: `สี่สิบห้า` → `45`, `สองจุดสี่จุดหนึ่ง` → `2.4.1`, `มากมาก` → `มากๆ`. Spoken commands such as "ขึ้นบรรทัดใหม่" or "new paragraph" are off by default. |
 | **Dictionary** | Your names, acronyms and jargon guide recognition. Add a correction to turn what you say into exact text ("อีเมลของผม" → `me@example.com`). Thai entries also fix near-miss spellings (บางแคร์ → บางแค). Star, search, switch entries on and off, and import or export CSV. With the OLIV API it syncs to your other devices. |
+| **Live preview** | [Your words in the pill while you hold the key](#see-your-words-as-you-speak). On by default, on-device engines only. |
+| **Names on screen** | [Spell the names shown in the window you're dictating into](#names-on-screen). Off by default. |
 | **Voice editing** | [Command mode and Speak Thai, type English](#voice-editing). Off by default. |
 | **Verbatim apps** | Paste the raw transcript, without cleanup, in apps you choose. |
 | **Audio** | Pick any microphone, cancel speaker echo so music doesn't turn into text, and lower other audio while you talk. Both are on by default. |
@@ -111,6 +116,39 @@ The [interactive benchmark](https://chayapats.github.io/oliv/) has failures, pla
 | **Updates** | Signed and notarized builds, updated through Sparkle. |
 
 All settings live in the menu bar: click the OLIV icon, then **Settings…**.
+
+### See your words as you speak
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/live-preview-dark.gif">
+  <img src="docs/img/readme/live-preview-light.gif" alt="Live preview demo in a chat app. The user holds Right Option and speaks Thai mixed with English. OLIV's pill shows On-device · Typhoon and a waveform, then grows to show what it has heard so far: first เดี๋ยวผมฟ้องกันครับ, then เดี๋ยวผม forward อีเมล นัดหมายให้ ใส่ไว้ในขั้น. On release the pill shrinks to Transcribing…, and OLIV pastes the full pass: เดี๋ยวผม forward email นัดหมายให้ใส่ไว้ใน calendar ด้วยนะ." width="100%">
+</picture>
+
+While you hold the key, the pill grows and shows the newest words OLIV has heard, so you know early if it misheard. A preview is a quick on-device guess: speech-to-text only, without cleanup or your Dictionary, so English words can still show in Thai script. When you let go, the full pass runs as before, and only its result is pasted. Previews are never pasted, saved or logged.
+
+- On by default. Turn it off with **Settings ▸ General ▸ Show words as you speak** (it needs **Show recording indicator**).
+- On-device engines only. With Groq, the OLIV API or the free trial, nothing is previewed and no extra audio is sent.
+- One preview at a time, at most about once a second, spaced so previews keep the GPU busy no more than 30% of the time. If they can't keep up on your Mac, OLIV turns them off until it restarts.
+- **Speed.** Measured on a busy M4 Pro (other jobs running, load 4 to 112), in paired runs against a control with previews off in both arms: with previews forced on for every hold, text after release came no later (paired median −54 ms; control +1 ms). A release that caught a preview mid-way waited a median 22 ms for it to stop, 287 ms at worst. Final text was byte-identical with previews on and off in all 391 clip pairs. Not yet measured on a quiet Mac or an M1 ([details](https://github.com/chayapats/oliv/pull/44)).
+
+The text in the GIF is what OLIV returned for public benchmark clip mx08: each preview, at the pace the app runs them, then the final pass.
+
+### Names on screen
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/readme/names-on-screen-dark.png">
+  <img src="docs/img/readme/names-on-screen-light.png" alt="Names on screen. A team chat where a message spells the visitor's name ณรงค์พงษ์. The user dictates that the visitor has arrived. With Names on screen off, OLIV types คุณณรงค์พงศ์มาแล้ว, a common spelling of the same-sounding name; with it on, OLIV types คุณณรงค์พงษ์มาแล้ว, spelled the way the chat shows it. Notes: read when you start dictating, used for that one dictation, never saved or sent; your Dictionary wins; off by default." width="100%">
+</picture>
+
+Optional and off by default: turn on **Settings ▸ Text cleanup ▸ Spell names that are on screen**. When you start dictating, OLIV reads the window you're typing into through Accessibility, picks out up to 50 likely names and terms, and uses them for that one dictation. A coworker's name in a chat or a customer's in an email comes out spelled the way it's shown, without adding it to your Dictionary.
+
+- Your Dictionary always wins, and a name from the screen has to sound closer than a Dictionary word before it replaces anything.
+- The text stays in memory on your Mac for that dictation. It is never saved, logged or sent, not even with Groq, which still gets only your audio.
+- It skips password fields, password managers and verbatim apps, and doesn't run while secure input is on. It isn't used for Command mode, nor with the OLIV API engine or the free trial, whose cleanup runs on the server. It needs Text cleanup on.
+- Electron apps such as Slack's desktop app, Discord and VS Code show little of their text to Accessibility unless an app switches on their accessibility mode (`AXManualAccessibility`). OLIV doesn't, so it sees little there. Native apps such as Mail, Messages, Notes and TextEdit, and web pages in Safari, work. Chrome hasn't been tested.
+- On [Thai ContextASR Bench](benchmark/contextasr.md#names-on-screen-2026-11), with each utterance's list of names shown as the window's text, OLIV recognized 57% of the listed names, against 43% with no list. With a window of only unrelated names, 1 of 2,062 utterances came out worse.
+
+The example in the picture is from OLIV's tests: one transcript, with and without ณรงค์พงษ์ on screen.
 
 ### Recent dictations and wrong-result reports
 
@@ -144,8 +182,8 @@ New in 0.2.3 and off by default: turn it on in **Settings ▸ Voice editing**. B
 Select text in any app, hold the Command mode shortcut (Right ⌘ by default) and say what to change: "ทำให้สุภาพขึ้น", "สั้นลง", "สรุปเป็น bullet", "แก้คำผิด", "เขียนเป็นอีเมล", "ทางการขึ้น". OLIV replaces the selection, and the undo shortcut puts the original back.
 
 - With nothing selected, it edits the text OLIV just pasted, in apps that let OLIV read it.
-- If a guardrail rejects the edit (a lost term or number, an answer instead of an edit, the wrong language), your text stays as it was.
-- If you switch apps or change the selection while OLIV works, the edit goes to the clipboard instead.
+- If a guardrail rejects the edit (a term that went missing, a number that changed, lost its minus sign or appeared from nowhere, an answer instead of an edit, the wrong language), your text stays as it was.
+- OLIV edits the selection you had when you let go of the key. If you switch apps or change the selection right after, your text is left alone; if you do it while OLIV is writing the edit, the edit goes to the clipboard instead.
 - It never reads password fields and never runs in verbatim apps or password managers.
 
 ### Speak Thai, type English
@@ -274,6 +312,8 @@ What leaves your Mac depends on the engine you choose:
 | **OLIV API** | Your recordings and your Dictionary | Your server, and whatever terminates TLS in front of it |
 | **Groq** | Your recordings and your Dictionary words, as recognition hints | Groq |
 | **Voice editing** | Nothing: selected text is edited and translated on the Mac | – |
+| **Live preview** | Nothing: previews run only with on-device engines | – |
+| **Names on screen** (opt-in) | Nothing: the window's text is read on the Mac for one dictation, then dropped | – |
 
 - Cloud engines are off until you add a key and select one. The free trial is the one exception you can opt into in Setup; it's labelled Cloud and ends by itself.
 - The OLIV server keeps audio and text in memory only. Its usage log records key, route, status and timings ([server privacy](server/README.md#data-and-privacy)).
@@ -309,7 +349,7 @@ Yes. Typhoon Whisper Turbo handles Thai, English and mixed speech. For mostly-En
 <details>
 <summary><b>Why does OLIV need Accessibility permission?</b></summary>
 
-To paste into the app you're using. In Command mode it also reads the text you selected, only while you use the Command mode shortcut, and never from a password field.
+To paste into the app you're using. In Command mode it also reads the text you selected, only while you use the Command mode shortcut, and never from a password field. If you turn on Names on screen, it reads the window you're dictating into when you start, never a password field or a password manager.
 </details>
 
 <details>
