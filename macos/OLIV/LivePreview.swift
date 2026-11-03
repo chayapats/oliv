@@ -52,6 +52,14 @@ enum LivePreview {
 struct LivePreviewResult: Equatable {
     var text: String
     var skipped: String?
+
+    /// The model decoded this preview, whether or not it has text to show:
+    /// "noSpeech" is a full decode whose text was a known hallucination, and
+    /// "failed" a decode that errored part way. Every other reason skips the
+    /// preview before the model runs, so it costs next to nothing and says
+    /// nothing about what a preview costs on this Mac.
+    var ranModel: Bool { skipped == nil || skipped == "noSpeech" || skipped == "failed" }
+    var failed: Bool { skipped == "failed" }
 }
 
 extension SidecarClient {
@@ -132,10 +140,28 @@ struct LivePreviewGovernor: Equatable {
         return .start
     }
 
-    /// A preview finished: `seconds` of wall time, request to reply.
+    /// The model decoded a preview (text or not): `seconds` of wall time,
+    /// request to reply.
     mutating func record(seconds: Double) {
         guard !isDisabled, seconds >= 0 else { return }
         failureStreak = 0
+        measure(seconds: seconds)
+    }
+
+    /// A preview failed: the sidecar errored or timed out (`seconds` nil), or
+    /// the model ran and its decode failed after `seconds`. That time paces
+    /// the next preview and counts toward the slow guard like any decode.
+    mutating func recordFailure(seconds: Double? = nil) {
+        guard !isDisabled else { return }
+        if let seconds, seconds >= 0 {
+            measure(seconds: seconds)
+            if isDisabled { return }
+        }
+        failureStreak += 1
+        if failureStreak >= policy.slowLimit { disabledReason = "previews failed" }
+    }
+
+    private mutating func measure(seconds: Double) {
         measured += 1
         let wanted = seconds / policy.maxBusyFraction
         interval = min(policy.maxInterval, max(policy.minInterval, wanted))
@@ -143,13 +169,6 @@ struct LivePreviewGovernor: Equatable {
         let slow = wanted > policy.maxInterval
         slowStreak = slow ? slowStreak + 1 : 0
         if slowStreak >= policy.slowLimit { disabledReason = "previews can't keep up on this Mac" }
-    }
-
-    /// A preview failed (the sidecar errored or timed out).
-    mutating func recordFailure() {
-        guard !isDisabled else { return }
-        failureStreak += 1
-        if failureStreak >= policy.slowLimit { disabledReason = "previews failed" }
     }
 
     /// A release found a preview in flight and waited `seconds` for it to stop.
@@ -195,8 +214,8 @@ final class LivePreviewPacer: @unchecked Sendable {
         update { $0.recordRelease(waited: seconds) }
     }
 
-    func recordFailure() {
-        update { $0.recordFailure() }
+    func recordFailure(seconds: Double? = nil) {
+        update { $0.recordFailure(seconds: seconds) }
     }
 
     private func update(_ change: (inout LivePreviewGovernor) -> Void) {
@@ -232,6 +251,7 @@ final class LivePreviewSession: @unchecked Sendable {
         var inFlightAtStop = false
         /// Release → the cancelled preview returned (nil when none was in flight).
         var releaseWait: TimeInterval?
+        /// Every preview the model decoded, text or not (see `ranModel`).
         var previewSeconds: [Double] = []
         /// Seconds of audio each of those previews transcribed.
         var previewAudioSeconds: [Double] = []
@@ -347,15 +367,20 @@ final class LivePreviewSession: @unchecked Sendable {
             return
         }
         guard let result else {
+            // The sidecar errored or timed out: nothing says the model ran.
             pacer.recordFailure()
             return
         }
-        if let reason = result.skipped {
-            stats.skipped[reason, default: 0] += 1
-            return
-        }
+        if let reason = result.skipped { stats.skipped[reason, default: 0] += 1 }
+        // Skipped before decoding: cost next to nothing, so it neither paces
+        // nor resets the guards.
+        guard result.ranModel else { return }
         stats.previewSeconds.append(elapsed)
         stats.previewAudioSeconds.append(audioSeconds)
+        if result.failed {
+            pacer.recordFailure(seconds: elapsed)
+            return
+        }
         pacer.record(seconds: elapsed)
         guard !isStopped, !result.text.isEmpty else { return }
         stats.shown += 1

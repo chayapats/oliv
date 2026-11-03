@@ -70,6 +70,27 @@ final class LivePreviewGovernorTests: XCTestCase {
         XCTAssertTrue(g.isDisabled)
     }
 
+    func testAFailedDecodePacesAndCountsTowardBothGuards() {
+        var g = governor()
+        g.record(seconds: 0.1)                 // warm-up
+        g.recordFailure(seconds: 0.6)          // the model ran: its cost paces the next one
+        XCTAssertEqual(g.interval, 2.0, accuracy: 1e-9)
+        XCTAssertFalse(g.isDisabled)
+        g.recordFailure(seconds: 0.1)          // a second failure in a row
+        XCTAssertEqual(g.disabledReason, "previews failed")
+
+        var slow = governor()
+        slow.record(seconds: 0.1)              // warm-up
+        slow.record(seconds: 1.0)              // slow 1
+        slow.recordFailure(seconds: 1.0)       // slow 2, though it failed
+        XCTAssertEqual(slow.disabledReason, "previews can't keep up on this Mac")
+
+        var errored = governor()
+        errored.record(seconds: 0.6)
+        errored.recordFailure()                // the sidecar errored: no decode to pace by
+        XCTAssertEqual(errored.interval, 2.0, accuracy: 1e-9)
+    }
+
     func testSequenceNumbersOnlyGrowAcrossHolds() {
         let pacer = LivePreviewPacer()
         let first = pacer.nextSeq(), second = pacer.nextSeq()
@@ -147,6 +168,10 @@ private final class FakePreview: @unchecked Sendable {
     var blockUntilCancelled = false
     let release = DispatchSemaphore(value: 0)
     var text = "preview words"
+    /// When set, every preview comes back without text for this reason…
+    var skipped: String?
+    /// …after this long "decoding".
+    var delay: TimeInterval = 0
 
     func log(_ event: String) { lock.lock(); events.append(event); lock.unlock() }
     var log: [String] { lock.lock(); defer { lock.unlock() }; return events }
@@ -164,7 +189,8 @@ private final class FakePreview: @unchecked Sendable {
                 log("returned \(seq)")
                 return LivePreviewResult(text: "", skipped: "cancelled")
             }
-            return LivePreviewResult(text: text, skipped: nil)
+            if delay > 0 { Thread.sleep(forTimeInterval: delay) }
+            return LivePreviewResult(text: skipped == nil ? text : "", skipped: skipped)
         }, cancel: { [self] seq in
             log("cancel \(seq)")
             release.signal()
@@ -173,12 +199,72 @@ private final class FakePreview: @unchecked Sendable {
 }
 
 final class LivePreviewSessionTests: XCTestCase {
-    private func pacer() -> LivePreviewPacer {
+    private func pacer(_ change: (inout LivePreviewGovernor.Policy) -> Void = { _ in }) -> LivePreviewPacer {
         var policy = LivePreviewGovernor.Policy()
         policy.minInterval = 0
         policy.minAudio = 0
         policy.minNewAudio = 0
+        change(&policy)
         return LivePreviewPacer(policy: policy)
+    }
+
+    private func waitUntil(_ condition: () -> Bool) {
+        let deadline = Date().addingTimeInterval(5)
+        while !condition() && Date() < deadline { Thread.sleep(forTimeInterval: 0.01) }
+    }
+
+    func testDecodesWithoutTextStillPaceAndCanTurnPreviewsOff() {
+        // A decode whose text was a known hallucination cost the GPU as much
+        // as one with text.
+        let fake = FakePreview()
+        fake.skipped = "noSpeech"
+        fake.delay = 0.06
+        let pacer = pacer { $0.maxInterval = 0.1 }   // slow: over 0.03 s (30% of 0.1 s)
+        let session = LivePreviewSession(pacer: pacer, hooks: fake.hooks(), tick: 0.01, windowSamples: 16_000)
+        session.start()
+        waitUntil { !pacer.isEnabled }
+        session.stop()
+        XCTAssertFalse(pacer.isEnabled, "decodes without text never paced previews: \(fake.log.count) ran")
+        XCTAssertEqual(pacer.interval, 0.1, accuracy: 1e-9)
+        // The warm-up, then two slow in a row.
+        XCTAssertEqual(fake.log.filter { $0.hasPrefix("transcribe") }.count, 3, "\(fake.log.suffix(5))")
+        let stats = session.currentStats
+        XCTAssertEqual(stats.skipped, ["noSpeech": 3])
+        XCTAssertEqual(stats.previewSeconds.count, 3)
+        XCTAssertEqual(stats.shown, 0)
+    }
+
+    func testFailedDecodesTurnPreviewsOff() {
+        let fake = FakePreview()
+        fake.skipped = "failed"
+        let pacer = pacer()
+        let session = LivePreviewSession(pacer: pacer, hooks: fake.hooks(), tick: 0.01, windowSamples: 16_000)
+        session.start()
+        waitUntil { !pacer.isEnabled }
+        session.stop()
+        XCTAssertFalse(pacer.isEnabled, "failed decodes never counted as failures: \(fake.log.count) ran")
+        XCTAssertEqual(fake.log.filter { $0.hasPrefix("transcribe") }.count, 2, "\(fake.log.suffix(5))")
+        XCTAssertEqual(session.currentStats.skipped, ["failed": 2])
+    }
+
+    func testPreviewsSkippedBeforeDecodingLeaveThePacingAlone() {
+        for reason in ["silent", "notLoaded", "cancelled"] {
+            let fake = FakePreview()
+            fake.skipped = reason
+            let pacer = pacer()
+            pacer.record(seconds: 0.6)      // backed off to 2 s apart
+            pacer.recordFailure()           // one failure so far
+            let session = LivePreviewSession(pacer: pacer, hooks: fake.hooks(), tick: 0.01, windowSamples: 16_000)
+            session.start()
+            waitUntil { session.currentStats.skipped[reason] == 1 }
+            session.stop()
+            XCTAssertEqual(session.currentStats.skipped, [reason: 1])
+            XCTAssertEqual(session.currentStats.previewSeconds, [], reason)
+            XCTAssertEqual(pacer.interval, 2.0, accuracy: 1e-9, reason)
+            // Nor did it reset the failure streak.
+            pacer.recordFailure()
+            XCTAssertFalse(pacer.isEnabled, reason)
+        }
     }
 
     func testOnlyOnePreviewRunsAndTicksMeanwhileAreSkipped() {
