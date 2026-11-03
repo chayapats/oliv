@@ -13,6 +13,7 @@ use crate::gate::{LATIN_SPAN_RE, SPOKEN_NUMBER_WORDS, latin_spans};
 use crate::metrics;
 use crate::phonetic::{fold, norm_dist, thai_fold};
 use crate::pyu::{has_thai, lower, remove_ws, strip};
+use crate::script::adds_foreign;
 use crate::spacing::is_thai_mark;
 use crate::tokenize::word_tokenize;
 use crate::wordtonum::thaiword_to_num;
@@ -415,27 +416,18 @@ fn latin_words(text: &str) -> impl Iterator<Item = String> + '_ {
         .map(lower)
 }
 
-/// Thai, ASCII and the Latin blocks (Latin-1 to Extended-B, Extended Additional).
-fn is_expected_script(c: char) -> bool {
-    matches!(c, '\0'..='\u{024f}' | '\u{0e00}'..='\u{0e7f}' | '\u{1e00}'..='\u{1eff}')
-}
-
-/// The LLM wrote letters in another script (`स्कीมา`). Detect only: stripping
-/// or falling back to dict_text both scored worse on the eval.
-fn introduces_script(c: &str) -> bool {
-    c.chars()
-        .any(|ch| ch.is_alphabetic() && !is_expected_script(ch))
-}
-
-/// Accepted-candidate flag when it [`introduces_script`]; the API log shows it.
-pub const SCRIPT_FLAG: &str = "ok+script";
-
 /// `(final, flag)`: the stripped generation, or dict_text with the reason it tripped.
 pub fn guardrail(dict_text: &str, generation: &str) -> (String, &'static str) {
     let c = strip_out(generation);
     let fallback = |flag| (dict_text.to_string(), flag);
     if c.is_empty() {
         return fallback("empty->dict");
+    }
+    // Not in the Python reference (KNOWN_DIFFS.md §13), shared with the Mac:
+    // letters of another script (a Hangul or Lao syllable inside a Thai name,
+    // `स्कीมา`) are never a restoration.
+    if adds_foreign(dict_text, &c) {
+        return fallback("script->dict");
     }
     let rt = metrics::tokenize(&metrics::normalize(dict_text)).len() as f64;
     let ct = metrics::tokenize(&metrics::normalize(&c)).len() as f64;
@@ -458,12 +450,7 @@ pub fn guardrail(dict_text: &str, generation: &str) -> (String, &'static str) {
     {
         return fallback("translate->dict");
     }
-    let flag = if introduces_script(&c) {
-        SCRIPT_FLAG
-    } else {
-        "ok"
-    };
-    (c, flag)
+    (c, "ok")
 }
 
 #[cfg(test)]
@@ -675,20 +662,28 @@ mod tests {
     }
 
     #[test]
-    fn script_the_llm_introduces_is_flagged_not_stripped() {
-        for (t, want) in [
-            ("update สคริปต์ แล้ว restart service", false),
-            ("update the résumé at the café ครับ", false),
-            ("Branch này merge xong rồi", false),
-            ("update स्क्रिปต์และ restart", true),
-            ("рейт limit", true),
-            ("ส่ง API 文档", true),
-            ("pipeline นี้ผ่าน اللي แล้ว", true),
+    fn script_the_llm_adds_falls_back() {
+        // Letters of another script the LLM wrote: Devanagari, Cyrillic, Han,
+        // and FLEURS Thai's Hangul syllable inside a name.
+        for (dict, cand) in [
+            (
+                "update สคริปต์และรีสตาร์ทเซอร์วิสใหม่ทั้งหมด",
+                "update स्क्रिปต์และรี restart เซอร์วิสใหม่ทั้งหมด",
+            ),
+            ("เรทลิมิตเต็มแล้ว", "рейт limit เต็มแล้ว"),
+            ("ส่ง API ด็อกให้ทีม", "ส่ง API 文档ให้ทีม"),
+            ("ทูปปัว ธามาซิส", "투ปัวธามาซิส"),
         ] {
-            assert_eq!(introduces_script(t), want, "{t}");
+            assert_eq!(guardrail(dict, cand), (dict.to_string(), "script->dict"));
         }
-        let dict = "update สคริปต์และรีสตาร์ทเซอร์วิสใหม่ทั้งหมด";
-        let cand = "update स्क्रिปต์และรี restart เซอร์วิสใหม่ทั้งหมด";
-        assert_eq!(guardrail(dict, cand), (cand.to_string(), SCRIPT_FLAG));
+        // Latin with diacritics and Vietnamese are Latin; foreign text copied
+        // through from dict_text is allowed (KNOWN_DIFFS.md §13).
+        for (dict, cand) in [
+            ("อัปเดตเรซูเม่ที่คาเฟ่ครับ", "update the résumé at the café ครับ"),
+            ("Branch này merge xong rồi", "Branch này merge xong rồi"),
+            ("谢谢 ประชุมบ่ายสอง", "谢谢 ประชุมบ่ายสอง"),
+        ] {
+            assert_eq!(guardrail(dict, cand), (cand.to_string(), "ok"), "{dict}");
+        }
     }
 }

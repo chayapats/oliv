@@ -2,11 +2,13 @@
 //! pieces it depends on.
 //!
 //! The deterministic text core (segmentation, built-in dictionary, numbers,
-//! romanization, phonetic matching, metrics, user dictionary) comes from the
+//! romanization, phonetic matching, metrics, user dictionary, the script and
+//! Thai-speech cleanup guards) comes from the
 //! `oliv-text-core` crate shared with the Mac app; it is re-exported so
 //! `crate::pyu` etc. keep working.
 pub use oliv_text_core::{
-    data, dictionary, metrics, phonetic, pyu, royin, tokenize, trie, user_dictionary, wordtonum,
+    cleanup_guard, data, dictionary, metrics, phonetic, pyu, royin, script, tokenize, trie,
+    user_dictionary, wordtonum,
 };
 
 pub mod admission;

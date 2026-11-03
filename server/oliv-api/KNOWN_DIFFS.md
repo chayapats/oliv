@@ -1,6 +1,6 @@
 # จุดที่ Rust ตั้งใจให้ต่างจาก Oliv (Python)
 
-golden ทุกไฟล์ใน `tests/golden/` (fixture สาธารณะ ดู `tests/golden/README.md`) ผ่าน 100% ไม่มีเคสไหนถูกลบหรือข้าม รายการข้างล่างเป็นพฤติกรรมที่ Rust ตั้งใจทำต่างจาก Python ส่วนใหญ่ golden ไม่ได้ครอบ เคส golden ที่ต่าง (§7, §11, §12, §13) อยู่ใน `tests/known_diffs/<ไฟล์ golden>` แต่ละบรรทัดมี `args`, `kwargs`, ค่าที่ golden คาดไว้ (`oliv`), ค่าของ Rust (`out`) และหัวข้อ (`why`) test แทนค่าที่คาดไว้ด้วย `out` และตรวจว่าแต่ละรายการตรงกับเคสเดียวพอดี และ `oliv` ยังตรงกับ golden
+golden ทุกไฟล์ใน `tests/golden/` (fixture สาธารณะ ดู `tests/golden/README.md`) ผ่าน 100% ไม่มีเคสไหนถูกลบหรือข้าม รายการข้างล่างเป็นพฤติกรรมที่ Rust ตั้งใจทำต่างจาก Python ส่วนใหญ่ golden ไม่ได้ครอบ เคส golden ที่ต่าง (§7, §11, §12) อยู่ใน `tests/known_diffs/<ไฟล์ golden>` แต่ละบรรทัดมี `args`, `kwargs`, ค่าที่ golden คาดไว้ (`oliv`), ค่าของ Rust (`out`) และหัวข้อ (`why`) test แทนค่าที่คาดไว้ด้วย `out` และตรวจว่าแต่ละรายการตรงกับเคสเดียวพอดี และ `oliv` ยังตรงกับ golden
 
 ## 1. LLM ล้มเหลวหรือ timeout
 
@@ -79,9 +79,9 @@ golden ไม่มีเคสที่ต่าง เพราะ golden ร�
 
 Oliv ลบ kana, Hangul และ Han ด้วย `_strip_cjk` ส่วน Cyrillic ผ่านไปเฉย ๆ Qwen3-ASR บางครั้งเขียนพยางค์ภาษาอังกฤษเป็นอักษรต่างชาติกลางคำไทย (`рейтลิมิต`, `เช็กไทม์ของレスポン`, `มิ팅`) ผลคือคำหายไปก่อนถึง LLM หรือผู้ใช้เห็นอักษร Cyrillic และ gate ตอบ `clean-thai` จึงไม่เรียก LLM เลย
 
-Rust ทำ `romanize_embedded` ใน `clean_text` ก่อน `strip_cjk` เฉพาะเมื่อ `asr_profile` เป็น `qwen3asr` (เหมือน `join_spelled`) และข้อความมีอักษรไทยหรือ ASCII ด้วย โมเดลตระกูล Whisper (turbo, typhoon-ctx) เขียน kana และ Hangul เฉพาะตอนหลอนคำบรรยายปิดท้าย (`ประชุมเสร็จแล้ว 감사합니다`, `ok ありがとう`) จึงถูกลบด้วย `strip_cjk` เหมือน Oliv ช่วงต่อเนื่องของอักษรต่างชาติที่ยาวไม่เกิน 6 ตัวจะถูกแทนด้วยอักษรโรมันทีละชุดอักษร (ช่วงที่ปน Cyrillic กับ kana เช่น `рейтレス` ได้ `reyt resu`) โดย Cyrillic ใช้ตาราง, kana ใช้ Hepburn พร้อม digraph ゃゅょ, っ ซ้ำพยัญชนะ และตัด ー, Hangul แยก jamo ตาม Revised Romanization แล้วเว้นวรรคจากอักษรไทยที่ติดกัน (kana และ Hangul เว้นจากตัวอักษร ASCII และตัวเลขที่ติดกันด้วย เช่น `ok 가ok` เป็น `ok ga ok` แต่ Cyrillic ที่อาจเป็นตัวหน้าตาเหมือน Latin ในคำอังกฤษไม่เว้น) สระบน/ล่างหรือวรรณยุกต์ไทยที่ตามช่วงนั้นมาไม่มีพยัญชนะให้เกาะจึงถูกตัดทิ้ง (`マイ่` เป็น `mai`)
+Rust ทำ `romanize_embedded` ใน `clean_text` ก่อน `strip_foreign` (§15) เฉพาะเมื่อ `asr_profile` เป็น `qwen3asr` (เหมือน `join_spelled`) และข้อความมีอักษรไทยหรือ ASCII ด้วย โมเดลตระกูล Whisper (turbo, typhoon-ctx) เขียน kana และ Hangul เฉพาะตอนหลอนคำบรรยายปิดท้าย (`ประชุมเสร็จแล้ว 감사합니다`, `ok ありがとう`) จึงถูกลบด้วย `strip_foreign` เหมือน Oliv ช่วงต่อเนื่องของอักษรต่างชาติที่ยาวไม่เกิน 6 ตัวจะถูกแทนด้วยอักษรโรมันทีละชุดอักษร (ช่วงที่ปน Cyrillic กับ kana เช่น `рейтレス` ได้ `reyt resu`) โดย Cyrillic ใช้ตาราง, kana ใช้ Hepburn พร้อม digraph ゃゅょ, っ ซ้ำพยัญชนะ และตัด ー, Hangul แยก jamo ตาม Revised Romanization แล้วเว้นวรรคจากอักษรไทยที่ติดกัน (kana และ Hangul เว้นจากตัวอักษร ASCII และตัวเลขที่ติดกันด้วย เช่น `ok 가ok` เป็น `ok ga ok` แต่ Cyrillic ที่อาจเป็นตัวหน้าตาเหมือน Latin ในคำอังกฤษไม่เว้น) สระบน/ล่างหรือวรรณยุกต์ไทยที่ตามช่วงนั้นมาไม่มีพยัญชนะให้เกาะจึงถูกตัดทิ้ง (`マイ่` เป็น `mai`)
 
-kana และ Hangul ถูกถอดเฉพาะเมื่อติดกับอักษรไทยหรือ ASCII อย่างน้อยด้านหนึ่ง คำที่เว้นวรรคทั้งสองด้าน (`ขอบคุณครับ 감사합니다`, `ok 시청해 주셔서 감사합니다.`) เป็นคำบรรยายผี ไม่ใช่พยางค์ที่ติดคำ ถ้าข้อความมีช่วงที่จะถอดเกิน 3 ช่วงหรือรวมเกิน 12 ตัวจะไม่ถอดเลย ช่วงที่ยาวกว่า 6 ตัว ช่วงที่ปนกับ Han และข้อความที่ไม่มีไทยหรือ ASCII ไม่ถูกแตะ ทั้งหมดนี้จึงยังไปทาง `strip_cjk` (หรือ `no_speech`) ตามเดิม Han ไม่มีตารางพินอินจึงยังถูกลบ (`เจม玛`)
+kana และ Hangul ถูกถอดเฉพาะเมื่อติดกับอักษรไทยหรือ ASCII อย่างน้อยด้านหนึ่ง คำที่เว้นวรรคทั้งสองด้าน (`ขอบคุณครับ 감사합니다`, `ok 시청해 주셔서 감사합니다.`) เป็นคำบรรยายผี ไม่ใช่พยางค์ที่ติดคำ ถ้าข้อความมีช่วงที่จะถอดเกิน 3 ช่วงหรือรวมเกิน 12 ตัวจะไม่ถอดเลย ช่วงที่ยาวกว่า 6 ตัว ช่วงที่ปนกับ Han และข้อความที่ไม่มีไทยหรือ ASCII ไม่ถูกแตะ ทั้งหมดนี้จึงไปทาง `strip_foreign` (หรือ `no_speech`) ซึ่งลบ Cyrillic ด้วย Han ไม่มีตารางพินอินจึงยังถูกลบ (`เจม玛`)
 
 เมื่อถอดอักษรแล้ว `clean_text` ส่ง `force_llm = "foreign-script"` ให้ `clean_ex` ซึ่งเรียก LLM เสมอ เหตุผลนี้แทน `clean-thai` และต่อท้ายเหตุผลอื่นด้วย `+` ถ้า LLM ล้มเหลว ผลแบบ deterministic ก็ไม่มี kana หรือ Cyrillic เหลือ
 
@@ -111,15 +111,34 @@ Rust ไม่นับคำไทยที่หายเมื่อ candidat
 
 golden ต่างกัน 1 คู่ใน `thai_divergence.jsonl` (`tests/known_diffs/thai_divergence.jsonl`): `เปิดแอปพลิเคชั่นนี้ให้หน่อย` -> `completely unrelated` ได้ lost 1 แทน 2 เพราะ `completely` ที่ candidate เพิ่มมาเสียงใกล้ `แอปพลิเคชั่น` พอ (invented เท่าเดิม) `guardrail.jsonl`, `clean_ex.jsonl` และ `dictate.jsonl` ไม่มีเคสที่ต่าง ส่วนเช็ก `translate->dict` ครอบด้วย unit test ใน `src/guardrail.rs`
 
-## 13. flag `ok+script` และ forced-English re-decode ที่ไม่ใช่ภาษาอังกฤษ
+## 13. LLM เขียนอักษรอื่น (`script->dict`) และ forced-English re-decode ที่ไม่ใช่ภาษาอังกฤษ
 
-Oliv ไม่ตรวจอักษรใน output ของ LLM ส่วน Rust ยังรับ candidate เหมือนเดิม แต่ถ้ามีตัวอักษรนอกอักษรไทย, ASCII และ Latin (Latin-1 ถึง Extended-B และ Extended Additional) เช่น Devanagari, CJK, Cyrillic หรือ Arabic ที่ LLM เขียนเอง (เช่น `स्कीมา` ที่ควรเป็นคำทับศัพท์ไทย) flag จะเป็น `ok+script` แทน `ok` (`guardrail::SCRIPT_FLAG`) และ log ต่อคำขอของ `oliv-api` แสดงค่านี้ ข้อความไม่ถูกตัดและไม่ fallback เพราะบน eval ทั้งการตัดอักษรนั้นและการ fallback ไป dict text ให้ผลแย่ลงอย่างเห็นได้ชัด ไม่มีโค้ดส่วนไหนเทียบ `guardrail_flag == "ok"` golden ต่างกัน 23 เคสใน `guardrail.jsonl` (`tests/known_diffs/guardrail.jsonl`) ที่ candidate มีอักษรจีน ญี่ปุ่น หรือเกาหลี ข้อความเหมือนเดิม แต่ flag เป็น `ok+script` แทน `ok`
+Oliv ไม่ตรวจอักษรใน output ของ LLM ส่วน Rust (`guardrail`) ตรวจต่อจากเช็ก candidate ว่างทันที ถ้า candidate มีตัวอักษรหรือเครื่องหมายของอักษรอื่นนอกจากไทยและ Latin (Hangul, Han, kana, Lao, Cyrillic, Devanagari, Arabic ...) หรือ U+FFFD ที่ dict text ไม่มี จะ fallback เป็น dict text ด้วย flag `script->dict` ตัวเลข สัญลักษณ์สกุลเงิน และเครื่องหมายวรรคตอนของอักษรอื่นไม่นับ อักษรอื่นที่คัดลอกมาจาก dict text ผ่านได้ เช็กนี้คือ `script::adds_foreign` ใน `oliv-text-core` ซึ่ง Mac ใช้ที่ตำแหน่งเดียวกัน บน FLEURS Thai LLM เขียนพยางค์ Hangul ลงในชื่อไทย (`ทูปปัว` เป็น `투ปัว`) และอักษรลาวลงในอีกชื่อ (`ซึนดาบันส์`)
+
+เดิม server แค่ตั้ง flag `ok+script` โดยไม่ fallback เพราะบน eval ตอนนั้นทั้งการตัดอักษรและการ fallback ไป dict text ให้ผลแย่ลง ผลนั้นวัดก่อนมี `strip_foreign` (§15) และยังไม่ได้วัดซ้ำ flag `ok+script` เลิกใช้แล้ว เพราะ `strip_foreign` ลบอักษรอื่นออกจากข้อความก่อนถึง `clean_ex` อักษรอื่นใน candidate จึงมาจาก LLM เกือบทุกครั้ง golden ไม่มีเคสที่ต่าง 23 เคสใน `guardrail.jsonl` ที่เคยได้ `ok+script` คัดลอกอักษรมาจาก dict text จึงได้ `ok` เหมือน Python และ `tests/known_diffs/guardrail.jsonl` ถูกลบ
 
 `stt::transcribe_maybe_redecode` ไม่ใช้ผล decode แบบบังคับอังกฤษ (ใช้ผล auto แทน) เมื่อผลนั้นมีอักษรเวียดนาม (U+1EA0..U+1EF9) หรือมีตัวอักษร Latin ที่ไม่ใช่ ASCII เกิน 2 ตัว (`Branch này merge xong rồi, but staging test vẫn fail` จาก Qwen3-ASR) ใน eval ของ turbo ไม่มีผล forced-en แบบนี้ ผลของ turbo จึงไม่เปลี่ยน
 
 ## 14. gate `profile-always`: profile ที่ไม่ใช่ turbo ไม่ข้าม LLM เมื่อเป็น `clean-thai`
 
 เมื่อ `asr_profile` เป็น `qwen3asr` หรือ `typhoon-ctx` แล้ว gate ให้ `clean-thai` (ไม่มี dict hit, suspect token, loan compound หรือ latin crumb) `pipeline::clean_ex` จะรัน LLM ต่อด้วย gate reason `profile-always` เพราะสองโมเดลนี้เขียนคำทับศัพท์ด้วยพยางค์ไทยที่ถูกต้องตามพจนานุกรม (แคปค่า, เรทลิมิต, อัปโหลด) ซึ่ง signal ของ gate จับไม่ได้ ข้อความที่ไม่มีภาษาไทย (`no-thai`) ยังข้ามเหมือนเดิม และ reason จาก `force_llm` มาก่อน ส่วน turbo (ค่าเริ่มต้น) ไม่เปลี่ยน golden ทั้งหมดรันด้วย turbo จึงไม่มี case ที่ต่าง
+
+## 15. ตัดอักษรอื่นออกจากข้อความที่ถอดได้ (`strip_foreign`)
+
+`_strip_cjk` ของ Oliv ลบแค่ CJK, kana และ Hangul ส่วน `dictate::clean_text` ของ Rust ใช้ `script::strip_foreign` จาก `oliv-text-core` (ตัวเดียวกับ Mac) ซึ่งลบตัวอักษรและเครื่องหมายของทุกอักษรนอกจากไทยและ Latin รวมถึง U+FFFD แล้วยุบช่องว่างแบบ `_strip_cjk` ตัวเลข สัญลักษณ์สกุลเงิน และเครื่องหมายวรรคตอนของอักษรอื่น (`១០០៛`) ยังอยู่ ข้อความที่มีแต่อักษรอื่นยังเป็น `no_speech` เหมือนเดิม OLIV รับแค่ภาษาไทยและอังกฤษ อักษรอื่นในข้อความที่ถอดได้จึงเป็นของที่ STT ถอดผิด เช่น ท้ายข้อความหลอนบน FLEURS Thai ที่มี Cyrillic `Ал` และ U+FFFD สำหรับ `qwen3asr` `romanize_embedded` (§10) ยังทำงานก่อน ส่วนที่ไม่ถูกถอดเป็นอักษรโรมัน รวมถึง Cyrillic ช่วงยาวที่เดิมผ่านไปถึง LLM จะถูกลบ
+
+`hallucination::strip_cjk` ยังอยู่และตรงกับ golden `strip_cjk.jsonl` ส่วน `dictate.jsonl` ไม่มีเคสที่ต่าง เพราะอักษรอื่นใน fixture มีแค่ CJK, kana และ Hangul test vector ที่ใช้ร่วมกับ Mac อยู่ใน `rust/crates/oliv-text-core/tests/vectors/cleanup_guards.jsonl` (`tests/cleanup_guards.rs`)
+
+## 16. คืนคำพูดภาษาไทยที่ LLM เขียนใหม่ (`ok-thaiKept`)
+
+Oliv ไม่มีขั้นนี้ งานของ LLM คือเขียนคำอังกฤษที่ STT ถอดเป็นอักษรไทยกลับเป็นภาษาอังกฤษ แต่บางครั้งมันเขียนภาษาไทยใหม่ด้วย หลัง guardrail รับ candidate (`ok`) และ guard ของ dictionary ผ่าน `pipeline::clean_ex` เรียก `cleanup_guard::keep_thai_speech` จาก `oliv-text-core` (ตัวเดียวกับ Mac) ซึ่งจัดแนวตัวอักษรระหว่าง dict text กับ candidate แล้วคืนการแก้สองแบบเป็นข้อความเดิม
+
+- การแก้ภาษาไทยที่เปลี่ยนเกินสองตัวอักษร และไม่ใช่การสะกดใหม่ของคำเดิม เช่น นามสกุลที่ถอดผิดกลายเป็นคำอื่น (`มาเทอรี่` เป็น `มาเจอรีวิว`) หรือตัวเลขที่ถูกเปลี่ยน (`เจ็ดร้อยหกสิบ` เป็น `เจ็ดสิบหก`) การสะกดใหม่คือการแก้ที่เสียงตาม royin เท่าเดิม (`สาด` เป็น `สัตว์`) ต่างแค่ตัวการันต์ (`พัน` เป็น `พันธุ์`) หรือ matcher คำไทยใน vocabulary ถือว่าเป็นคำเดียวกัน การแก้เล็ก ๆ ที่ติดกับการแก้ที่ถูกคืนก็คืนไปด้วย
+- อักษร Latin ที่เขียนทับข้อความที่สะกดด้วยอักษรบาลีสันสกฤต (ศ ษ ณ ฐ ภ ...) คือชื่อหรือคำไทยที่ถูกเขียนเป็นอักษรโรมัน (`ณัฐพงศ์` เป็น `Nattapong`, `ศาสนคริสต์` เป็น `Christian`)
+
+การลบ การแก้หนึ่งหรือสองตัวอักษร `ๆ` และการแก้ที่เขียนคำใน vocabulary หรือ dictionary ของผู้ใช้ (ทั้งคำ) ยังอยู่ ถ้ามีการคืน flag จะเป็น `ok-thaiKept` แทน `ok` ข้อเสียที่ยอมรับ: การแก้ที่ LLM ทำถูก (คำที่ถอดเพี้ยนแล้ว LLM แก้เป็นคำที่ถูก) ก็ถูกคืนด้วย และผู้ใช้ที่ต้องการชื่อไทยเป็นอักษรโรมันต้องใส่ตัวสะกดนั้นใน dictionary
+
+Mac ทำขั้นนี้ที่ตำแหน่งเดียวกัน แต่ก่อนหน้านั้น Mac ยังคืนการแก้คำไทยที่อยู่ใน vocabulary (`protect_listed_terms`, `ok-termKept`) และแก้คำด้วย vocabulary ไทยกับชื่อ Latin ก่อนเรียก LLM ซึ่ง server ยังไม่มี ผลจึงต่างจาก Mac ได้เมื่อ vocabulary มีคำไทยหรือชื่อ Latin golden ไม่มีเคสที่ต่าง unit test อยู่ใน `oliv-text-core` (`src/cleanup_guard.rs`) และ test vector ที่ใช้ร่วมกับ Mac อยู่ใน `tests/cleanup_guards.rs`
 
 ## ส่วนที่ไม่ได้พอร์ต (อยู่นอก v1)
 

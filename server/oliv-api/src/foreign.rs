@@ -1,12 +1,13 @@
 //! Romanizes short Cyrillic, kana and Hangul runs that Qwen3-ASR writes inside
 //! Thai or English words (`рейтลิมิต`, `เช็กไทม์ของレスポン`, `มิ팅`). Not in Oliv:
-//! `strip_cjk` deletes kana/Hangul and Cyrillic passes through, so either the
-//! word is lost or the user sees it, and the gate calls the text clean-thai.
+//! `_strip_cjk` deletes kana/Hangul and Cyrillic passes through (`strip_foreign`
+//! here deletes all three), so either the word is lost or the user sees it, and
+//! the gate calls the text clean-thai.
 //! Only for the qwen3asr profile (`dictate::clean_text`). Kana and Hangul are
 //! romanized only when glued to a Thai or ASCII letter; a space-delimited word
 //! (`ขอบคุณครับ 감사합니다`), a long run, a run touching Han, text with more
 //! foreign runs or chars than a word would have, and text with no Thai or
-//! ASCII letters are left for `strip_cjk`, so caption hallucinations still
+//! ASCII letters are left for `strip_foreign`, so caption hallucinations still
 //! end stripped or as no speech.
 
 use crate::hallucination::is_cjk;

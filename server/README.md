@@ -83,7 +83,8 @@ docs/       API contract, dictionary, dashboard
 ```
 
 The deterministic text core (Thai segmentation, built-in dictionary, Thai
-numbers, phonetic matching, user dictionary) is the `oliv-text-core` crate in
+numbers, phonetic matching, user dictionary, the cleanup guards against other
+scripts and rewritten Thai speech) is the `oliv-text-core` crate in
 [`../rust/crates/oliv-text-core`](../rust/crates/oliv-text-core), shared with
 the Mac app's local engine, so the server and the Mac produce the same text.
 The server is not a member of the `rust/` Cargo workspace and keeps its own

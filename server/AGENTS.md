@@ -9,7 +9,8 @@ cleanup behind one HTTPS API on a self-hosted GPU machine. See `README.md`.
   at `/work`, reproducible). Never pass `--target`; it breaks byte-for-byte
   reproducibility.
 - **Shared text core:** segmentation, the built-in and user dictionaries,
-  Thai numbers and phonetic matching come from `oliv-text-core` in
+  Thai numbers, phonetic matching and the cleanup guards (`script`,
+  `cleanup_guard`) come from `oliv-text-core` in
   `../rust/crates/oliv-text-core` (path dependency, shared with the Mac app).
   Change them there; never fork a copy into `server/`. A text-core change
   changes the server's release bytes, so re-run the server tests too.

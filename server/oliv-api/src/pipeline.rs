@@ -1,9 +1,10 @@
 //! `pipeline.clean_ex`: built-in dictionary -> user dictionary (corrections,
 //! Thai numerals) -> vocab -> gate -> LLM -> guardrail -> user-dictionary guard
-//! -> Thai spacing -> canonical casing.
+//! -> Thai-speech protection -> Thai spacing -> canonical casing.
 
 use serde::Serialize;
 
+use crate::cleanup_guard::{THAI_KEPT_FLAG, keep_thai_speech};
 use crate::dictate::AsrProfile;
 use crate::dictionary::{apply_canonical_casing, apply_dictionary};
 use crate::gate::gate;
@@ -120,10 +121,17 @@ pub fn clean_ex(
             Ok(g) => {
                 let (f, flag) = guardrail(&dict_text, &g);
                 llm_raw_gen = Some(g);
-                if dict.lost_words(&dict_text, &f).is_empty() {
-                    (f, flag.to_string())
-                } else {
+                if !dict.lost_words(&dict_text, &f).is_empty() {
                     (dict_text.clone(), DICTIONARY_FLAG.to_string())
+                } else if flag == "ok" {
+                    // Shared with the Mac (KNOWN_DIFFS.md §16): Thai speech the
+                    // LLM rewrote and Thai names it romanized are put back.
+                    match keep_thai_speech(&dict_text, &f, vocab) {
+                        (f, 0) => (f, flag.to_string()),
+                        (f, _) => (f, THAI_KEPT_FLAG.to_string()),
+                    }
+                } else {
+                    (f, flag.to_string())
                 }
             }
             Err(e) => {

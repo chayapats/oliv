@@ -27,6 +27,9 @@ Sparkle appcast's release notes, so keep entries short and end-user readable.
   longer turns a misheard name into unrelated Thai words, changes a number, or
   spells Thai names like ณัฐพงศ์ in English letters. Letters from other
   alphabets (Korean, Lao, Russian, …) no longer appear in your text.
+- **The same through the OLIV API.** Dictation on iPhone, and with the OLIV API
+  engine on Mac, Linux and Windows, gets these cleanup fixes too once the
+  server is updated.
 - **Corrections that lead into each other apply once.** With rules like
   `foo → docker` and `docker → X`, a word OLIV already corrected is no longer
   corrected again after the cleanup model changes its capitals or spacing.

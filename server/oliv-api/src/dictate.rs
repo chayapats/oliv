@@ -1,8 +1,8 @@
 //! The sidecar dictate text path after STT (`/v1/clean`, and `/v1/dictate` once
-//! STT has run): foreign-script romanization (qwen3asr) -> CJK strip -> hallucination gate
-//! -> fillers -> spelled-letter join -> `clean_ex` -> user replacements -> Thai
-//! format. Audio-only gates and spoken formatting commands are not part of OLIV
-//! Linux v1.
+//! STT has run): foreign-script romanization (qwen3asr) -> foreign-script strip
+//! -> hallucination gate -> fillers -> spelled-letter join -> `clean_ex` -> user
+//! replacements -> Thai format. Audio-only gates and spoken formatting commands
+//! are not part of OLIV Linux v1.
 
 use std::str::FromStr;
 
@@ -12,7 +12,7 @@ use serde_json::{Map, Value};
 use crate::asrfix::join_spelled;
 use crate::fillers::remove_fillers;
 use crate::foreign::romanize_embedded;
-use crate::hallucination::{strip_cjk, text_hallucination, trim_repetition_loops};
+use crate::hallucination::{strip_foreign, text_hallucination, trim_repetition_loops};
 use crate::llm::{Llm, Prompt};
 use crate::pipeline::clean_ex;
 use crate::pyu::is_blank;
@@ -187,13 +187,14 @@ pub fn clean_text(text: &str, opts: &Options, llm: &dyn Llm) -> Outcome {
 
     // Qwen3-ASR writes syllables in other scripts: `рейтลิมิต` -> `reyt ลิมิต`,
     // and the LLM then restores the word by sound. Whisper models write kana
-    // and Hangul only as caption hallucinations, which strip_cjk removes.
+    // and Hangul only as caption hallucinations. strip_foreign removes those
+    // and any other letter outside Thai and Latin, as on the Mac.
     let (romanized, foreign) = if opts.asr_profile == AsrProfile::Qwen3Asr {
         romanize_embedded(text)
     } else {
         (text.to_string(), false)
     };
-    let mut t = strip_cjk(&romanized);
+    let mut t = strip_foreign(&romanized);
     if !is_blank(text) && is_blank(&t) {
         return no_speech("no_speech");
     }
@@ -430,6 +431,32 @@ mod tests {
         let out = clean_text("ประชุมเสร็จแล้ว 감사합니다", &opts, &Echo);
         assert_eq!(out.final_text, "ประชุมเสร็จแล้ว");
         assert_eq!(out.guardrail_flag, "ok");
+    }
+
+    /// KNOWN_DIFFS.md §15: every script but Thai and Latin, not only CJK.
+    #[test]
+    fn other_scripts_are_stripped_for_every_profile() {
+        for p in [
+            AsrProfile::Turbo,
+            AsrProfile::Qwen3Asr,
+            AsrProfile::TyphoonCtx,
+        ] {
+            let opts = Options {
+                asr_profile: p,
+                cleanup: false,
+                ..Options::default()
+            };
+            for (text, want) in [
+                // Too long a run for romanize_embedded; Cyrillic used to pass.
+                ("ประชุมเสร็จแล้ว Спасибо", "ประชุมเสร็จแล้ว"),
+                ("ส่งไฟล์\u{fffd}ให้ทีม", "ส่งไฟล์ให้ทีม"),
+                ("ราคา ១០០៛ ครับ", "ราคา ១០០៛ ครับ"),
+            ] {
+                let out = clean_text(text, &opts, &Echo);
+                assert_eq!(out.final_text, want, "{p:?} {text}");
+            }
+            assert!(clean_text("Спасибо", &opts, &Echo).no_speech, "{p:?}");
+        }
     }
 
     #[test]

@@ -100,7 +100,6 @@ fn translation_gloss() {
     });
 }
 
-/// KNOWN_DIFFS.md §13 (`ok+script`) cases are in `tests/known_diffs/guardrail.jsonl`.
 #[test]
 fn guardrail() {
     check("guardrail.jsonl", |c| {

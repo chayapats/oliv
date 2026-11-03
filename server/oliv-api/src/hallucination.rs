@@ -1,10 +1,14 @@
-//! Sidecar no-speech gates on the transcript: CJK strip (B) and caption-phrase /
-//! repetition-loop hallucinations (D). `trim_repetition_loops` is not in Oliv: it
-//! keeps the real speech in front of a decoder loop instead of dropping it all.
+//! Sidecar no-speech gates on the transcript: CJK strip (B; foreign-script strip
+//! in the pipeline) and caption-phrase / repetition-loop hallucinations (D).
+//! `trim_repetition_loops` is not in Oliv: it keeps the real speech in front of
+//! a decoder loop instead of dropping it all.
 
 use std::collections::HashMap;
 
 use crate::pyu::{casefold, collapse_ws, is_space, is_word, lower, remove_ws, split_ws, strip};
+use crate::script::strip_chars;
+/// The foreign-script strip lives in `oliv-text-core`, shared with the Mac app.
+pub use crate::script::strip_foreign;
 
 pub(crate) fn is_cjk(c: char) -> bool {
     matches!(c,
@@ -17,31 +21,7 @@ pub(crate) fn is_cjk(c: char) -> bool {
 
 /// `_strip_cjk`: drop CJK / kana / hangul, then squeeze whitespace runs.
 pub fn strip_cjk(text: &str) -> String {
-    if !text.chars().any(is_cjk) {
-        return text.to_string();
-    }
-    let kept: Vec<char> = text.chars().filter(|&c| !is_cjk(c)).collect();
-    // re.sub(r"\s{2,}", " ", ...)
-    let mut out = String::with_capacity(text.len());
-    let mut i = 0;
-    while i < kept.len() {
-        if is_space(kept[i]) {
-            let mut j = i;
-            while j < kept.len() && is_space(kept[j]) {
-                j += 1;
-            }
-            if j - i >= 2 {
-                out.push(' ');
-            } else {
-                out.push(kept[i]);
-            }
-            i = j;
-        } else {
-            out.push(kept[i]);
-            i += 1;
-        }
-    }
-    strip(&out).to_string()
+    strip_chars(text, is_cjk)
 }
 
 const HALLUCINATION_PHRASES: [&str; 15] = [
