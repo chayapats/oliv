@@ -113,6 +113,10 @@ final class AppModel {
     private static let completionLifetime: TimeInterval = 86_400
     @ObservationIgnored private var lifecycleObservers: [NSObjectProtocol] = []
     @ObservationIgnored private var persistedSettings = AppSettings()
+    /// Opens a wrong-result report's GitHub link in Safari. Only the report
+    /// preview's button reaches it (`openReport`); UI tests replace it so
+    /// nothing leaves the simulator.
+    @ObservationIgnored var openExternalURL: @MainActor (URL) -> Void = { UIApplication.shared.open($0) }
     @ObservationIgnored private var connectionGeneration = 0
 
     init(directory: URL? = nil,
@@ -1189,6 +1193,29 @@ final class AppModel {
             phase = .idle
             try refreshStores()
         } catch { message = safeDescription(error) }
+    }
+
+    // MARK: Wrong-result reports
+
+    /// The report for one result, before the user reviews it. Names the kind
+    /// of server only: its address and key never reach a report.
+    func resultReport(for entry: HistoryEntry) -> ResultReport {
+        let info = Bundle.main.infoDictionary
+        let server: ResultReport.Server = !AppSettings.defaultServerURL.isEmpty
+            && savedServerURL == AppSettings.defaultServerURL ? .default : .custom
+        return ResultReport.iPhone(entry: entry,
+                                   appVersion: info?["CFBundleShortVersionString"] as? String ?? "?",
+                                   build: info?["CFBundleVersion"] as? String ?? "?",
+                                   systemVersion: UIDevice.current.systemVersion, server: server)
+    }
+
+    /// Hands the reviewed report to Safari. OLIV itself sends nothing.
+    func openReport(_ report: ResultReport) { openExternalURL(report.url) }
+
+    /// A saved (failed) recording for the share sheet, read only when shared.
+    /// Finished recordings are already deleted, so History has none to offer.
+    func shareableRecording(_ item: PendingRecording) -> SavedRecording? {
+        pendingStore.map { SavedRecording(id: item.id, createdAt: item.createdAt, store: $0) }
     }
 
     func deletePending(_ item: PendingRecording) {

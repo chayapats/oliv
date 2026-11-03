@@ -31,6 +31,12 @@ enum PreviewEnvironment {
                 ? KeyboardDeliveryCoordinator.makeDefault() : nil,
             clientFactory: { _ in service },
             requestTrialKey: { _ in TrialKey(token: "fixture-trial", expiresAt: Date().addingTimeInterval(604_800)) })
+        // Demos never open GitHub; the message shows a report would have gone.
+        model.openExternalURL = { [weak model] url in
+            let template = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first { $0.name == "template" }?.value ?? "none"
+            model?.message = "Demo · GitHub was not opened (template: \(template))."
+        }
         if firstRun {
             model.isDemo = true
             model.trialServerURL = "https://oliv.example"

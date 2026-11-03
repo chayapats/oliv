@@ -2,6 +2,7 @@ import Foundation
 import XCTest
 import UIKit
 import AVFoundation
+import UniformTypeIdentifiers
 import OlivCore
 @testable import Oliv
 
@@ -703,6 +704,56 @@ final class AppModelTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: capture.recoveryURL.path))
         NSLog("[OlivAudioIntegration] WAV metadata validation finished")
         // Deliberately no network client: microphone bytes never leave this test.
+    }
+
+    @MainActor
+    func testWrongResultReportOpensOnlyOnRequestAndNamesNoServer() async throws {
+        let h = try Harness()
+        defer { h.removeDirectory() }
+        var opened: [URL] = []
+        h.model.openExternalURL = { opened.append($0) }
+        await h.model.startInForeground()
+        await h.model.stopFromIntent()
+        let entry = try XCTUnwrap(h.model.latest)
+
+        let report = h.model.resultReport(for: entry)
+        XCTAssertTrue(opened.isEmpty, "Building a report must not open anything")
+        XCTAssertEqual(report.typed, entry.finalText)
+        XCTAssertEqual(report.raw, entry.raw)
+        XCTAssertEqual(report.engine, "OLIV API (own server)")
+        XCTAssertTrue(report.appVersion.hasSuffix("· iPhone"), report.appVersion)
+        XCTAssertTrue(report.osVersion.hasPrefix("iOS "), report.osVersion)
+        let link = report.url.absoluteString
+        XCTAssertFalse(link.contains("oliv.example"), "The server address must stay out of a report")
+        XCTAssertFalse(link.contains("fixture-token"), "The API key must stay out of a report")
+
+        var edited = report
+        edited.meant = "ส่งงานตอนเก้าโมง"
+        h.model.openReport(edited)
+        XCTAssertEqual(opened, [edited.url])
+        let meant = URLComponents(url: opened[0], resolvingAgainstBaseURL: false)?
+            .queryItems?.first { $0.name == "meant" }?.value
+        XCTAssertEqual(meant, "ส่งงานตอนเก้าโมง")
+    }
+
+    @MainActor
+    func testSavedRecordingSharesItsOwnWAV() async throws {
+        let h = try Harness(mode: .failOnce)
+        defer { h.removeDirectory() }
+        await h.model.startInForeground()
+        await h.model.stopFromIntent()
+        let pending = try XCTUnwrap(h.model.pending.first)
+        let recording = try XCTUnwrap(h.model.shareableRecording(pending))
+        XCTAssertTrue(recording.fileName.hasPrefix("OLIV recording "))
+        XCTAssertTrue(recording.fileName.hasSuffix(".wav"))
+        let store = try PendingRecordingStore(directory: h.directory.appendingPathComponent("Pending"))
+        let saved = try store.audio(for: pending.id)
+        XCTAssertEqual(String(decoding: saved[0..<4], as: UTF8.self), "RIFF")
+        // Exporting through Transferable needs iOS 18.2; the app supports 18.0.
+        if #available(iOS 18.2, *) {
+            let exported = try await recording.exported(as: .wav)
+            XCTAssertEqual(exported, saved)
+        }
     }
 
     @MainActor

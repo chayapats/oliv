@@ -1,5 +1,6 @@
 import SwiftUI
 import OlivCore
+import UniformTypeIdentifiers
 
 struct CaptureView: View {
     @Bindable var model: AppModel
@@ -371,6 +372,16 @@ struct PendingRecordingCard: View {
                     .disabled(model.isBusy || !model.isConfigured)
                     .accessibilityIdentifier("retryRecordingButton_\(item.id)")
                     Spacer()
+                    // The user's own copy, e.g. to attach to a report; OLIV
+                    // uploads nothing here.
+                    if let recording = model.shareableRecording(item) {
+                        ShareLink(item: recording, preview: SharePreview("OLIV recording")) {
+                            Image(systemName: "square.and.arrow.up")
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("Share saved recording")
+                        .accessibilityIdentifier("shareRecordingButton_\(item.id)")
+                    }
                     Button(role: .destructive) { confirmsDelete = true } label: {
                         Image(systemName: "trash")
                             .frame(width: 44, height: 44)
@@ -385,5 +396,25 @@ struct PendingRecordingCard: View {
         } message: {
             Text("This audio will be removed from this iPhone.")
         }
+    }
+}
+
+/// A saved recording as a WAV for the share sheet. The audio is read from the
+/// private store only when the person picks a destination; OLIV keeps no extra
+/// copy.
+struct SavedRecording: Transferable, Sendable {
+    let id: UUID
+    let createdAt: Date
+    let store: PendingRecordingStore
+
+    var fileName: String {
+        "OLIV recording \(createdAt.formatted(.iso8601.year().month().day())).wav"
+    }
+
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .wav) { recording in
+            try recording.store.audio(for: recording.id)
+        }
+        .suggestedFileName { $0.fileName }
     }
 }

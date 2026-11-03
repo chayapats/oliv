@@ -216,6 +216,37 @@ final class OlivUITests: XCTestCase {
     }
 
     @MainActor
+    func testWrongResultReportIsPreviewedBeforeGitHub() {
+        let app = launch()
+        finishRecording(in: app)
+        XCTAssertTrue(app.buttons["copyResultButton"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["History"].tap()
+        let row = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "historyEntry_")).firstMatch
+        tap(row, in: app)
+        tap(app.buttons["reportResultButton"], in: app)
+
+        // The preview: public notice, the result's own words, editable.
+        XCTAssertTrue(app.descendants(matching: .any)["reportPublicNotice"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.textViews["reportTypedField"].value as? String, finishedText)
+        XCTAssertEqual(app.textViews["reportRawField"].value as? String, originalText)
+        attachScreenshot(app, named: "OLIV-report-preview")
+        let notOpened = app.staticTexts.matching(
+            NSPredicate(format: "label == %@", "Demo · GitHub was not opened (template: wrong-result.yml).")).firstMatch
+
+        // Cancel sends nothing anywhere.
+        tap(app.buttons["cancelReportButton"], in: app)
+        XCTAssertTrue(app.buttons["reportResultButton"].waitForExistence(timeout: 3))
+        XCTAssertFalse(notOpened.exists)
+
+        // Continue is the one way out to GitHub (replaced by a stub in demos).
+        tap(app.buttons["reportResultButton"], in: app)
+        XCTAssertTrue(app.textViews["reportMeantField"].waitForExistence(timeout: 3))
+        tap(app.buttons["openReportButton"], in: app)
+        tap(app.buttons["Done"], in: app)
+        XCTAssertTrue(notOpened.waitForExistence(timeout: 3))
+    }
+
+    @MainActor
     func testLargestDynamicTypeKeepsMainActionsReachable() {
         let app = launch(["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
         attachScreenshot(app, named: "OLIV-accessibility-capture")

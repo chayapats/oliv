@@ -1,0 +1,82 @@
+name: Wrong result
+description: OLIV typed something other than what you said. The Mac and iPhone apps can fill this in for you.
+title: "[Wrong result] "
+labels: ["accuracy"]
+# The Mac and iPhone apps prefill this form through the issue URL
+# (?template=wrong-result.yml&title=…&<field id>=…). Keep the field ids in step
+# with macos/OLIV/ResultReport.swift and ios/Sources/OlivCore/ResultReport.swift;
+# their tests read this file.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **This issue will be public.** Anyone can read it, and search engines can find it. Before you submit, remove names, phone numbers, addresses, passwords and anything else private.
+        **รายงานนี้จะเป็นสาธารณะ** ทุกคนอ่านได้และค้นเจอผ่านเสิร์ชเอนจิน ก่อนส่ง ลบชื่อ เบอร์โทร ที่อยู่ รหัสผ่าน หรือเรื่องส่วนตัวอื่น ๆ ออกก่อน
+
+        OLIV doesn't send reports by itself: nothing is posted until you press **Create** below. Recordings are never uploaded. Attach one only if a maintainer asks and you are happy for it to be public. Thai or English is fine.
+  - type: textarea
+    id: typed
+    attributes:
+      label: What OLIV typed
+      description: The finished text exactly as it was pasted.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: raw
+    attributes:
+      label: Raw transcript
+      description: What speech-to-text heard, before cleanup and formatting. Leave blank if you don't have it.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: meant
+    attributes:
+      label: What you meant to say
+      description: The text you expected, as close to your words as you can.
+      render: text
+    validations:
+      required: false
+  - type: input
+    id: engine
+    attributes:
+      label: Engine
+      description: Speech-to-text engine, e.g. "On-device · Typhoon" or "OLIV API".
+    validations:
+      required: false
+  - type: input
+    id: cleanup
+    attributes:
+      label: Cleanup
+      description: Whether cleanup was on, and whether the language model ran.
+    validations:
+      required: false
+  - type: input
+    id: app-version
+    attributes:
+      label: App version and build
+      placeholder: "OLIV 0.2.2 (build 19) · Mac"
+    validations:
+      required: false
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+      placeholder: "macOS 15.6 or iOS 26.4"
+    validations:
+      required: false
+  - type: input
+    id: timing
+    attributes:
+      label: Timing
+      description: Recording length and how long transcription and cleanup took.
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: The app you dictated into, how you were speaking (quiet room, call, AirPods), and whether it happens again.
+    validations:
+      required: false

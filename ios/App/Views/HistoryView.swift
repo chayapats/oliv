@@ -5,6 +5,7 @@ struct HistoryView: View {
     @Bindable var model: AppModel
     @State private var search = ""
     @State private var selectedEntry: HistoryEntry?
+    @State private var reportedEntry: HistoryEntry?
     @State private var confirmsClear = false
 
     var body: some View {
@@ -44,6 +45,7 @@ struct HistoryView: View {
                                 ShareLink(item: entry.finalText) {
                                     Label("Share text", systemImage: "square.and.arrow.up")
                                 }
+                                Button("Report a wrong result", systemImage: "exclamationmark.bubble") { reportedEntry = entry }
                                 Button("Delete", systemImage: "trash", role: .destructive) { model.deleteHistory(entry) }
                                     .disabled(model.isBusy)
                             }
@@ -77,6 +79,9 @@ struct HistoryView: View {
         }
         .sheet(item: $selectedEntry) { entry in
             HistoryDetailView(originalEntry: entry, model: model)
+        }
+        .sheet(item: $reportedEntry) { entry in
+            ReportResultSheet(entry: entry, model: model)
         }
         .confirmationDialog("Delete all history?", isPresented: $confirmsClear, titleVisibility: .visible) {
             Button("Delete all history", role: .destructive) { model.clearHistory() }
@@ -188,6 +193,7 @@ struct ResultCard: View {
     @Bindable var model: AppModel
     @State private var showsOriginal = false
     @State private var showsDetails = false
+    @State private var reportsResult = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
@@ -304,7 +310,18 @@ struct ResultCard: View {
                     }
                 }
                 .accessibilityIdentifier("processingDetails")
+
+                Button { reportsResult = true } label: {
+                    Label("Report a wrong result", systemImage: "exclamationmark.bubble")
+                        .font(.caption)
+                        .foregroundStyle(OlivTheme.secondary)
+                        .frame(minHeight: 44)
+                }
+                .accessibilityIdentifier("reportResultButton")
             }
+        }
+        .sheet(isPresented: $reportsResult) {
+            ReportResultSheet(entry: entry, model: model)
         }
     }
 
@@ -355,5 +372,167 @@ struct ResultCard: View {
 
     private func seconds(_ duration: TimeInterval) -> String {
         String(format: "%.1f s", duration)
+    }
+}
+
+/// The preview step of a wrong-result report (#21). The only way to GitHub is
+/// its Continue button: it shows what the report holds, says it will be public,
+/// and lets the person edit it first.
+struct ReportResultSheet: View {
+    let model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    private let base: ResultReport
+    @State private var typed: String
+    @State private var raw: String
+    @State private var meant = ""
+    @FocusState private var focusedField: ResultReport.Field?
+
+    init(entry: HistoryEntry, model: AppModel) {
+        self.model = model
+        let base = model.resultReport(for: entry)
+        self.base = base
+        _typed = State(initialValue: base.typed)
+        _raw = State(initialValue: base.raw)
+    }
+
+    private var report: ResultReport {
+        var report = base
+        report.typed = typed
+        report.raw = raw
+        report.meant = meant
+        return report
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Eyebrow(text: "Help OLIV improve")
+                        Text("Not what you said?")
+                            .font(.system(.largeTitle, design: .serif))
+                            .accessibilityAddTraits(.isHeader)
+                        Text("Check the report and change anything you like before it goes to GitHub.")
+                            .font(.subheadline)
+                            .foregroundStyle(OlivTheme.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Label {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text("This report will be public.")
+                                .font(.subheadline.weight(.semibold))
+                            Text("GitHub opens in Safari with this report filled in, and anyone can read it there. Remove names, numbers and anything else private. OLIV sends nothing: the report is posted only if you submit it on GitHub.")
+                                .font(.caption)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    } icon: {
+                        Image(systemName: "globe")
+                    }
+                    .foregroundStyle(OlivTheme.warning)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(OlivTheme.warm, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("reportPublicNotice")
+
+                    field("What OLIV typed", text: $typed, field: .typed, identifier: "reportTypedField")
+                    field("Before cleanup", text: $raw, field: .raw, identifier: "reportRawField")
+                    field("What you meant to say", text: $meant, field: .meant, identifier: "reportMeantField",
+                          placeholder: "Optional")
+
+                    OlivCard(padding: 17) {
+                        VStack(spacing: 10) {
+                            detail("Engine", base.engine)
+                            detail("Cleanup", base.cleanup)
+                            detail("App", base.appVersion)
+                            detail("System", base.osVersion)
+                            detail("Timing", base.timing)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("The recording isn’t included. OLIV deletes audio once it’s transcribed.")
+                        if !report.fitted().truncated.isEmpty {
+                            Text("Long text is shortened to fit a web link, and the cut is marked.")
+                                .accessibilityIdentifier("reportTruncatedNotice")
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(OlivTheme.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    Button {
+                        focusedField = nil
+                        model.openReport(report)
+                        dismiss()
+                    } label: {
+                        Label("Continue on GitHub", systemImage: "arrow.up.forward.app")
+                    }
+                    .buttonStyle(OlivPrimaryButtonStyle())
+                    .disabled(typed.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                              && raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                              && meant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .accessibilityIdentifier("openReportButton")
+                }
+                .padding(22)
+                .frame(maxWidth: 680)
+                .frame(maxWidth: .infinity)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .olivScreen()
+            .navigationTitle("Report a wrong result")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .accessibilityIdentifier("cancelReportButton")
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { focusedField = nil }
+                        .accessibilityIdentifier("reportKeyboardDoneButton")
+                }
+            }
+        }
+    }
+
+    private func field(_ title: LocalizedStringKey, text: Binding<String>, field: ResultReport.Field,
+                       identifier: String, placeholder: LocalizedStringKey? = nil) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+            ZStack(alignment: .topLeading) {
+                if let placeholder, text.wrappedValue.isEmpty {
+                    Text(placeholder)
+                        .foregroundStyle(OlivTheme.secondary.opacity(0.8))
+                        .padding(.top, 8)
+                        .padding(.leading, 5)
+                        .allowsHitTesting(false)
+                }
+                TextEditor(text: text)
+                    .lineSpacing(3)
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 72)
+                    .focused($focusedField, equals: field)
+                    .accessibilityLabel(Text(title))
+                    .accessibilityIdentifier(identifier)
+            }
+            .olivField()
+        }
+    }
+
+    private func detail(_ label: LocalizedStringKey, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 15) {
+            Text(label)
+                .foregroundStyle(OlivTheme.secondary)
+            Spacer(minLength: 0)
+            // The report's own words, exactly as they will be sent.
+            Text(verbatim: value.isEmpty ? "—" : value)
+                .multilineTextAlignment(.trailing)
+                .foregroundStyle(OlivTheme.ink)
+        }
+        .font(.caption)
+        .accessibilityElement(children: .combine)
     }
 }

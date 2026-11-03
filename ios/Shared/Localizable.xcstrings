@@ -394,6 +394,16 @@
         }
       }
     },
+    "App": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แอป"
+          }
+        }
+      }
+    },
     "Assign Toggle OLIV": {
       "localizations": {
         "th": {
@@ -444,6 +454,16 @@
         }
       }
     },
+    "Before cleanup": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ก่อนเกลา"
+          }
+        }
+      }
+    },
     "Built around your Oliv server": {
       "localizations": {
         "th": {
@@ -476,6 +496,16 @@
       }
     },
     "Capture with OLIV": {},
+    "Check the report and change anything you like before it goes to GitHub.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ตรวจรายงาน และแก้ได้ตามต้องการก่อนไปที่ GitHub"
+          }
+        }
+      }
+    },
     "Checking…": {
       "localizations": {
         "th": {
@@ -622,6 +652,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "เชื่อมต่อแล้ว API key ของคุณใช้งานได้"
+          }
+        }
+      }
+    },
+    "Continue on GitHub": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไปต่อที่ GitHub"
           }
         }
       }
@@ -917,6 +957,16 @@
         }
       }
     },
+    "Engine": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เอนจิน"
+          }
+        }
+      }
+    },
     "Enter a valid OLIV server URL.": {
       "localizations": {
         "th": {
@@ -1178,6 +1228,26 @@
         }
       }
     },
+    "GitHub opens in Safari with this report filled in, and anyone can read it there. Remove names, numbers and anything else private. OLIV sends nothing: the report is posted only if you submit it on GitHub.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub จะเปิดใน Safari พร้อมกรอกรายงานนี้ไว้ให้ และใครก็อ่านได้ ลบชื่อ ตัวเลข และเรื่องส่วนตัวอื่น ๆ ออกก่อน OLIV ไม่ได้ส่งอะไรเอง รายงานจะขึ้นก็ต่อเมื่อคุณกดส่งใน GitHub"
+          }
+        }
+      }
+    },
+    "Help OLIV improve": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ช่วยให้ OLIV ดีขึ้น"
+          }
+        }
+      }
+    },
     "HTTP does not encrypt traffic between Oliv and your server. This option is limited to private network addresses.": {
       "localizations": {
         "th": {
@@ -1344,6 +1414,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "กำลังฟังคุณอยู่"
+          }
+        }
+      }
+    },
+    "Long text is shortened to fit a web link, and the cut is marked.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้อความที่ยาวเกินจะถูกตัดให้พอดีกับลิงก์ และมีป้ายบอกตรงที่ตัด"
           }
         }
       }
@@ -1518,6 +1598,16 @@
         }
       }
     },
+    "Not what you said?": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไม่ตรงกับที่พูดใช่ไหม"
+          }
+        }
+      }
+    },
     "Nothing to copy": {
       "localizations": {
         "th": {
@@ -1642,6 +1732,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "ตอนนี้ OLIV ใช้ API แบบ HTTPS สาธารณะแล้ว โปรดใส่ API key ส่วนตัวอันใหม่ในการตั้งค่า การตั้งค่าการเขียนและเสียงที่อัดไว้ยังอยู่ครบ"
+          }
+        }
+      }
+    },
+    "OLIV recording": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เสียงที่อัดจาก OLIV"
           }
         }
       }
@@ -1777,6 +1877,16 @@
         }
       }
     },
+    "Optional": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไม่ใส่ก็ได้"
+          }
+        }
+      }
+    },
     "Original": {
       "localizations": {
         "th": {
@@ -1903,6 +2013,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "ลบ %@"
+          }
+        }
+      }
+    },
+    "Report a wrong result": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แจ้งผลที่ผิด"
           }
         }
       }
@@ -2413,6 +2533,16 @@
         }
       }
     },
+    "Share saved recording": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แชร์เสียงที่บันทึกไว้"
+          }
+        }
+      }
+    },
     "Share text": {
       "localizations": {
         "th": {
@@ -2741,6 +2871,16 @@
         }
       }
     },
+    "System": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ระบบ"
+          }
+        }
+      }
+    },
     "Take your time. Tap below when you’re finished.": {
       "localizations": {
         "th": {
@@ -3061,6 +3201,16 @@
         }
       }
     },
+    "The recording isn’t included. OLIV deletes audio once it’s transcribed.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ไม่ได้แนบเสียงไปด้วย เพราะ OLIV ลบเสียงทิ้งหลังแปลงเป็นข้อความเสร็จ"
+          }
+        }
+      }
+    },
     "The request was cancelled.": {
       "localizations": {
         "th": {
@@ -3241,6 +3391,16 @@
         }
       }
     },
+    "This report will be public.": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "รายงานนี้จะเป็นสาธารณะ"
+          }
+        }
+      }
+    },
     "This result cannot be delivered through the keyboard.": {
       "localizations": {
         "th": {
@@ -3287,6 +3447,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "จัดข้อความที่มีอยู่ให้เรียบร้อย ด้วยคำศัพท์ คำแทนที่ และรูปแบบเดียวกับที่ใช้ตอนพูด"
+          }
+        }
+      }
+    },
+    "Timing": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "เวลาที่ใช้"
           }
         }
       }
@@ -3514,6 +3684,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "คลื่นเสียง"
+          }
+        }
+      }
+    },
+    "What OLIV typed": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ข้อความที่ OLIV พิมพ์"
+          }
+        }
+      }
+    },
+    "What you meant to say": {
+      "localizations": {
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "สิ่งที่คุณตั้งใจพูด"
           }
         }
       }
