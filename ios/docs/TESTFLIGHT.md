@@ -7,6 +7,48 @@ Apple Distribution signing. Export alone does not make the app downloadable.
 The app record is [OLIV Dictation (6819158448)](https://appstoreconnect.apple.com/apps/6819158448/distribution).
 The short name OLIV was already taken in App Store Connect; the icon name remains OLIV.
 
+## Release a build to testers
+
+Don't submit build 19 to Beta App Review: its setup has no way past a refused
+microphone. Build 20 onward offers **Skip for now** there, and
+`OlivUITests/testRefusedMicrophoneStillLeadsOutOfSetup` refuses the real iOS
+prompt, visits iPhone Settings and comes back to check it.
+
+Archiving, uploading and submitting stay manual, on the maintainer's Mac:
+
+1. **Work in the main checkout, on an up-to-date `main`.** The server that
+   **Start free trial** asks is baked in from `OLIV_DEFAULT_API_URL` in the
+   gitignored `release.local.env` at the monorepo root, which only the main
+   checkout has. An archive from a worktree or a fresh clone has no default
+   server, so testers would see only **I have an API key**.
+2. **Check the build number.** `CURRENT_PROJECT_VERSION` in `project.yml` must
+   be higher than any build already uploaded. Raise it in a commit if needed;
+   the script reads it from there.
+3. **Check the server.** The [uptime check](../../server/README.md#uptime-check)
+   should be passing: reviewers and testers start with the free trial.
+4. **Run the tests** from `ios/`:
+   `DEVELOPER_DIR=/Applications/Xcode-27.app/Contents/Developer Scripts/test.sh`.
+5. **Archive, export and upload** from `ios/`:
+
+   ```sh
+   export DEVELOPER_DIR=/Applications/Xcode-27.app/Contents/Developer
+   Scripts/testflight.sh archive
+   Scripts/testflight.sh export
+   Scripts/testflight.sh upload
+   ```
+
+   `archive` ends with `Default server URL baked into build N: …`. It must
+   name your server, not `<none; users enter their own>`. Keep that line out of
+   issues and PRs.
+6. **Submit in App Store Connect** (OLIV Dictation ▸ TestFlight), once Apple
+   has processed the build: add it to the external **OLIV Beta** group, check
+   Test Information (What to Test, the beta description, review notes), and
+   submit it for Beta App Review. The reviewers need a way in: Start free trial
+   with sign-ups open on the server, or a reviewer key in the review
+   information, never in the repository.
+7. **After approval**, check that the public link offers the new build. Builds
+   expire after 90 days.
+
 Build 16 was archived, exported and successfully uploaded with released Xcode 27
 (`27A266a`) on 5 October 2026. Apple accepted the package for processing at
 13:16 Bangkok time. This upload succeeded; external testing still requires
@@ -58,10 +100,11 @@ DEVELOPER_DIR=/Applications/Xcode-27.app/Contents/Developer Scripts/testflight.s
 DEVELOPER_DIR=/Applications/Xcode-27.app/Contents/Developer Scripts/testflight.sh upload 16
 ```
 
-Archives and exports remain in ignored `build/TestFlight/`. The script will not
-replace an existing archive. Choose a higher unused build number for a new
-submission. `upload` sends the signed build to Apple using Xcode's signed-in
-account. Export settings use App Store Connect distribution and permit external
+Without a build number, the script uses `CURRENT_PROJECT_VERSION` from
+`project.yml`. Archives and exports remain in ignored `build/TestFlight/`. The
+script will not replace an existing archive. Choose a higher unused build
+number for a new submission. `upload` sends the signed build to Apple using
+Xcode's signed-in account. Export settings use App Store Connect distribution and permit external
 TestFlight testing; do not choose **TestFlight Internal Only** in Organizer.
 
 `ITSAppUsesNonExemptEncryption` is false because the app uses Apple's HTTPS,

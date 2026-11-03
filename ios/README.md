@@ -38,7 +38,7 @@ On this development Mac, Xcode-beta.app supplies the working iOS 27 SDK and runs
 First launch walks through everything, and each step checks itself:
 
 1. **Start free trial** requests a trial key from the server baked into the build (`OLIV_DEFAULT_API_URL`) and saves it to Keychain. Nobody sees or pastes a key. **I have an API key** goes to Settings instead. Source builds have no default server, so they show only that option.
-2. **Allow microphone**, with a button to iPhone Settings if it was refused.
+2. **Allow microphone**, with a button to iPhone Settings if it was refused, and **Skip for now** to finish setup without it.
 3. **Try it now** records and shows a first result, before any keyboard setup.
 4. **Use it in every app** opens OLIV's page in iPhone Settings, then confirms OLIV's keyboard is live in a practice field.
 5. **Start with one press** shows how to put **Toggle OLIV** on the Action button or in Control Center.
@@ -91,7 +91,7 @@ DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer Scripts/test.sh
 
 The script runs app/UI tests with explicitly simulated audio/server fixtures. Enable the separate real recorder test with OLIV_RUN_MICROPHONE_TESTS=1. Both macOS and the simulated iPhone can request microphone permission. It records about 400 ms locally and never uploads that audio.
 
-Debug-only --demo and --ui-testing arguments use isolated storage, synthetic WAV and a fake service, with a persistent banner. The explicit --keyboard-test-host and --keyboard-integration-demo fixtures additionally opt into the real keyboard App Group to test delivery with synthetic audio/server results. Release builds exclude these entry points. None proves live transcription accuracy or physical Action button behavior.
+Debug-only --demo and --ui-testing arguments use isolated storage, synthetic WAV and a fake service, with a persistent banner. Adding --system-microphone-permission keeps the synthetic audio but asks iOS for the real microphone permission, so a UI test can refuse it; with OLIV_RUN_MICROPHONE_TESTS=1, Scripts/test.sh grants it again for the real recorder checks. The explicit --keyboard-test-host and --keyboard-integration-demo fixtures additionally opt into the real keyboard App Group to test delivery with synthetic audio/server results. Release builds exclude these entry points. None proves live transcription accuracy or physical Action button behavior.
 
 The opt-in **OlivPhysicalAudioValidation** scheme selects a separate real-microphone diagnostic on a physical iPhone with permission already granted. It launches `--keyboard-test-host --real-audio-background-test`, starts capture explicitly, presses Home for at least two seconds, returns and checks background PCM/classification progress and cleanup. Capture has an eight-second limit; audio is discarded from isolated temporary storage with no network request or user-history access. It does not exercise an Action button start. Execution results are tracked in [test evidence](docs/TESTING.md#automatic-finish--build-7).
 
@@ -135,4 +135,4 @@ DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer xcodebuild \
 - project.yml: source of truth for the checked-in Xcode project.
 - [Core parity](docs/CORE-PARITY.md): mapped to the current Linux API migration and reference pipeline.
 
-See [TestFlight distribution](docs/TESTFLIGHT.md) for archive/upload commands and external beta setup. A local archive is not a published TestFlight build; availability must be verified in App Store Connect.
+See [TestFlight distribution](docs/TESTFLIGHT.md#release-a-build-to-testers) for the release steps (archive from the main checkout, upload, submit for Beta App Review) and external beta setup. A local archive is not a published TestFlight build; availability must be verified in App Store Connect.
