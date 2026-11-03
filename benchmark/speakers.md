@@ -156,6 +156,10 @@ the FLEURS raw transcriptions. A few spell sara am as nikhahit plus sara aa (3
 of 1,021 in the test split); those, and any doubled sara e, are rewritten as
 the single letters a Thai keyboard produces so they don't count as errors.
 
+`--manifest-out FILE` only writes the sampled recordings as an `eval` manifest
+(absolute audio paths, so pass `--audio-root /`) and runs nothing; no LaBSE
+snapshot is needed. Engines outside the sidecar use it to score the same clips.
+
 The report gives the overall meaning match, WER and CER (full pipeline and
 speech model only) and, for sentences with two or more readers: how often every
 reader gets the meaning, how often the readers disagree (the voice decides),
