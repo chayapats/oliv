@@ -34,6 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     @Published private(set) var effectiveEngineID = SidecarClient.defaultEngine
     /// A trial hand-back to tell the user, held until nothing is recording.
     private var pendingAnnouncement: TrialAnnouncement?
+    /// Fires when the trial key expires (see scheduleTrialExpiry).
+    private var trialExpiryTimer: Timer?
     private var observers: Set<AnyCancellable> = []
 
     /// Sparkle auto-update (W5-T1). Owns the updater + its standard AppKit user
@@ -197,6 +199,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         let announcement = trial.reconcile(selectedEngine: settings.engineID, modelsReady: ready,
                                            downloading: models.isDownloading)
         controller.trialConfiguration = trial.configuration
+        controller.trialExpiresAt = trial.configuration == nil ? nil : trial.record?.expiresAt
+        scheduleTrialExpiry(controller.trialExpiresAt)
         let engine = trial.effectiveEngine(selected: settings.engineID, modelsReady: ready)
         controller.sttEngine = engine
         if effectiveEngineID != engine { effectiveEngineID = engine }
@@ -205,6 +209,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
             pendingAnnouncement = announcement
             flushAnnouncement(after: 0)
         }
+    }
+
+    /// Reconcile again when the trial key runs out, so the menu, HUD and
+    /// Settings stop saying Cloud without waiting for another event.
+    /// (DictationController also re-checks the expiry at release.)
+    private func scheduleTrialExpiry(_ expiry: Date?) {
+        trialExpiryTimer?.invalidate()
+        trialExpiryTimer = nil
+        guard let expiry else { return }
+        let timer = Timer(fire: expiry.addingTimeInterval(1), interval: 0, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.applyEngine() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        trialExpiryTimer = timer
     }
 
     /// Say it once, when no dictation is using the HUD (the status observer

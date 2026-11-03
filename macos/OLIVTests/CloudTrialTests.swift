@@ -439,6 +439,24 @@ final class CloudTrialTests: XCTestCase {
         XCTAssertEqual(DictationController.releaseEngine(recorded: api, current: typhoon, trialAvailable: false), api)
     }
 
+    func testExpiredTrialKeyIsNeverUsedAtRelease() throws {
+        let config = try OLIVAPIConfiguration(url: "https://oliv.example.com", apiKey: "trial-dummy")
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let usable = { (expiresIn: TimeInterval?) in
+            DictationController.usableTrial(config, expiresAt: expiresIn.map { now.addingTimeInterval($0) }, now: now)
+        }
+        XCTAssertNotNil(usable(3600), "a key with time left is used")
+        XCTAssertNil(usable(-1), "an expired key is not")
+        XCTAssertNil(usable(DictationController.trialExpiryMargin), "nor one about to expire")
+        XCTAssertNil(usable(nil), "nor one without a known expiry")
+        XCTAssertNil(DictationController.usableTrial(nil, expiresAt: now.addingTimeInterval(3600), now: now))
+        // With no usable trial, the trial utterance gets no provider: nothing is uploaded.
+        XCTAssertEqual(DictationController.releaseEngine(recorded: CloudTrial.engineID, current: CloudTrial.engineID,
+                                                         trialAvailable: false), CloudTrial.engineID)
+        XCTAssertNil(DictationController.provider(engine: CloudTrial.engineID, sidecar: nil, apiConfiguration: nil,
+                                                  trialConfiguration: usable(-1)))
+    }
+
     func testTrialIsLabelledCloudEverywhere() {
         let execution = DictationExecution(engineID: CloudTrial.engineID)
         XCTAssertEqual(execution, .olivTrial)

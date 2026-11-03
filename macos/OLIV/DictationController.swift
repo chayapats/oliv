@@ -61,7 +61,14 @@ final class DictationController {
     /// The free trial's server and key while it is on (CloudTrial), else nil.
     /// The coordinator sets `sttEngine` to `CloudTrial.engineID` meanwhile.
     var trialConfiguration: OLIVAPIConfiguration?
-    /// A trial dictation got 401: the trial key expired or was revoked.
+    /// When the trial key expires. Checked again at release: time passing
+    /// alone doesn't reconcile the trial, and an utterance must never be
+    /// uploaded with a key that has run out.
+    var trialExpiresAt: Date?
+    /// The clock for that check (tests inject one).
+    var now: () -> Date = Date.init
+    /// A trial dictation got 401, or the key expired before release: the
+    /// trial key no longer works.
     var onTrialKeyRejected: (() -> Void)?
     private var recordingEngine: String?
 
@@ -595,11 +602,20 @@ final class DictationController {
         let appState = self.appState
         // Freeze the engine at press, so changing settings during a hold cannot
         // route a 10-minute local recording into the 2-minute remote provider.
+        // An expired trial key counts as no trial: nothing is uploaded with it.
+        let trialConfiguration = Self.usableTrial(self.trialConfiguration, expiresAt: trialExpiresAt, now: now())
+        let trialExpired = self.trialConfiguration != nil && trialConfiguration == nil
         let engine = Self.releaseEngine(recorded: recordingEngine ?? self.sttEngine, current: sttEngine,
                                         trialAvailable: trialConfiguration != nil)
         recordingEngine = nil
         let provider = Self.provider(engine: engine, sidecar: sidecar, apiConfiguration: olivAPIConfiguration,
                                      trialConfiguration: trialConfiguration)
+        if trialExpired {
+            // End the trial now, as a 401 would, so the next press isn't
+            // routed to it either. Engine and provider are already frozen.
+            self.trialConfiguration = nil
+            onTrialKeyRejected?()
+        }
         let captureSeconds = Self.captureSeconds(for: engine)
         let trial = engine == CloudTrial.engineID
         // Resolve cleanup ONCE, here at release (main actor), against the app the
@@ -797,6 +813,18 @@ final class DictationController {
             return recorded
         }
         return current
+    }
+
+    /// Seconds before its expiry that a trial key stops being used, so an
+    /// upload doesn't start just as the key runs out.
+    nonisolated static let trialExpiryMargin: TimeInterval = 10
+
+    /// The trial's configuration if its key is still good at `now`, else nil.
+    nonisolated static func usableTrial(_ configuration: OLIVAPIConfiguration?, expiresAt: Date?,
+                                        now: Date) -> OLIVAPIConfiguration? {
+        guard let configuration, let expiresAt,
+              expiresAt.timeIntervalSince(now) > trialExpiryMargin else { return nil }
+        return configuration
     }
 
     nonisolated static func provider(engine: String, sidecar: SidecarClient?,
