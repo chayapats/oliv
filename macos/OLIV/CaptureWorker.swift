@@ -44,9 +44,16 @@ final class CaptureWorker: @unchecked Sendable {
     private let restoreOutput: () -> Void
     private let liveDevice: () -> Bool
     private let startupTime: () -> TimeInterval?
+    private let latestSamples: (inout [Float]) -> (copied: Int, total: Int)
     private var activeRequest: CaptureStartRequest?  // confined to queue
     var isDeviceLive: Bool { liveDevice() }
     var startupSeconds: TimeInterval? { startupTime() }
+
+    /// Live preview: the newest audio of the recording in progress, copied into
+    /// `buffer` under the capture's own lock (see AudioCapture.copyLatestSamples).
+    func copyLatestSamples(into buffer: inout [Float]) -> (copied: Int, total: Int) {
+        latestSamples(&buffer)
+    }
 
     convenience init(audio: AudioCapture) {
         self.init(start: { options, request in
@@ -65,7 +72,8 @@ final class CaptureWorker: @unchecked Sendable {
             // buffer, or the next press would fail with alreadyRunning.
             if audio.isRunning { _ = audio.stop() } else { audio.shutdown() }
         }, restoreOutput: { audio.restoreOutputImmediately() },
-                  isDeviceLive: { audio.isDeviceLive }, startupSeconds: { audio.startupSeconds })
+                  isDeviceLive: { audio.isDeviceLive }, startupSeconds: { audio.startupSeconds },
+                  latestSamples: { audio.copyLatestSamples(into: &$0) })
     }
 
     /// Hardware-free seam for exercising delayed opens and rapid releases.
@@ -73,13 +81,15 @@ final class CaptureWorker: @unchecked Sendable {
          stop: @escaping () -> CapturedAudio, close: @escaping () -> Void,
          restoreOutput: @escaping () -> Void = {},
          isDeviceLive: @escaping () -> Bool = { false },
-         startupSeconds: @escaping () -> TimeInterval? = { nil }) {
+         startupSeconds: @escaping () -> TimeInterval? = { nil },
+         latestSamples: @escaping (inout [Float]) -> (copied: Int, total: Int) = { _ in (0, 0) }) {
         startCapture = start
         stopCapture = stop
         closeCapture = close
         self.restoreOutput = restoreOutput
         liveDevice = isDeviceLive
         startupTime = startupSeconds
+        self.latestSamples = latestSamples
     }
 
     func start(options: CaptureOptions, request: CaptureStartRequest,

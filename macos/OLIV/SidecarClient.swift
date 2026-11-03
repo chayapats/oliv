@@ -121,7 +121,12 @@ final class SidecarClient {
     // priority inversions.
     private let requestQueue = DispatchQueue(label: "com.oliv.sidecar.requests", qos: .userInitiated)
     private var proc: Process?
+    /// Set and cleared on `requestQueue`; every write also holds `stdinLock`, so
+    /// `sendOutOfBand` can write a short line while a request is in flight
+    /// without interleaving with it.
     private var stdinHandle: FileHandle?
+    private let stdinLock = NSLock()
+    private let outOfBandQueue = DispatchQueue(label: "com.oliv.sidecar.out-of-band", qos: .userInitiated)
     private var stdoutPipe: Pipe?
     // Fresh per spawn so a respawn can never read a dead child's leftover lines
     // (the CleanupClient "fresh queue per process" rule).
@@ -513,7 +518,11 @@ final class SidecarClient {
         }
 
         self.proc = proc
+        // A write to a sidecar that just died must fail, not SIGPIPE the app.
+        _ = fcntl(stdinPipe.fileHandleForWriting.fileDescriptor, F_SETNOSIGPIPE, 1)
+        stdinLock.lock()
         self.stdinHandle = stdinPipe.fileHandleForWriting
+        stdinLock.unlock()
         self.stdoutPipe = stdoutPipe
         // Fresh queue for this process; capture it + the handle by value so the
         // reader never touches self (no data race with the request queue).
@@ -543,8 +552,10 @@ final class SidecarClient {
 
     /// Release process handles without signalling (the child already exited).
     private func dropProcess() {
+        stdinLock.lock()
         try? stdinHandle?.close()   // signals EOF to a still-graceful child
         stdinHandle = nil
+        stdinLock.unlock()
         // The reader Thread owns the stdout read handle; it ends on EOF when the
         // child dies and releases the fd. Dropping our Pipe ref here is enough.
         stdoutPipe = nil
@@ -554,11 +565,24 @@ final class SidecarClient {
     // MARK: I/O primitives (on requestQueue, except the reader)
 
     private func writeLine(_ obj: [String: Any]) throws {
+        let data = try SidecarClient.encode(obj)
+        stdinLock.lock(); defer { stdinLock.unlock() }
         guard let handle = stdinHandle else {
             throw SidecarError.processDied("no stdin handle")
         }
-        let data = try SidecarClient.encode(obj)
         try handle.write(contentsOf: data)
+    }
+
+    /// Write one request that the sidecar acts on at once and never answers
+    /// (`cancel_preview`), even while another request holds `requestQueue`.
+    /// Never blocks the caller; dropped when no sidecar is running.
+    func sendOutOfBand(_ obj: [String: Any]) {
+        guard let data = try? SidecarClient.encode(obj) else { return }
+        outOfBandQueue.async { [weak self] in
+            guard let self else { return }
+            self.stdinLock.lock(); defer { self.stdinLock.unlock() }
+            try? self.stdinHandle?.write(contentsOf: data)
+        }
     }
 
     /// Read lines until one parses as JSON with the matching id AND is a final

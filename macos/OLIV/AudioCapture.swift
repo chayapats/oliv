@@ -428,6 +428,24 @@ final class AudioCapture {
         return firstLiveAt.map { max(0, $0 - pressedAt) }
     }
 
+    /// Live preview (#26): copy the newest samples of the utterance in progress
+    /// into `buffer`, at most `buffer.count`, oldest first. Returns how many were
+    /// copied and how many the utterance holds so far. Off the audio thread; the
+    /// caller owns (and preallocated) the buffer, so nothing allocates while the
+    /// render thread may be waiting on the lock — this is one memcpy.
+    func copyLatestSamples(into buffer: inout [Float]) -> (copied: Int, total: Int) {
+        buffer.withUnsafeMutableBufferPointer { destination in
+            bufferLock.lock(); defer { bufferLock.unlock() }
+            guard isCapturing else { return (0, 0) }
+            let count = min(destination.count, samples.count)
+            samples.withUnsafeBufferPointer { source in
+                guard count > 0, let from = source.baseAddress, let to = destination.baseAddress else { return }
+                to.update(from: from + (source.count - count), count: count)
+            }
+            return (count, samples.count)
+        }
+    }
+
     // MARK: The capture session (one per open — the refCon the callback gets)
 
     /// Everything ONE opened unit needs, owned by that unit and reachable ONLY

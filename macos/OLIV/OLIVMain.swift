@@ -35,6 +35,9 @@ enum OLIVMain {
         if args.contains("--mic-probe") {
             exit(MicProbe.run(args: args))
         }
+        if args.contains("--live-preview-bench") {
+            exit(LivePreviewBench.run(args: args))
+        }
         // Normal launch: hand off to the SwiftUI App lifecycle.
         OLIVApp.main()
     }

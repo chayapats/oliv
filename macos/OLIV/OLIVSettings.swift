@@ -38,6 +38,7 @@ final class OLIVSettings: ObservableObject {
         static let legacyReplacements = "oliv.replacements" // pre-Dictionary [String:String]; migrated once, then removed
         static let removeFillers = "oliv.removeFillers"   // W4-T1 filler-word toggle
         static let showRecordingIndicator = "oliv.showRecordingIndicator" // W4-T2 HUD toggle
+        static let livePreview = "oliv.livePreview"       // #26 words in the HUD while speaking
         static let legacyVocabulary = "oliv.vocabulary"   // pre-Dictionary [String]; migrated once, then removed
         static let legacyDictionaryBackup = "oliv.legacyDictionaryBackup" // JSON copy of both, kept for recovery
         static let dictionaryEntries = "oliv.dictionaryEntries" // Dictionary JSON [DictionaryEntry]
@@ -148,6 +149,14 @@ final class OLIVSettings: ObservableObject {
     @Published var showRecordingIndicator: Bool {
         didSet { defaults.set(showRecordingIndicator, forKey: Key.showRecordingIndicator); onChange?() }
     }
+
+    /// #26: show the words so far in the recording HUD while the key is held
+    /// (on-device engines only; never pasted). Live-applied; read at each press.
+    @Published var livePreview: Bool {
+        didSet { defaults.set(livePreview, forKey: Key.livePreview); onChange?() }
+    }
+    /// Chosen from the release-to-text latency A/B in the #26 PR.
+    static let livePreviewDefault = true
 
     /// Which mic to dictate from: a `MicSelection` sentinel or a device UID.
     ///
@@ -364,6 +373,7 @@ final class OLIVSettings: ObservableObject {
         cleanupEnabled = defaults.object(forKey: Key.cleanupEnabled) as? Bool ?? true
         removeFillers = defaults.object(forKey: Key.removeFillers) as? Bool ?? true
         showRecordingIndicator = defaults.object(forKey: Key.showRecordingIndicator) as? Bool ?? true
+        livePreview = defaults.object(forKey: Key.livePreview) as? Bool ?? OLIVSettings.livePreviewDefault
         dictionaryAutoLearn = defaults.object(forKey: Key.dictionaryAutoLearn) as? Bool ?? false
         // `dictionaryEntries` is resolved below (see migration), after every
         // stored property has a value — Swift forbids any other order.

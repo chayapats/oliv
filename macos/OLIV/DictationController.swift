@@ -160,6 +160,18 @@ final class DictationController {
     /// HUD is never shown; live-applied via the coordinator.
     var showHUD: Bool = true
 
+    /// Live preview (#26, Settings › General): the words so far in the HUD while
+    /// the key is held. Read at each press; on-device engines only. Never pasted.
+    var livePreview: Bool = false
+    /// Paces previews to this Mac for the whole app run (see LivePreview.swift).
+    let previewPacer = LivePreviewPacer()
+    private var previewSession: LivePreviewSession?
+    /// Test seams: how a preview is transcribed and cancelled (default: the
+    /// sidecar), and what the HUD was shown.
+    var previewTranscriber: ((_ samples: [Float], _ engine: String, _ seq: Int) throws -> LivePreviewResult)?
+    var previewCanceller: ((_ through: Int) -> Void)?
+    var previewObserver: ((String) -> Void)?
+
     /// The mic to dictate from (a `MicSelection` sentinel or a device UID).
     /// Snapshotted onto the capture worker, which re-resolves it on every press — so
     /// switching or unplugging a mic between dictations just works.
@@ -552,6 +564,7 @@ final class DictationController {
     /// exit and the user would get their music back only at the next launch.
     func stop(immediate: Bool = false) {
         warmingGeneration &+= 1
+        stopPreview()
         processingTask?.cancel()
         processingTask = nil
         dropScreenCapture()
@@ -664,6 +677,7 @@ final class DictationController {
         guard generation == warmingGeneration, appState.status == .recording else { return }
         if captureWorker.isDeviceLive {
             if showHUD { hud?.show(phase: .recording) }
+            startPreview()
             if let seconds = captureWorker.startupSeconds {
                 NSLog("OLIV microphone ready: startup=%.0fms", seconds * 1000)
             }
@@ -682,6 +696,8 @@ final class DictationController {
         // release fired by stop() while already idle/processing is a no-op.
         guard appState.status == .recording, shortcut == recordingShortcut else { return }
         guard let request = captureRequest else { return }
+        // First: the final pass must not queue behind a preview.
+        stopPreview()
         request.cancel()
         captureRequest = nil
         if !request.didStart && !request.failedToStart {
@@ -960,6 +976,50 @@ final class DictationController {
                 }
             }
         }
+    }
+
+    // MARK: Live preview (#26)
+
+    private func startPreview() {
+        guard livePreview, showHUD, previewSession == nil, previewPacer.isEnabled else { return }
+        let engine = recordingEngine ?? sttEngine
+        guard LivePreview.isEligible(engine: engine) else { return }
+        let sidecar = self.sidecar
+        let transcribe: (([Float], String, Int) throws -> LivePreviewResult)?
+        if let previewTranscriber {
+            transcribe = previewTranscriber
+        } else if let sidecar {
+            transcribe = { samples, engine, seq in try sidecar.preview(samples: samples, engine: engine, seq: seq) }
+        } else {
+            transcribe = nil
+        }
+        guard let transcribe else { return }
+        let cancel: (Int) -> Void = previewCanceller ?? { sidecar?.cancelPreviews(through: $0) }
+        let worker = captureWorker
+        let session = LivePreviewSession(pacer: previewPacer, hooks: .init(
+            latestSamples: { worker.copyLatestSamples(into: &$0) },
+            transcribe: { samples, seq in try transcribe(samples, engine, seq) },
+            cancel: cancel,
+            show: { [weak self] session, text in
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { self?.showPreview(text, from: session) }
+                }
+            }))
+        previewSession = session
+        session.start()
+    }
+
+    private func showPreview(_ text: String, from session: LivePreviewSession) {
+        guard previewSession === session, appState.status == .recording else { return }
+        previewObserver?(text)
+        hud?.update(preview: text)
+    }
+
+    /// Release (or teardown): no more previews, and the one in flight is
+    /// cancelled out of band. Never waits.
+    private func stopPreview() {
+        previewSession?.stop()
+        previewSession = nil
     }
 
     /// "Dictionary suggestion: grafannah → Grafana · review it from the menu".

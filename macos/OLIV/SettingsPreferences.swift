@@ -21,6 +21,9 @@ struct GeneralSettingsView: View {
                 Divider()
                 SettingsToggle(title: "Show recording indicator", detail: "See a floating waveform while you dictate, plus recording and processing status.",
                                isOn: $settings.showRecordingIndicator)
+                SettingsToggle(title: "Show words as you speak", detail: "Preview your words in the recording indicator while you hold the key. The text OLIV types still comes from the full pass after you let go. On-device engines only.",
+                               isOn: $settings.livePreview)
+                    .disabled(!settings.showRecordingIndicator)
             }
             SettingsCard(title: "Recent transcripts", icon: "clock.arrow.circlepath", subtitle: "A little history, only for this session.") {
                 SettingsToggle(title: "Keep recent transcripts", detail: "Find your last 10 dictations in the menu bar. Click a transcript to copy it, then paste with ⌘V.",

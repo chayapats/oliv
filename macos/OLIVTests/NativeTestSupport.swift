@@ -13,4 +13,17 @@ enum NativeTestSupport {
         }
         return path
     }
+
+    /// The real Rust worker from `scripts/build_native.sh`.
+    static func sidecar() throws -> String {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+        let path = root.appendingPathComponent("build/native-runtime/oliv-sidecar").path
+        guard FileManager.default.isExecutableFile(atPath: path) else {
+            throw NSError(domain: "NativeTestSupport", code: 2, userInfo: [
+                NSLocalizedDescriptionKey: "Build the native runtime first: bash scripts/build_native.sh"
+            ])
+        }
+        return path
+    }
 }

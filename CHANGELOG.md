@@ -58,6 +58,11 @@ Sparkle appcast's release notes, so keep entries short and end-user readable.
   unrelated names changed about 1 in 2,000 dictations for the worse. Works with
   on-device text processing, not yet with the OLIV API engine or the free
   trial.
+- **See your words while you speak.** While you hold the key, the recording
+  indicator shows what OLIV has heard so far, so you know early if it misheard.
+  It's a quick on-device preview: the text OLIV types still comes from the full
+  pass after you let go, just as fast as before. On-device engines only; a Mac
+  that can't keep up turns it off by itself. Turn it off in Settings › General.
 - **Corrections that lead into each other apply once.** With rules like
   `foo → docker` and `docker → X`, a word OLIV already corrected is no longer
   corrected again after the cleanup model changes its capitals or spacing.

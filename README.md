@@ -52,7 +52,7 @@ Then you fix every word by hand. OLIV turns the English words back into English,
   <img src="docs/img/readme/pipeline-light.png" alt="Pipeline: hold a key and speak, Typhoon Whisper Turbo transcribes on MLX, the Rust core fixes known words, Gemma E2B restores English words, and the text is pasted at the cursor. All of it runs on the Mac." width="100%">
 </picture>
 
-1. **Speak.** Hold the push-to-talk key (Right ⌥ by default). A small waveform pill shows that OLIV is listening.
+1. **Speak.** Hold the push-to-talk key (Right ⌥ by default). A small waveform pill shows that OLIV is listening, and your words appear in it as you speak.
 2. **Transcribe.** Typhoon Whisper Turbo runs on the GPU with [MLX](https://github.com/ml-explore/mlx).
 3. **Fix known words.** A Rust core applies a built-in dictionary, sound-alike matching, number and `ๆ` formatting, and your personal Dictionary.
 4. **Restore English.** A small on-device language model ([Gemma E2B](https://huggingface.co/mlx-community/gemma-4-e2b-it-4bit)) changes Thai-spelled jargon back to English and leaves everything else as you said it.
@@ -108,6 +108,7 @@ OLIV 0.2.0 removed Python from the app. Text processing and API requests use a s
 | **Command mode** | Select text, hold a shortcut and say what to change: "ทำให้สุภาพขึ้น" (more polite), "สรุปเป็น bullet", "เขียนเป็นอีเมล". OLIV rewrites it on your Mac and replaces the selection; undo puts the original back. Off by default. |
 | **Speak Thai, type English** | Make your secondary shortcut, or apps you choose, turn Thai dictation into natural English. Names, product names and code terms stay as they are. Off by default. |
 | **Names on screen** | Optional, off by default. When you start dictating, OLIV reads the window you're typing into and spells the names and terms it shows, for that dictation only. Password fields, password managers and verbatim apps are skipped, and your Dictionary always wins. Works with on-device text processing, not yet with the OLIV API engine or the free trial. |
+| **Live preview** | Your words appear in the recording pill while you hold the key, so you know early if OLIV misheard. On-device engines only; the pasted text still comes from the full pass after you let go. You can turn it off in Settings › General. |
 | **Verbatim apps** | Paste the raw transcript, without cleanup, in apps you choose. |
 | **Audio** | Pick any microphone, cancel speaker echo, and lower other audio while you talk. Bluetooth headphones keep full playback quality. |
 | **Recent dictations** | Your last 10 results in the menu, kept in memory only. Click one to copy it again, or report one that came out wrong. |

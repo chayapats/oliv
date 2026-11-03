@@ -93,6 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         controller.thaiFormat = settings.thaiFormat
         controller.screenNames = settings.screenNames
         controller.showHUD = settings.showRecordingIndicator
+        controller.livePreview = settings.livePreview
         controller.micDevice = settings.micDevice
         controller.echoCancellation = settings.echoCancellation
         controller.duckOtherAudio = settings.duckOtherAudio
@@ -163,6 +164,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         controller.screenNames = settings.screenNames
         controller.showHUD = settings.showRecordingIndicator
         if !settings.showRecordingIndicator { controller.hud?.hide() }
+        controller.livePreview = settings.livePreview
         controller.micDevice = settings.micDevice
         controller.echoCancellation = settings.echoCancellation
         controller.duckOtherAudio = settings.duckOtherAudio

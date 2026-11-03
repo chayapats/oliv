@@ -56,8 +56,11 @@ final class RecordingHUDController {
     /// follows into a newly activated native-fullscreen terminal Space.
     private var spaceObserver: NSObjectProtocol?
 
-    private static let size = NSSize(width: 220, height: 56)
-    private static let bottomMargin: CGFloat = 96   // above the Dock
+    /// The pill draws inside a fixed, transparent, click-through canvas, so it
+    /// can grow for live-preview text (#26) without resizing the window; it
+    /// stays anchored where the compact pill always sat.
+    private static let size = NSSize(width: HUDLayout.canvas.width, height: HUDLayout.canvas.height)
+    private static let bottomMargin: CGFloat = 96 - HUDLayout.canvasInset   // pill sits 96 pt above the Dock
     /// Above menu-bar extras / status items; high enough to composite over
     /// native-fullscreen terminal hosts (iTerm2 + herdr). Still below screen-saver.
     private static let panelLevel: NSWindow.Level = .popUpMenu
@@ -74,6 +77,7 @@ final class RecordingHUDController {
         if phase == .recording && (!isVisible || model.phase != .recording) {
             model.resetHistory()
         }
+        if phase != .recording || !isVisible { model.previewText = "" }
         model.phase = phase
         applyOverlayChrome(panel)
         position(panel)
@@ -102,6 +106,15 @@ final class RecordingHUDController {
     func update(level: Float) {
         guard isVisible, model.phase == .recording else { return }
         model.push(level: level)
+    }
+
+    /// Live preview (#26): the newest words, tail first. Recording only; the
+    /// pill grows once and keeps its size until the key comes up.
+    func update(preview text: String) {
+        guard isVisible, model.phase == .recording else { return }
+        let tail = LivePreview.tail(text)
+        guard !tail.isEmpty, tail != model.previewText else { return }
+        model.previewText = tail
     }
 
     /// Acknowledge a hotkey press that arrived while still processing: pulse
@@ -248,6 +261,10 @@ final class HUDModel: ObservableObject {
     /// A1/A2 notice content (rendered only in the `.notice` phase).
     @Published var noticeText = ""
     @Published var noticeSymbol = "exclamationmark.circle"
+    /// Live preview (#26): already tail-truncated; empty = compact pill.
+    @Published var previewText = ""
+
+    var showsPreview: Bool { phase == .recording && !previewText.isEmpty }
 
     private let smoothing: Float = 0.35   // how far each sample pulls the value
 
@@ -282,10 +299,31 @@ private extension Color {
     })
 }
 
+/// Pill sizes. The canvas (the panel) fits the largest pill plus room for
+/// its shadow; the pill is anchored bottom-centre inside it.
+enum HUDLayout {
+    static let compact = CGSize(width: 220, height: 56)
+    /// Two lines of 14 pt text with room for Thai marks above and below.
+    static let preview = CGSize(width: 340, height: 88)
+    static let canvasInset: CGFloat = 14
+    static let canvas = CGSize(width: preview.width + 2 * canvasInset,
+                               height: preview.height + 2 * canvasInset)
+}
+
 struct RecordingHUDView: View {
     @ObservedObject var model: HUDModel
 
     var body: some View {
+        pill
+            .frame(width: model.showsPreview ? HUDLayout.preview.width : HUDLayout.compact.width,
+                   height: model.showsPreview ? HUDLayout.preview.height : HUDLayout.compact.height)
+            .animation(model.reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.85),
+                       value: model.showsPreview)
+            .padding(HUDLayout.canvasInset)
+            .frame(width: HUDLayout.canvas.width, height: HUDLayout.canvas.height, alignment: .bottom)
+    }
+
+    private var pill: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(.ultraThinMaterial)   // vibrancy — respects light/dark
@@ -294,23 +332,21 @@ struct RecordingHUDView: View {
                         .strokeBorder(Color.primary.opacity(0.08))
                 )
                 .shadow(color: .black.opacity(0.22), radius: 8, y: 2)
-            VStack(spacing: 4) {
-                if model.phase != .notice, let label = model.mode.hudLabel {
-                    Label(label, systemImage: model.mode.hudSymbol)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(SettingsStyle.accent)
-                } else if model.phase != .notice, let engineID = model.engineID {
-                    let execution = DictationExecution(engineID: engineID)
-                    Label(execution.label, systemImage: execution.systemImage)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.secondary)
+            if model.showsPreview {
+                LivePreviewPillContent(model: model)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+            } else {
+                VStack(spacing: 4) {
+                    if model.phase != .notice {
+                        HUDHeaderLabel(model: model)
+                    }
+                    content
                 }
-                content
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
         }
-        .frame(width: 220, height: 56)
         // Busy-press acknowledgement: a quick scale pulse when the user presses
         // the hotkey while the previous utterance is still processing. The
         // press is (correctly) not acted on — but silence read as "hotkey is
@@ -333,6 +369,58 @@ struct RecordingHUDView: View {
             ProcessingView(reduceMotion: model.reduceMotion, label: model.mode.processingLabel)
         case .notice:
             NoticeView(text: model.noticeText, systemImage: model.noticeSymbol)
+        }
+    }
+}
+
+/// The pill's top line: the Command mode or translation badge, so a mode is
+/// never a surprise, otherwise the engine. The same on the compact pill and
+/// with live-preview text.
+private struct HUDHeaderLabel: View {
+    @ObservedObject var model: HUDModel
+
+    var body: some View {
+        if let label = model.mode.hudLabel {
+            Label(label, systemImage: model.mode.hudSymbol)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(SettingsStyle.accent)
+        } else if let engineID = model.engineID {
+            let execution = DictationExecution(engineID: engineID)
+            Label(execution.label, systemImage: execution.systemImage)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// Recording with live-preview text (#26): the mode or engine and a small live
+/// waveform on top, the newest words below in a fixed two-line area (older
+/// words drop off the front, so the pill never changes size while held).
+private struct LivePreviewPillContent: View {
+    @ObservedObject var model: HUDModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                HUDHeaderLabel(model: model)
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Group {
+                    if model.reduceMotion {
+                        LevelMeterView(level: CGFloat(model.level))
+                    } else {
+                        WaveformBarsView(history: model.history)
+                    }
+                }
+                .frame(width: 140, height: 16)
+            }
+            Text(model.previewText)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.primary)
+                .lineSpacing(2)
+                .lineLimit(2)
+                .truncationMode(.head)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 }
