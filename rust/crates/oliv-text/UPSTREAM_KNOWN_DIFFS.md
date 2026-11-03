@@ -17,6 +17,11 @@
   CJK, kana and Hangul, plus U+FFFD (`hallucination::strip_foreign`; the
   reference `strip_cjk` is kept for parity). A generation that adds such a
   letter falls back to the dictionary text (`script->dict`).
+- After the guardrail accepts a generation, Thai speech it rewrote is put back
+  (`guardrail_flag` `ok-thaiKept`): Thai rewrites of more than two letters
+  that are not re-spellings of the same word, and Latin written over Pali- or
+  Sanskrit-spelled text (Thai names). Deletions, small spelling repairs and
+  listed terms are kept.
 
 Mac formatting commands and audio gates are implemented in `commands.rs`,
 `audio.rs` and `local.rs`. Typhoon avoids an STT initial prompt, while other

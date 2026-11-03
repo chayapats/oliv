@@ -138,3 +138,24 @@ fn cleanup_that_writes_another_script_is_rejected() {
         assert_eq!(result.outcome.final_text, expected);
     }
 }
+
+#[test]
+fn cleanup_keeps_thai_names_as_spoken() {
+    let opts = Options {
+        remove_fillers: false,
+        thai_format: false,
+        ..Options::default()
+    };
+    // FLEURS Thai: a misheard surname turned into มาเจอ ("came to meet") and
+    // รีวิว ("review").
+    let text = "เมื่อวานนี้มาเทอรี่ได้สาบานต่อสภา";
+    let llm = Fixed("เมื่อวานนี้มาเจอรีวิวได้สาบานต่อสภา");
+    let result = local::clean(text, None, &opts, false, &llm);
+    assert_eq!(result.outcome.guardrail_flag, "ok-thaiKept");
+    assert_eq!(result.outcome.final_text, text);
+    // A Thai name the model romanized goes back; the restoration stays.
+    let llm = Fixed("restart server แล้วส่งให้คุณ Nattapong");
+    let result = local::clean("รีสตาร์ทเซิร์ฟเวอร์แล้วส่งให้คุณณัฐพงศ์", None, &opts, false, &llm);
+    assert_eq!(result.outcome.guardrail_flag, "ok-thaiKept");
+    assert_eq!(result.outcome.final_text, "restart server แล้วส่งให้คุณณัฐพงศ์");
+}

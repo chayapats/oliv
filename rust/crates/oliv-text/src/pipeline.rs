@@ -1,12 +1,15 @@
 //! `pipeline.clean_ex`: built-in dictionary -> user dictionary (corrections,
 //! Thai numerals) -> vocab -> gate -> LLM -> guardrail -> user-dictionary
-//! guard -> listed-term protection -> Thai spacing -> canonical casing.
+//! guard -> listed-term protection -> Thai-speech protection -> Thai spacing ->
+//! canonical casing.
 
 use serde::Serialize;
 
 use crate::dictionary::{apply_canonical_casing, apply_dictionary};
 use crate::gate::gate;
-use crate::guardrail::{RESTRICTED_FLAG, guardrail, protect_listed_terms};
+use crate::guardrail::{
+    RESTRICTED_FLAG, THAI_KEPT_FLAG, guardrail, keep_thai_speech, protect_listed_terms,
+};
 use crate::llm::{Llm, Prompt, Request};
 use crate::phonetic::{
     correct_with_latin_names, correct_with_thai_vocab, correct_with_vocab, vocab_hint,
@@ -124,10 +127,14 @@ pub fn clean_ex_with(
                 if !dict.lost_words(&dict_text, &f).is_empty() {
                     (dict_text.clone(), DICTIONARY_FLAG.to_string())
                 } else if flag == "ok" {
-                    match protect_listed_terms(&dict_text, &f, vocab) {
-                        (f, 0) => (f, flag.to_string()),
-                        (f, _) => (f, RESTRICTED_FLAG.to_string()),
-                    }
+                    let (f, listed) = protect_listed_terms(&dict_text, &f, vocab);
+                    let (f, thai) = keep_thai_speech(&dict_text, &f, vocab);
+                    let flag = match (listed, thai) {
+                        (0, 0) => flag,
+                        (0, _) => THAI_KEPT_FLAG,
+                        _ => RESTRICTED_FLAG,
+                    };
+                    (f, flag.to_string())
                 } else {
                     (f, flag.to_string())
                 }
