@@ -399,33 +399,111 @@ fn visible_len(text: &str) -> usize {
     text.chars().filter(|c| !c.is_whitespace()).count()
 }
 
-/// Phrases that mean the model is talking about the task, refusing it or
-/// answering as an assistant, not returning the user's text.
-const ASSISTANT_VOICE: [&str; 17] = [
+/// The model talking about the task, in any mode: meta framing, an AI
+/// speaking as itself, a refusal of the task itself.
+const META_VOICE: [&str; 27] = [
     "as an ai",
-    "please provide",
-    "i understand the",
-    "translation based on",
-    "i'm sorry",
-    "i am sorry",
-    "i cannot",
-    "i can't",
     "language model",
+    "translation based on",
+    "here is the translation",
+    "here's the translation",
+    "here is the english",
+    "here's the english",
+    "the translation is",
+    "translated text",
     "edited text",
     "selected text",
+    "i cannot translate",
+    "i can't translate",
+    "unable to translate",
+    "cannot assist with",
+    "can't assist with",
+    "cannot fulfill",
+    "can't fulfill",
+    "please provide the text",
+    "please provide the thai",
+    "please provide the selected",
+    "please provide the instruction",
     "ในฐานะ ai",
     "ในฐานะเอไอ",
-    "ขออภัย ฉัน",
-    "ขออภัยค่ะ ฉัน",
+    "ในฐานะผู้ช่วย",
     "ข้อความที่เลือก",
     "ข้อความที่แก้ไข",
 ];
 
-fn assistant_voice(source: &str, out: &str) -> bool {
-    let (s, o) = (lower(source), lower(out));
-    ASSISTANT_VOICE
-        .iter()
-        .any(|p| o.contains(p) && !s.contains(p))
+/// Ordinary phrases that, in an edit within one language, mean the model
+/// answered as an assistant when the selection never said them. A
+/// translation produces them legitimately (ผมไปไม่ได้ → "I can't make it",
+/// รบกวนส่งรายละเอียด → "Please provide the details"), so across languages
+/// they don't count.
+const ASSISTANT_PHRASES: [&str; 8] = [
+    "please provide",
+    "i understand the",
+    "i'm sorry",
+    "i am sorry",
+    "i cannot",
+    "i can't",
+    "ขออภัย ฉัน",
+    "ขออภัยค่ะ ฉัน",
+];
+
+/// How an assistant's reply opens ("Sure, I'll send it"): an answer to the
+/// dictation, not its translation.
+const REPLY_OPENERS: [&str; 10] = [
+    "sure",
+    "certainly",
+    "of course",
+    "absolutely",
+    "no problem",
+    "happy to help",
+    "i'd be happy to",
+    "i would be happy to",
+    "i'll translate",
+    "i will translate",
+];
+
+/// A source that itself opens by agreeing may be translated as "Sure, …".
+const AGREEING_OPENERS: [&str; 18] = [
+    "ได้",
+    "แน่นอน",
+    "โอเค",
+    "ตกลง",
+    "จัดไป",
+    "ยินดี",
+    "ไม่มีปัญหา",
+    "ไม่เป็นไร",
+    "เอาสิ",
+    "เอาเลย",
+    "ใช่",
+    "ครับ",
+    "ค่ะ",
+    "ok",
+    "okay",
+    "sure",
+    "yes",
+    "yep",
+];
+
+/// Whether `text` opens with `word` as a whole word.
+fn opens_with(text: &str, word: &str) -> bool {
+    text.strip_prefix(word)
+        .is_some_and(|rest| !rest.starts_with(|c: char| c.is_ascii_alphanumeric()))
+}
+
+/// The model speaking as an assistant instead of returning the user's text.
+/// `cross_language` (a translation): ordinary first-person or polite English
+/// is expected, so only meta framing and a reply's opener count.
+fn assistant_voice(source: &str, out: &str, cross_language: bool) -> bool {
+    let (s, o) = (lower(strip(source)), lower(strip(out)));
+    let said = |p: &&str| o.contains(*p) && !s.contains(*p);
+    if META_VOICE.iter().any(said) {
+        return true;
+    }
+    if !cross_language {
+        return ASSISTANT_PHRASES.iter().any(said);
+    }
+    REPLY_OPENERS.iter().any(|p| opens_with(&o, p))
+        && !AGREEING_OPENERS.iter().any(|p| s.starts_with(p))
 }
 
 static NUMBER: LazyLock<Regex> =
@@ -443,24 +521,44 @@ static CODE: LazyLock<Regex> = LazyLock::new(|| {
     .unwrap()
 });
 
-/// The numbers a text states, as digit strings without leading zeros. Thai
-/// digits count as Arabic, thousands commas are dropped, and a time or a
-/// version splits into its parts (14.00 and 14:00 both state 14 and 0).
-fn numbers(text: &str) -> HashSet<String> {
-    let mut all = HashSet::new();
+static THOUSANDS: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[0-9]{1,3}(?:,[0-9]{3})+(?:[.:][0-9]+)*$").unwrap());
+
+/// One written number in a canonical form, its parts kept in order so 1.2
+/// and 2.1, or 14:30 and 30:14, stay different. Only equivalent spellings
+/// meet: Thai digits read as Arabic (๑๒๐ = 120), thousands separators go
+/// (340,000 = 340000), a time's `.` is its `:` (14.00 น. = 14:00), trailing
+/// zero parts and leading zeros of the whole part go (14:00 = 14, 09 = 9).
+fn number_key(token: &str) -> String {
+    let mut parts: Vec<&str> = token.split(['.', ':']).collect();
+    while parts.len() > 1 && parts.last().is_some_and(|p| p.chars().all(|c| c == '0')) {
+        parts.pop();
+    }
+    let whole = parts[0].trim_start_matches('0');
+    let whole = if whole.is_empty() { "0" } else { whole };
+    std::iter::once(whole)
+        .chain(parts[1..].iter().copied())
+        .collect::<Vec<_>>()
+        .join(":")
+}
+
+/// The numbers a text writes, in order, as `number_key`s. A comma outside
+/// thousands grouping separates numbers (1,2,3 is three of them).
+fn numbers(text: &str) -> Vec<String> {
+    let mut all = Vec::new();
     for m in NUMBER.find_iter(text) {
         let token: String = m
             .as_str()
             .chars()
-            .filter(|c| *c != ',')
             .map(|c| match c {
                 '๐'..='๙' => char::from_digit(c as u32 - '๐' as u32, 10).unwrap(),
                 other => other,
             })
             .collect();
-        for part in token.split(['.', ':']).filter(|p| !p.is_empty()) {
-            let digits = part.trim_start_matches('0');
-            all.insert(if digits.is_empty() { "0" } else { digits }.to_string());
+        if THOUSANDS.is_match(&token) {
+            all.push(number_key(&token.replace(',', "")));
+        } else {
+            all.extend(token.split(',').filter(|p| !p.is_empty()).map(number_key));
         }
     }
     all
@@ -469,31 +567,44 @@ fn numbers(text: &str) -> HashSet<String> {
 /// Numbers the source states: written digits plus spoken Thai numbers
 /// (สามสิบ → 30) that the model may legitimately write as digits.
 fn source_numbers(source: &str) -> HashSet<String> {
-    let mut all = numbers(source);
+    let mut all: HashSet<String> = numbers(source).into_iter().collect();
     all.extend(numbers(&apply_thai_format(source).0));
     all
 }
 
-/// Numbers in `out` that the source never stated. Small numbers (up to 12)
-/// are allowed: "three" and "3", list numbering, "9 a.m." for เก้าโมง.
+/// A whole number up to 12, which an output may add: "three" and "3", list
+/// numbering, "9 a.m." or 09:00 for เก้าโมง.
+fn is_small(key: &str) -> bool {
+    !key.contains(':') && key.len() <= 2 && key.parse::<u32>().is_ok_and(|v| v <= 12)
+}
+
+/// Numbers in `out` that the source never stated, small ones aside. By
+/// value: restating a figure the source gives (an email's subject and body)
+/// invents nothing.
 fn invented_numbers(source: &str, out: &str) -> Vec<String> {
     let have = source_numbers(source);
     let mut invented: Vec<String> = numbers(out)
         .into_iter()
-        .filter(|n| !have.contains(n))
-        .filter(|n| n.len() > 2 || n.parse::<u32>().map_or(true, |v| v > 12))
+        .filter(|n| !have.contains(n) && !is_small(n))
         .collect();
     invented.sort();
+    invented.dedup();
     invented
 }
 
-/// Written numbers in the source missing from `out`.
+/// Written numbers in the source missing from `out`, counted: a number the
+/// source writes twice must appear twice.
 fn lost_numbers(source: &str, out: &str) -> Vec<String> {
-    let have = numbers(out);
-    let mut lost: Vec<String> = numbers(source)
-        .into_iter()
-        .filter(|n| !have.contains(n))
-        .collect();
+    let mut have = numbers(out);
+    let mut lost = Vec::new();
+    for n in numbers(source) {
+        match have.iter().position(|h| *h == n) {
+            Some(i) => {
+                have.swap_remove(i);
+            }
+            None => lost.push(n),
+        }
+    }
     lost.sort();
     lost
 }
@@ -648,11 +759,11 @@ fn named_spans(text: &str) -> HashSet<String> {
 }
 
 /// Checks shared by both modes, in order of how bad the failure is.
-fn common_checks(source: &str, out: &str) -> Result<(), Rejection> {
+fn common_checks(source: &str, out: &str, cross_language: bool) -> Result<(), Rejection> {
     if is_blank(out) {
         return Err(Rejection("empty"));
     }
-    if assistant_voice(source, out) {
+    if assistant_voice(source, out, cross_language) {
         return Err(Rejection("assistant"));
     }
     if invented_code(source, out) {
@@ -666,8 +777,12 @@ fn common_checks(source: &str, out: &str) -> Result<(), Rejection> {
 
 /// Command mode: does `out` look like `source` edited as `instruction` asks?
 pub fn check_command(instruction: &str, source: &str, out: &str) -> Result<(), Rejection> {
-    common_checks(source, out)?;
     let intent = Intent::of(instruction);
+    common_checks(
+        source,
+        out,
+        matches!(intent, Intent::ToEnglish | Intent::ToThai),
+    )?;
     let (s_len, o_len) = (visible_len(source) as f64, visible_len(out) as f64);
     let (low, high) = match intent {
         Intent::Shorten => (0.05 * s_len, 1.1 * s_len + 10.0),
@@ -738,7 +853,7 @@ pub fn check_command(instruction: &str, source: &str, out: &str) -> Result<(), R
 
 /// Translation mode: is `out` an English rendering of `source`?
 pub fn check_translation(source: &str, out: &str) -> Result<(), Rejection> {
-    common_checks(source, out)?;
+    common_checks(source, out, true)?;
     if thai_share(out) > 0.1 {
         return Err(Rejection("notEnglish"));
     }
@@ -1034,8 +1149,13 @@ mod tests {
             check_translation(src, "Could you review the PR I opened this morning?"),
             Ok(())
         );
+        // A reply, not a translation: refused for opening like one.
         assert_eq!(
             check_translation(src, "Sure, I'll review your PR this afternoon."),
+            Err(Rejection("assistant"))
+        );
+        assert_eq!(
+            check_translation(src, "I'll review your PR this afternoon."),
             Err(Rejection("answered"))
         );
         assert_eq!(
@@ -1172,6 +1292,120 @@ mod tests {
         assert_eq!(
             invented_numbers("ห้าโมง", "at 2026"),
             vec!["2026".to_string()]
+        );
+    }
+
+    #[test]
+    fn numbers_keep_the_order_of_their_parts() {
+        // A decimal or a time with its parts swapped is a different number.
+        assert_eq!(
+            lost_numbers("ยอดขาย 1.2 ล้านบาท", "ยอดขาย 2.1 ล้านบาท"),
+            vec!["1:2".to_string()]
+        );
+        assert_eq!(
+            invented_numbers("ยอดขาย 1.2 ล้านบาท", "ยอดขาย 2.1 ล้านบาท"),
+            vec!["2:1".to_string()]
+        );
+        assert_eq!(
+            lost_numbers("ประชุม 14:30 น.", "Meeting at 30:14."),
+            vec!["14:30".to_string()]
+        );
+        let src = "ยอดขายเดือนนี้ 1.2 ล้านบาท ประชุมสรุปตอน 14:30";
+        assert_eq!(
+            check_command(
+                "ทางการขึ้น",
+                src,
+                "ยอดขายประจำเดือนนี้อยู่ที่ 2.1 ล้านบาท ประชุมสรุปเวลา 14:30"
+            ),
+            Err(Rejection("numberLost"))
+        );
+        assert_eq!(
+            check_translation(
+                src,
+                "Sales this month were 1.2 million baht; the review meeting is at 30:14."
+            ),
+            Err(Rejection("numberLost"))
+        );
+        // A summary may drop numbers, but not change one.
+        assert_eq!(
+            check_command("สรุปสั้นๆ", src, "ยอดขาย 2.1 ล้านบาท"),
+            Err(Rejection("numberInvented"))
+        );
+        assert_eq!(check_command("สรุปสั้นๆ", src, "ยอดขาย 1.2 ล้านบาท"), Ok(()));
+        // Equivalent spellings still match.
+        assert_eq!(
+            lost_numbers(
+                "เริ่ม ๐๙.๓๐ น. งบ ๑,๒๐๐ บาท",
+                "starts 09:30, budget 1200 baht"
+            ),
+            Vec::<String>::new()
+        );
+        // A comma outside thousands grouping separates numbers.
+        assert_eq!(
+            numbers("ข้อ 1,2,3 และ 1,234,567"),
+            ["1", "2", "3", "1234567"]
+        );
+        // A number written twice is counted twice.
+        assert_eq!(
+            lost_numbers("สาขา 3 มีพนักงาน 3 คน", "Branch 3 has 4 staff."),
+            vec!["3".to_string()]
+        );
+        assert_eq!(
+            invented_numbers(
+                "งบ 340,000 บาท",
+                "Subject: 340,000 baht\n\nThe budget is 340,000 baht."
+            ),
+            Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn translations_may_say_ordinary_english_but_not_answer() {
+        for (thai, english) in [
+            (
+                "พรุ่งนี้ผมไปประชุมไม่ได้ครับ",
+                "I cannot attend the meeting tomorrow.",
+            ),
+            ("รบกวนส่งรายละเอียดมาด้วยครับ", "Please provide the details."),
+            ("ขอโทษครับ วันนี้ผมไปไม่ได้", "I'm sorry, I can't make it today."),
+            ("ได้เลยครับ เดี๋ยวส่งไฟล์ให้", "Sure, I'll send you the file."),
+        ] {
+            assert_eq!(check_translation(thai, english), Ok(()), "{english}");
+        }
+        for english in [
+            "Sure, I'll send you the file right away.",
+            "Of course! I'll send it now.",
+            "As an AI language model, I can't send files.",
+            "Here is the translation: please send me the file.",
+        ] {
+            assert_eq!(
+                check_translation("ส่งไฟล์มาให้หน่อย", english),
+                Err(Rejection("assistant")),
+                "{english}"
+            );
+        }
+        // "Surely" is not "Sure".
+        assert_eq!(
+            check_translation("คงส่งไฟล์มาแล้วแหละ", "Surely they've sent the file by now."),
+            Ok(())
+        );
+        // Command mode into English is a translation too.
+        assert_eq!(
+            check_command(
+                "แปลเป็นภาษาอังกฤษ",
+                "พรุ่งนี้ผมไปประชุมไม่ได้ครับ",
+                "I can't attend the meeting tomorrow."
+            ),
+            Ok(())
+        );
+        // Within one language the stricter list stays.
+        assert_eq!(
+            check_command(
+                "make it more polite",
+                "send me the file",
+                "I'm sorry, I cannot send files. Could you send me the file?"
+            ),
+            Err(Rejection("assistant"))
         );
     }
 
