@@ -578,25 +578,78 @@ fn is_small(key: &str) -> bool {
     !key.contains(':') && key.len() <= 2 && key.parse::<u32>().is_ok_and(|v| v <= 12)
 }
 
-/// A clock time the source says in words: เก้าโมงสิบนาที → 9:10, เก้าโมง
-/// ครึ่ง → 9:30. `apply_thai_format` writes the minutes as digits but leaves
-/// the hour in words, so the time is accepted when its hour is one an output
-/// may add (or one the source states, or a 24-hour form of one) and its
-/// minutes are stated (or are the half hour, said as ครึ่ง).
-fn spoken_time(key: &str, have: &HashSet<String>, source: &str) -> bool {
-    let Some((hour, minutes)) = key.split_once(':') else {
-        return false;
-    };
-    let (Ok(h), Ok(m)) = (hour.parse::<u32>(), minutes.parse::<u32>()) else {
-        return false;
-    };
-    if h > 24 || m > 59 || minutes.len() != 2 {
-        return false;
+/// A Thai clock-time phrase after `apply_thai_format`, which writes numbers
+/// of two or more syllables as digits but leaves one-syllable ones (เก้า,
+/// ห้า) as words. Branches, in the order they're tried at one position:
+/// บ่าย(N)โมง, เที่ยงคืน, เที่ยง, ตีN, Nทุ่ม, Nนาฬิกา, Nโมง(เช้า|เย็น); each
+/// optionally followed by "M นาที" or ครึ่ง.
+static SPOKEN_TIME: LazyLock<Regex> = LazyLock::new(|| {
+    const N: &str = "[0-9]{1,2}|หนึ่ง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า";
+    Regex::new(&format!(
+        r"(?:บ่าย\s*(?P<pm>{N})?\s*โมง|(?P<midnight>เที่ยงคืน)|(?P<noon>เที่ยง)|ตี\s*(?P<ti>{N})|(?P<thum>{N})\s*ทุ่ม|(?P<clock>{N})\s*นาฬิกา|(?P<mong>{N})\s*โมง\s*(?P<part>เช้า|เย็น)?)(?:\s*ตรง)?(?:\s*(?:(?P<min>{N})\s*นาที|(?P<half>ครึ่ง)))?"
+    ))
+    .unwrap()
+});
+
+fn thai_small_number(word: &str) -> Option<u32> {
+    const WORDS: [&str; 9] = ["หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า"];
+    word.parse()
+        .ok()
+        .or_else(|| WORDS.iter().position(|w| *w == word).map(|i| i as u32 + 1))
+}
+
+/// The clock times the source says in words (เก้าโมงสิบนาที → 9:10, บ่ายสาม
+/// โมงครึ่ง → 15:30, also as 3:30), as `number_key`s. Only these exempt a
+/// written time from `numberInvented`: the hour and the minutes both have to
+/// be the ones said, and a quantity elsewhere can't supply the minutes.
+fn spoken_times(source: &str) -> HashSet<String> {
+    let formatted = apply_thai_format(source).0;
+    let num =
+        |c: &regex::Captures, name: &str| c.name(name).and_then(|m| thai_small_number(m.as_str()));
+    let mut keys = HashSet::new();
+    for c in SPOKEN_TIME.captures_iter(&formatted) {
+        let hours: Vec<u32> = if c.name("pm").is_some() || c[0].starts_with("บ่าย") {
+            vec![12 + num(&c, "pm").unwrap_or(1)]
+        } else if c.name("midnight").is_some() {
+            vec![0]
+        } else if c.name("noon").is_some() {
+            vec![12]
+        } else if let Some(h) = num(&c, "ti") {
+            vec![h]
+        } else if let Some(h) = num(&c, "thum") {
+            vec![18 + h]
+        } else if let Some(h) = num(&c, "clock") {
+            vec![h]
+        } else if let Some(h) = num(&c, "mong") {
+            match c.name("part").map(|m| m.as_str()) {
+                Some("เย็น") => vec![h + 12],
+                Some(_) => vec![h],
+                // Plain N โมง: morning, or the evening for 1–6 (สองโมง = 14:00 too).
+                None => vec![h, h + 12],
+            }
+        } else {
+            continue;
+        };
+        let minutes = if c.name("half").is_some() {
+            30
+        } else {
+            num(&c, "min").unwrap_or(0)
+        };
+        if minutes > 59 {
+            continue;
+        }
+        for h in hours.into_iter().filter(|h| *h <= 24) {
+            // The 24-hour form and the 12-hour one an English sentence uses.
+            let twelve = match h % 12 {
+                0 => 12,
+                x => x,
+            };
+            for hour in [h, twelve] {
+                keys.insert(number_key(&format!("{hour}:{minutes:02}")));
+            }
+        }
     }
-    let hour_ok =
-        is_small(hour) || have.contains(hour) || (h > 12 && is_small(&(h - 12).to_string()));
-    let minutes_ok = have.contains(&m.to_string()) || (m == 30 && source.contains("ครึ่ง"));
-    hour_ok && minutes_ok
+    keys
 }
 
 /// Numbers in `out` that the source never stated, small ones aside. By
@@ -604,9 +657,10 @@ fn spoken_time(key: &str, have: &HashSet<String>, source: &str) -> bool {
 /// invents nothing.
 fn invented_numbers(source: &str, out: &str) -> Vec<String> {
     let have = source_numbers(source);
+    let times = spoken_times(source);
     let mut invented: Vec<String> = numbers(out)
         .into_iter()
-        .filter(|n| !have.contains(n) && !is_small(n) && !spoken_time(n, &have, source))
+        .filter(|n| !have.contains(n) && !is_small(n) && !times.contains(n))
         .collect();
     invented.sort();
     invented.dedup();
@@ -1319,32 +1373,45 @@ mod tests {
     #[test]
     fn spoken_times_may_be_written_as_clock_times() {
         let none = Vec::<String>::new();
+        let invented = |s: &str, o: &str| invented_numbers(s, o);
         assert_eq!(
-            invented_numbers("ประชุมตอนเก้าโมงสิบนาที", "The meeting is at 9:10."),
+            invented("ประชุมตอนเก้าโมงสิบนาที", "The meeting is at 9:10."),
             none
         );
         assert_eq!(
-            invented_numbers("ประชุมตอนเก้าโมงครึ่ง", "The meeting is at 9:30."),
+            invented("ประชุมตอนเก้าโมงครึ่ง", "The meeting is at 9:30."),
             none
         );
+        assert_eq!(invented("ประชุมตอนบ่ายสามโมงสิบห้านาที", "at 15:15"), none);
+        assert_eq!(invented("ประชุมตอนบ่ายสามโมงสิบห้านาที", "at 3:15 p.m."), none);
+        assert_eq!(invented("นัดสองทุ่มครึ่ง", "at 8:30 p.m."), none);
+        assert_eq!(invented("นัดสองทุ่มครึ่ง", "at 20:30"), none);
+        assert_eq!(invented("ตื่นตีห้ายี่สิบนาที", "Up at 5:20."), none);
+        assert_eq!(invented("ประชุม 14 นาฬิกา 30 นาที", "at 14:30"), none);
+        // The hour and the minutes both have to be the ones said.
         assert_eq!(
-            invented_numbers("ประชุมตอนบ่ายสามโมงสิบห้านาที", "The meeting is at 15:15."),
-            none
+            invented("ประชุมตอนเก้าโมงสิบนาที", "at 8:10"),
+            vec!["8:10".to_string()]
         );
-        // The minutes still have to be the ones said.
         assert_eq!(
-            invented_numbers("ประชุมตอนเก้าโมงสิบนาที", "The meeting is at 9:20."),
+            invented("ประชุมตอนเก้าโมงสิบนาที", "at 9:20"),
             vec!["9:20".to_string()]
+        );
+        // A quantity elsewhere can't supply the minutes.
+        assert_eq!(
+            invented("ซื้อของ 10 ชิ้น ตอนเก้าโมง", "Bought 10 items at 9:10."),
+            vec!["9:10".to_string()]
         );
         // A decimal is not a time: 1.2 → 2.1 stays refused.
         assert_eq!(
-            invented_numbers("ยอดขาย 1.2 ล้านบาท", "Sales were 2.1 million baht."),
+            invented("ยอดขาย 1.2 ล้านบาท", "Sales were 2.1 million baht."),
             vec!["2:1".to_string()]
         );
         assert_eq!(
             check_translation("ประชุมตอนเก้าโมงสิบนาที", "The meeting is at 9:10."),
             Ok(())
         );
+        assert!(check_translation("ประชุมตอนเก้าโมงสิบนาที", "The meeting is at 8:10.").is_err());
     }
 
     #[test]
