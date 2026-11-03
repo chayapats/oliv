@@ -1188,7 +1188,12 @@ pub(crate) fn write_manifest(path: &Path, rows: &[(Value, PathBuf)]) -> Result<(
     let mut text = String::new();
     for (row, audio) in rows {
         let mut row = row.clone();
-        row["path"] = audio.to_string_lossy().as_ref().into();
+        // Absolute, so the manifest works from any directory (see
+        // contextasr::manifest_audio_path).
+        row["path"] = std::path::absolute(audio)?
+            .to_string_lossy()
+            .as_ref()
+            .into();
         text.push_str(&serde_json::to_string(&row)?);
         text.push('\n');
     }
@@ -1393,6 +1398,20 @@ mod tests {
             check_synth_target(&out, "Narisa").is_err(),
             "a different synthetic voice"
         );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn exported_manifests_hold_absolute_audio_paths() {
+        let dir = scratch("manifest");
+        let out = dir.join("fleurs.jsonl");
+        let rows = vec![(json!({"id": "fleurs-1"}), PathBuf::from("rel/test/1.wav"))];
+        write_manifest(&out, &rows).unwrap();
+        let line: Value =
+            serde_json::from_str(std::fs::read_to_string(&out).unwrap().trim()).unwrap();
+        let path = PathBuf::from(line["path"].as_str().unwrap());
+        assert!(path.is_absolute(), "{}", path.display());
+        assert!(path.ends_with("rel/test/1.wav"));
         let _ = std::fs::remove_dir_all(dir);
     }
 

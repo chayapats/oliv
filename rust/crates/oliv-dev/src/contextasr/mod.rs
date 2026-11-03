@@ -152,6 +152,15 @@ pub struct CompareArgs {
     pub seed: String,
 }
 
+/// An utterance's audio as an absolute path: other tools read the manifest
+/// from anywhere (`--audio-root /`, or relative to the manifest itself), so a
+/// relative `--data-dir` must not leak into it.
+pub fn manifest_audio_path(root: &Path, id: &str) -> Result<PathBuf> {
+    Ok(std::path::absolute(
+        root.join("audio").join(format!("{id}.wav")),
+    )?)
+}
+
 pub fn main(task: Task) -> Result<()> {
     match task {
         Task::Run(args) => run(*args),
@@ -170,7 +179,7 @@ pub fn main(task: Task) -> Result<()> {
             let mut text = String::new();
             for (u, condition) in data.pairs(&selected, &conditions) {
                 let mut row = json!({"id": u.id, "utt_id": u.id, "condition": condition,
-                    "path": data.root.join("audio").join(format!("{}.wav", u.id)),
+                    "path": manifest_audio_path(&data.root, &u.id)?,
                     "reference": u.text, "split": u.split});
                 if let Some(list) = data.list(&u.id, &condition) {
                     row["vocab"] = json!(list.entries);
@@ -924,6 +933,13 @@ fn run(args: RunArgs) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn manifest_audio_paths_are_absolute_even_from_a_relative_data_dir() {
+        let path = manifest_audio_path(Path::new("data/bench"), "a-001").unwrap();
+        assert!(path.is_absolute(), "{}", path.display());
+        assert!(path.ends_with("data/bench/audio/a-001.wav"));
+    }
+
     #[test]
     fn screen_lists_never_reach_the_stt_cache_key() {
         let a = "Nattapong".to_string();
