@@ -123,6 +123,19 @@ fn the_users_dictionary_outranks_the_screen() {
     assert!(o.screen_terms.is_empty());
 }
 
+#[test]
+fn a_saved_snippet_still_expands_beside_a_similar_screen_name() {
+    // A legacy snippet for the user's spelling, a near-miss on screen.
+    let o = opts(json!({
+        "replacements": {"ณรงค์พงศ์": "Narongpong S., Head of Sales"},
+        "screen_text": ["ณรงค์พงษ์"],
+    }));
+    for out in both("ส่งให้ณรงค์พงศ์ด้วย", &o, &Echo::default())
+    {
+        assert_eq!(out, "ส่งให้ Narongpong S., Head of Sales ด้วย");
+    }
+}
+
 /// Echoes its input and keeps the hints it was given.
 #[derive(Default)]
 struct Hints(std::cell::RefCell<Vec<String>>);

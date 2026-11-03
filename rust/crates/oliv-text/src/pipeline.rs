@@ -120,7 +120,15 @@ pub fn clean_ex_screen(
     }
     let before_screen = (!screen.is_empty()).then(|| (dict_text.clone(), dict_hits));
     if !screen.is_empty() {
-        let (t, n, hits) = crate::screen::correct(&dict_text, vocab, screen);
+        // The user's words and the sources of their saved snippets are both
+        // theirs: a screen name must not re-spell either, or the snippet's
+        // exact match later misses.
+        let protected: Vec<String> = vocab
+            .iter()
+            .cloned()
+            .chain(legacy.iter().map(|(source, _)| source.clone()))
+            .collect();
+        let (t, n, hits) = crate::screen::correct(&dict_text, &protected, screen);
         dict_text = t;
         vocab_fired += n;
         dict_hits += hits;
