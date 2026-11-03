@@ -272,8 +272,12 @@ final class SelectionReader {
     }
 
     /// The focused app, field, window and selection right now (Command mode
-    /// freezes this when the key comes up).
-    func focusNow() -> FocusSnapshot { accessibility.focusSnapshot() }
+    /// freezes this when the key comes up), or nil while a password field or
+    /// secure input is active: nothing is read there.
+    func focusNow() -> FocusSnapshot? {
+        if secureInputCheck() || accessibility.focusedIsSecure() { return nil }
+        return accessibility.focusSnapshot()
+    }
 
     /// The copy fallback: ⌘C, read the text, put the user's clipboard back.
     /// nil when the app didn't copy anything (nothing selected, or ⌘C is not

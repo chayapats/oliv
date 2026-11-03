@@ -183,6 +183,39 @@ final class VoiceEditingTests: XCTestCase {
                                                 length: (pasted as NSString).length)])
     }
 
+    /// With nothing selected, Command mode selects OLIV's last paste. That is
+    /// its own change to the selection, not the user's.
+    func testTheRecentPasteIsEditedWhenNothingMovedSinceRelease() {
+        let pasted = "รบกวนส่งไฟล์ deck มาให้หน่อยครับ"
+        let value = "สวัสดีครับ " + pasted
+        ax.selected = ""
+        ax.context = (NSRange(location: (value as NSString).length, length: 0), value)
+        let reader = reader(copying: "must not copy")
+        let transformer = FakeTransformer { _, _, _ in XCTFail("must not transform"); throw ModelDown() }
+        var frozen = job(transformer: transformer, reader: reader, recentPaste: pasted)
+        frozen.releaseFocus = reader.focusNow()
+        XCTAssertEqual(VoiceEditRunner.prepareCommand(frozen).target?.text, pasted)
+        // …but not after the user moved the caret elsewhere.
+        ax.selected = ""
+        ax.range = nil
+        ax.context = (NSRange(location: (value as NSString).length, length: 0), value)
+        frozen.releaseFocus?.selectedRange = NSRange(location: 3, length: 0)
+        XCTAssertNil(VoiceEditRunner.prepareCommand(frozen).target)
+    }
+
+    /// The release-time snapshot never reads a password field or secure input.
+    func testNothingIsReadOnReleaseInAPasswordField() {
+        ax.selected = "secret"
+        ax.secure = true
+        XCTAssertNil(reader(copying: "x").focusNow())
+        XCTAssertTrue(ax.reads.all.isEmpty, "the selection is never read")
+        ax.secure = false
+        let reader = reader(copying: "x")
+        reader.secureInputCheck = { true }
+        XCTAssertNil(reader.focusNow())
+        XCTAssertTrue(ax.reads.all.isEmpty)
+    }
+
     func testARecentPasteThatIsNoLongerBeforeTheCaretIsNotSelected() {
         let value = "OLIV pasted this, then the user kept typing"
         ax.selected = ""

@@ -267,7 +267,14 @@ enum VoiceEditRunner {
     /// Accessibility exposes it) other selected text. nil when it's the same,
     /// or when there's nothing reliable to compare against.
     static func movedSinceRelease(_ frozen: FocusSnapshot?, _ capture: SelectionCapture) -> TargetCheck? {
-        guard let frozen, let now = capture.focus else { return nil }
+        guard let frozen, var now = capture.focus else { return nil }
+        // With nothing selected, Command mode selects OLIV's last paste
+        // itself. That deliberate change is the paste ending at the caret the
+        // user left: compare against the caret, not the new range.
+        if capture.source == .recentPaste, let caret = frozen.selectedRange, caret.length == 0,
+           let paste = now.selectedRange, paste.location + paste.length == caret.location {
+            now.selectedRange = caret
+        }
         if let moved = SelectionReader.moved(from: frozen, to: now), moved != .unverifiable { return moved }
         if capture.source == .accessibility, let was = frozen.selectedText, was != capture.text { return .changed }
         return nil
