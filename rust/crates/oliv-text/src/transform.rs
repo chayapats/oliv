@@ -663,8 +663,11 @@ fn small_numbers_allowed(source: &str, out: &str) -> HashSet<String> {
         "eleven", "twelve",
     ];
     let mut allowed: HashSet<String> = HashSet::new();
+    // Thai words are looked for after `apply_thai_format` has written whole
+    // number phrases as digits: สามสิบ is 30, and its สาม must not allow a 3.
+    let formatted = apply_thai_format(source).0;
     for (i, word) in THAI.iter().enumerate() {
-        if source.contains(word) {
+        if formatted.contains(word) {
             allowed.insert(i.to_string());
         }
     }
@@ -1557,6 +1560,15 @@ mod tests {
         );
         assert_eq!(
             invented_numbers("zero errors today", "วันนี้ error 0 ครั้ง"),
+            none
+        );
+        // A word inside a larger number phrase is not that number.
+        assert_eq!(
+            invented_numbers("ส่งเอกสารสามสิบหน้าให้ทีม", "Send 3 pages to the team."),
+            vec!["3".to_string()]
+        );
+        assert_eq!(
+            invented_numbers("ส่งเอกสารสามสิบหน้าให้ทีม", "Send 30 pages to the team."),
             none
         );
     }
