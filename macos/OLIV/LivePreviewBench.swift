@@ -76,6 +76,13 @@ enum LivePreviewBench {
     /// numbering: the sidecar skips every preview numbered at or below the
     /// highest it was told to cancel, so measured previews numbered from 1
     /// again would be skipped after a warm-up release cancelled one.
+    /// The gate is byte-identical finals: Swift's `==` treats canonically
+    /// equivalent strings (composed é vs e + combining accent) as equal, so
+    /// compare the UTF-8 bytes.
+    static func sameBytes(_ a: String, _ b: String) -> Bool {
+        a.utf8.elementsEqual(b.utf8)
+    }
+
     static func pacers(policy: LivePreviewGovernor.Policy) -> (warmUp: LivePreviewPacer, measured: LivePreviewPacer) {
         let sequence = LivePreviewSequence()
         return (LivePreviewPacer(sequence: sequence), LivePreviewPacer(policy: policy, sequence: sequence))
@@ -146,7 +153,7 @@ enum LivePreviewBench {
                 }
                 off.append(a.latency); on.append(b.latency); deltas.append(b.latency - a.latency)
                 loads.append(contentsOf: [a.load, b.load])
-                let same = a.final == b.final
+                let same = sameBytes(a.final, b.final)
                 if same { identical += 1 } else { outcome.differingFinals += 1 }
                 let stats = b.stats ?? LivePreviewSession.Stats()
                 started += stats.started; shown += stats.shown; skippedBusy += stats.skippedBusy

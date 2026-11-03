@@ -120,6 +120,13 @@ final class LivePreviewEligibilityTests: XCTestCase {
 }
 
 final class LivePreviewTailTests: XCTestCase {
+    func testTheBenchGateComparesBytes() {
+        let composed = "caf\u{E9}", decomposed = "cafe\u{301}"
+        XCTAssertEqual(composed, decomposed, "Swift calls them equal")
+        XCTAssertFalse(LivePreviewBench.sameBytes(composed, decomposed), "the gate doesn't")
+        XCTAssertTrue(LivePreviewBench.sameBytes("ส่งไฟล์ deck", "ส่งไฟล์ deck"))
+    }
+
     func testShortTextIsShownWhole() {
         XCTAssertEqual(LivePreview.tail("  สวัสดีครับ deploy  "), "สวัสดีครับ deploy")
         XCTAssertEqual(LivePreview.tail("one\ntwo"), "one two")
