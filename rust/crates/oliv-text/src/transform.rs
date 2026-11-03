@@ -745,12 +745,13 @@ fn spoken_times(source: &str) -> HashSet<String> {
 /// Numbers in `out` that the source never stated, small ones aside. By
 /// value: restating a figure the source gives (an email's subject and body)
 /// invents nothing.
-/// A key with the trailing zeros of its last part dropped (1:50 → 1:5), so
-/// 1.50 and 1.5 meet. Clock times keep their exact form in `number_key`; this
-/// only adds a second way to match.
+/// A decimal with the trailing zeros of its fraction dropped (1:50 → 1:5),
+/// so 1.50 and 1.5 meet. Only a number of two parts: a version (1.2.30) or
+/// anything longer keeps every digit. `number_key` keeps the exact form;
+/// this only adds a second way to match.
 fn decimal_form(key: &str) -> String {
-    match key.rsplit_once(':') {
-        Some((head, last)) if last.len() > 1 && last.ends_with('0') => {
+    match key.split_once(':') {
+        Some((head, last)) if !last.contains(':') && last.len() > 1 && last.ends_with('0') => {
             let last = last.trim_end_matches('0');
             if last.is_empty() {
                 head.to_owned()
@@ -1596,6 +1597,22 @@ mod tests {
         assert_eq!(
             lost_numbers("ประชุม 14:30", "Meeting at 14:03."),
             vec!["14:30".to_string()]
+        );
+        // Versions keep every digit.
+        assert_eq!(
+            lost_numbers(
+                "Please install version 1.2.30.",
+                "Please install version 1.2.3."
+            ),
+            vec!["1:2:30".to_string()]
+        );
+        assert_eq!(
+            check_command(
+                "สุภาพขึ้น",
+                "Please install version 1.2.30.",
+                "Kindly install version 1.2.3."
+            ),
+            Err(Rejection("numberLost"))
         );
     }
 
