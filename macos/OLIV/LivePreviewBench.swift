@@ -7,19 +7,28 @@
 //
 //   OLIV --live-preview-bench --manifest m.jsonl --audio-root dir
 //        [--offset 0] [--stride 1] [--limit 0] [--engine typhoon-turbo-mlx]
-//        [--gap 1.0] [--keep-on] [--aa] [--out results.json]
+//        [--gap 1.0] [--keep-on] [--aa] [--legacy] [--score-dir DIR] [--out results.json]
 //
 // Prints aggregates only. --out gets per-clip numbers (ids, timings, whether
 // the two finals were byte-identical) — never transcripts. --keep-on stops the
 // governor from turning previews off, to measure their raw cost. --aa runs
 // both arms with previews off: the noise floor of the comparison itself.
+// --legacy previews as before #46 (full 30 s encode, raw text, 1–3 s apart),
+// for before/after numbers from one build. --score-dir writes the last preview
+// shown before each release next to that clip's final, as `oliv-dev score` /
+// `semantic` input (transcripts: keep it private and local).
 // Exits 1 when a clip failed or a clip's two finals differ.
+//
+// First-word latency is from the clip's speech onset (the first 20 ms frame
+// whose RMS reaches a tenth of the clip's 95th-percentile frame RMS, and at
+// least 0.005) to the first preview shown; cadence is the time between shown
+// previews. Neither includes the main-thread hop and SwiftUI's redraw.
 
 import Darwin
 import Foundation
 
 enum LivePreviewBench {
-    private struct Clip {
+    struct Clip {
         let id: String
         let samples: [Float]
         var seconds: Double { Double(samples.count) / LivePreview.sampleRate }
@@ -31,6 +40,37 @@ enum LivePreviewBench {
         var final: String
         var stats: LivePreviewSession.Stats?
         var load: Double
+        /// The last preview shown before release (never printed).
+        var lastShown: String?
+    }
+
+    /// How previews are made: today's, or as before #46 (`--legacy`).
+    struct Mode {
+        var policy: LivePreviewGovernor.Policy
+        var tick: TimeInterval
+        /// The light cleanup's options; nil shows the raw transcript.
+        var cleanup: DictationOptions?
+        var extra: [String: Any]
+
+        static let current = Mode(policy: .init(), tick: 0.05,
+                                  cleanup: DictationOptions(cleanup: true, removeFillers: true, thaiFormat: true),
+                                  extra: [:])
+        static let legacy = Mode(policy: .beforeShortEncode, tick: 0.2, cleanup: nil,
+                                 extra: ["preview_floor": 30.0, "preview_tail": 0.0])
+    }
+
+    /// Where speech starts in `samples`, in seconds (see the header).
+    static func speechOnset(_ samples: [Float], sampleRate: Double = LivePreview.sampleRate) -> Double? {
+        let frame = Int(sampleRate * 0.02)
+        guard frame > 0, samples.count >= frame else { return nil }
+        let rms = stride(from: 0, to: samples.count - frame + 1, by: frame).map { start -> Float in
+            var sum: Float = 0
+            for i in start..<(start + frame) { sum += samples[i] * samples[i] }
+            return (sum / Float(frame)).squareRoot()
+        }
+        let p95 = rms.sorted()[Int(Double(rms.count - 1) * 0.95)]
+        let threshold = max(0.005, p95 / 10)
+        return rms.firstIndex { $0 >= threshold }.map { Double($0 * frame) / sampleRate }
     }
 
     /// Samples become available at the rate they were recorded, from `start`.
@@ -89,6 +129,7 @@ enum LivePreviewBench {
     }
 
     static func run(args: [String], launch: SidecarClient.Launch = SidecarClient.resolveLaunch()) -> Int32 {
+        if args.contains("--cost") { return LivePreviewCostBench.run(args: args, launch: launch) }
         func value(_ flag: String) -> String? {
             guard let i = args.firstIndex(of: flag), i + 1 < args.count else { return nil }
             return args[i + 1]
@@ -103,11 +144,12 @@ enum LivePreviewBench {
         let engine = value("--engine") ?? SidecarClient.defaultEngine
         let gap = Double(value("--gap") ?? "") ?? 1.0
         let control = args.contains("--aa")
-        var policy = LivePreviewGovernor.Policy()
+        var mode = args.contains("--legacy") ? Mode.legacy : Mode.current
         if args.contains("--keep-on") {
-            policy.slowLimit = .max
-            policy.releaseWaitLimit = .max
+            mode.policy.slowLimit = .max
+            mode.policy.releaseWaitLimit = .max
         }
+        let policy = mode.policy
 
         let clips: [Clip]
         do {
@@ -118,7 +160,7 @@ enum LivePreviewBench {
         }
         guard !clips.isEmpty else { return 1 }
         print("=== OLIV live-preview \(control ? "A/A control (previews off in both arms)" : "A/B"): "
-            + "\(clips.count) clips, engine \(engine) ===")
+            + "\(clips.count) clips, engine \(engine)\(args.contains("--legacy") ? ", previews as before #46" : "") ===")
         print("  load averages at start: \(loadAverages())")
 
         let client = SidecarClient(command: launch.command, environment: launch.environment)
@@ -131,13 +173,15 @@ enum LivePreviewBench {
         }
         let (warmUp, pacer) = pacers(policy: policy)
         // Warm the GPU kernels for both paths once; not measured.
-        _ = try? hold(clips[0], previews: true, engine: engine, client: client, pacer: warmUp)
+        _ = try? hold(clips[0], previews: true, engine: engine, client: client, pacer: warmUp, mode: mode)
 
         var rows: [[String: Any]] = []
         var off: [Double] = [], on: [Double] = [], deltas: [Double] = [], loads: [Double] = []
         var identical = 0, inFlight: [(wait: Double, delta: Double)] = []
         var started = 0, shown = 0, skippedBusy = 0, previewSeconds: [Double] = []
         var finalSTT: [Double] = [], skipped: [String: Int] = [:], realTimeFactors: [Double] = []
+        var firstWord: [Double] = [], cadence: [Double] = [], noneShown = 0
+        var releaseJump: [(id: String, final: String, preview: String)] = []
         var outcome = Outcome()
         for (index, clip) in clips.enumerated() {
             do {
@@ -145,7 +189,7 @@ enum LivePreviewBench {
                 for previews in index % 2 == 0 ? [false, true] : [true, false] {
                     Thread.sleep(forTimeInterval: gap)
                     runs[previews] = try hold(clip, previews: previews && !control, engine: engine,
-                                              client: client, pacer: pacer)
+                                              client: client, pacer: pacer, mode: mode)
                 }
                 guard let a = runs[false], let b = runs[true] else {
                     outcome.failedClips += 1
@@ -162,11 +206,26 @@ enum LivePreviewBench {
                 finalSTT.append(a.sttSeconds)
                 skipped.merge(stats.skipped, uniquingKeysWith: +)
                 if stats.inFlightAtStop { inFlight.append((stats.releaseWait ?? 0, b.latency - a.latency)) }
+                let onset = speechOnset(clip.samples)
+                var clipFirstWord: Double?
+                if !control {
+                    if let first = stats.shownAt.first, let onset {
+                        clipFirstWord = first - onset
+                        firstWord.append(first - onset)
+                    } else if stats.shownAt.isEmpty {
+                        noneShown += 1
+                    }
+                    cadence += zip(stats.shownAt.dropFirst(), stats.shownAt).map { $0 - $1 }
+                    releaseJump.append((clip.id, b.final, b.lastShown ?? ""))
+                }
                 rows.append(["id": clip.id, "seconds": clip.seconds, "latency_off": a.latency,
                              "latency_on": b.latency, "identical": same, "previews": stats.started,
                              "shown": stats.shown, "in_flight_at_release": stats.inFlightAtStop,
                              "release_wait": stats.releaseWait as Any? ?? NSNull(),
-                             "load_off": a.load, "load_on": b.load])
+                             "load_off": a.load, "load_on": b.load,
+                             "speech_onset": onset as Any? ?? NSNull(),
+                             "first_word": clipFirstWord as Any? ?? NSNull(), "shown_at": stats.shownAt,
+                             "preview_seconds": stats.previewSeconds])
                 print(String(format: "  %3d/%d  off %4.0f ms  on %4.0f ms  previews %d%@%@",
                              index + 1, clips.count, a.latency * 1000, b.latency * 1000, stats.started,
                              stats.inFlightAtStop ? "  in flight at release" : "",
@@ -194,6 +253,7 @@ enum LivePreviewBench {
             "in_flight_at_release": inFlight.count,
             "release_wait": stats(inFlight.map(\.wait)), "in_flight_delta": stats(inFlight.map(\.delta)),
             "load1": stats(loads), "previews_still_on": pacer.isEnabled, "final_interval": pacer.interval,
+            "first_word": stats(firstWord), "cadence": stats(cadence), "holds_without_preview": noneShown,
             "failed_clips": outcome.failedClips, "differing_finals": outcome.differingFinals,
         ]
         print("\n  clips: \(off.count)")
@@ -206,6 +266,11 @@ enum LivePreviewBench {
         print("  the final pass's own STT (previews off): \(ms(finalSTT))")
         print(String(format: "  preview real-time factor (seconds per second of audio window): median %.2f, p90 %.2f",
                      percentile(realTimeFactors, 0.5), percentile(realTimeFactors, 0.9)))
+        if !control {
+            print("  first word (speech onset → first preview shown): \(ms(firstWord)); "
+                + "holds with no preview shown: \(noneShown)")
+            print("  cadence (between shown previews): \(ms(cadence))")
+        }
         print("  in flight at release: \(inFlight.count); release waited \(ms(inFlight.map(\.wait))); "
             + "their difference \(ms(inFlight.map(\.delta)))")
         print(String(format: "  1-min load average at release: median %.1f, min %.1f, max %.1f",
@@ -222,6 +287,19 @@ enum LivePreviewBench {
                 return 1
             }
         }
+        if let directory = value("--score-dir"), !releaseJump.isEmpty {
+            do {
+                try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+                let clips = releaseJump.filter { !$0.final.isEmpty }
+                    .map { ["id": $0.id, "reference": $0.final, "final": $0.preview] }
+                let data = try JSONSerialization.data(withJSONObject: ["clips": clips], options: [.prettyPrinted, .sortedKeys])
+                try data.write(to: URL(fileURLWithPath: directory).appendingPathComponent("last-preview-vs-final.json"),
+                               options: .atomic)
+            } catch {
+                FileHandle.standardError.write(Data("FAIL: could not write the score file\n".utf8))
+                return 1
+            }
+        }
         if let failure = outcome.failure { print("  FAIL: \(failure)") }
         return outcome.exitCode
     }
@@ -229,15 +307,19 @@ enum LivePreviewBench {
     /// Hold the key for the clip's length (previews running or not), release,
     /// and time release → final text.
     private static func hold(_ clip: Clip, previews: Bool, engine: String, client: SidecarClient,
-                             pacer: LivePreviewPacer) throws -> Run {
+                             pacer: LivePreviewPacer, mode: Mode) throws -> Run {
         let hold = SimulatedHold(samples: clip.samples)
         var session: LivePreviewSession?
+        let shown = LastShown()
         if previews {
             session = LivePreviewSession(pacer: pacer, hooks: .init(
                 latestSamples: { hold.copyLatest(into: &$0) },
-                transcribe: { samples, seq in try client.preview(samples: samples, engine: engine, seq: seq) },
+                transcribe: { samples, seq in
+                    try client.preview(samples: samples, engine: engine, seq: seq, cleanup: mode.cleanup,
+                                       extra: mode.extra)
+                },
                 cancel: { client.cancelPreviews(through: $0) },
-                show: { _, _ in }))
+                show: { _, line in shown.set(line.text) }), tick: mode.tick)
             session?.start()
         }
         Thread.sleep(forTimeInterval: max(0, hold.start + clip.seconds - ProcessInfo.processInfo.systemUptime))
@@ -250,7 +332,14 @@ enum LivePreviewBench {
         // Let a cancelled preview's bookkeeping land before reading the stats.
         if let session { waitForQuiet(session) }
         return Run(latency: latency, sttSeconds: result.tSTT, final: result.textToPaste,
-                   stats: session?.currentStats, load: load)
+                   stats: session?.currentStats, load: load, lastShown: shown.text)
+    }
+
+    private final class LastShown: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value: String?
+        func set(_ text: String) { lock.lock(); value = text; lock.unlock() }
+        var text: String? { lock.lock(); defer { lock.unlock() }; return value }
     }
 
     private static func waitForQuiet(_ session: LivePreviewSession) {
@@ -262,7 +351,7 @@ enum LivePreviewBench {
         }
     }
 
-    private static func load(manifest: String, root: String, offset: Int, stride: Int, limit: Int) throws -> [Clip] {
+    static func load(manifest: String, root: String, offset: Int, stride: Int, limit: Int) throws -> [Clip] {
         let lines = try String(contentsOfFile: manifest, encoding: .utf8)
             .split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespaces) }
@@ -278,7 +367,7 @@ enum LivePreviewBench {
         return clips
     }
 
-    private static func percentile(_ values: [Double], _ p: Double) -> Double {
+    static func percentile(_ values: [Double], _ p: Double) -> Double {
         let sorted = values.sorted()
         guard !sorted.isEmpty else { return 0 }
         let rank = p * Double(sorted.count - 1)
@@ -286,18 +375,18 @@ enum LivePreviewBench {
         return sorted[low] + (sorted[high] - sorted[low]) * (rank - Double(low))
     }
 
-    private static func stats(_ values: [Double]) -> [String: Any] {
+    static func stats(_ values: [Double]) -> [String: Any] {
         guard !values.isEmpty else { return ["n": 0] }
         return ["n": values.count, "median": percentile(values, 0.5), "p90": percentile(values, 0.9),
                 "mean": values.reduce(0, +) / Double(values.count), "min": values.min()!, "max": values.max()!]
     }
 
-    private static func loadAverage1() -> Double {
+    static func loadAverage1() -> Double {
         var loads = [Double](repeating: 0, count: 3)
         return getloadavg(&loads, 3) == 3 ? loads[0] : -1
     }
 
-    private static func loadAverages() -> String {
+    static func loadAverages() -> String {
         var loads = [Double](repeating: 0, count: 3)
         guard getloadavg(&loads, 3) == 3 else { return "unavailable" }
         return String(format: "%.2f %.2f %.2f", loads[0], loads[1], loads[2])
