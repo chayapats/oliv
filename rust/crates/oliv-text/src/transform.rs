@@ -642,10 +642,11 @@ static ENGLISH_SMALL: LazyLock<Regex> = LazyLock::new(|| {
 
 /// Small numbers an output may add without the source writing them: ones
 /// the source says in words ("three" → 3; ห้า → 5, which `apply_thai_format`
-/// leaves as a word) and the numbers of a list the output makes ("1. …").
+/// leaves as a word). A list's own numbers are removed before checking (see
+/// `without_list_markers`).
 /// Any other new number is invented, however small: a summary turning
 /// 1.2 ล้าน into 5 ล้าน changed the amount.
-fn small_numbers_allowed(source: &str, out: &str) -> HashSet<String> {
+fn small_numbers_allowed(source: &str) -> HashSet<String> {
     const THAI: [&str; 10] = [
         "ศูนย์",
         "หนึ่ง",
@@ -677,10 +678,14 @@ fn small_numbers_allowed(source: &str, out: &str) -> HashSet<String> {
             allowed.insert(i.to_string());
         }
     }
-    for c in LIST_MARKER.captures_iter(out) {
-        allowed.insert(number_key(&c[1]));
-    }
     allowed
+}
+
+/// `out` without the numbers of a list it makes ("1. ", "2) " at the start
+/// of a line): they number lines, they aren't amounts, and they must not
+/// stand in for one either way.
+fn without_list_markers(out: &str) -> std::borrow::Cow<'_, str> {
+    LIST_MARKER.replace_all(out, "")
 }
 
 /// A Thai clock-time phrase after `apply_thai_format`, which writes numbers
@@ -763,8 +768,8 @@ fn spoken_times(source: &str) -> HashSet<String> {
 fn invented_numbers(source: &str, out: &str) -> Vec<String> {
     let have = source_numbers(source);
     let times = spoken_times(source);
-    let small = small_numbers_allowed(source, out);
-    let mut invented: Vec<String> = numbers(out)
+    let small = small_numbers_allowed(source);
+    let mut invented: Vec<String> = numbers(&without_list_markers(out))
         .into_iter()
         .filter(|n| !have.contains(n) && !(is_small(n) && small.contains(n)) && !times.contains(n))
         .collect();
@@ -776,7 +781,7 @@ fn invented_numbers(source: &str, out: &str) -> Vec<String> {
 /// Written numbers in the source missing from `out`, counted: a number the
 /// source writes twice must appear twice.
 fn lost_numbers(source: &str, out: &str) -> Vec<String> {
-    let mut have = numbers(out);
+    let mut have = numbers(&without_list_markers(out));
     let mut lost = Vec::new();
     for n in numbers(source) {
         match have.iter().position(|h| *h == n) {
@@ -1561,6 +1566,27 @@ mod tests {
         assert_eq!(
             invented_numbers("zero errors today", "วันนี้ error 0 ครั้ง"),
             none
+        );
+        // A list's own numbers don't excuse a changed amount in its lines.
+        assert_eq!(
+            invented_numbers(
+                "ส่งเอกสาร 30 หน้าให้ทีม แล้วแจ้งลูกค้า",
+                "1. ส่งเอกสาร 1 หน้าให้ทีม\n2. แจ้งลูกค้า"
+            ),
+            vec!["1".to_string()]
+        );
+        assert_eq!(
+            check_command(
+                "สรุปเป็นข้อ",
+                "ส่งเอกสาร 30 หน้าให้ทีม แล้วแจ้งลูกค้า",
+                "1. ส่งเอกสาร 1 หน้าให้ทีม\n2. แจ้งลูกค้า"
+            ),
+            Err(Rejection("numberInvented"))
+        );
+        // …nor stand in for a number the source wrote.
+        assert_eq!(
+            lost_numbers("ส่ง 2 ไฟล์", "1. ส่งไฟล์\n2. แจ้งทีม"),
+            vec!["2".to_string()]
         );
         // A word inside a larger number phrase is not that number.
         assert_eq!(
