@@ -341,6 +341,36 @@ final class VoiceEditingTests: XCTestCase {
         XCTAssertEqual(pastes.all, ["edited"])
     }
 
+    /// The selection is read after the microphone closes. If the app, the
+    /// window or the selection moved since the key came up, nothing is read
+    /// as the target and nothing is edited.
+    func testASelectionThatMovedSinceReleaseIsNotEdited() {
+        ax.selected = "the text the user selected"
+        ax.range = NSRange(location: 0, length: 26)
+        let transformer = FakeTransformer { _, _, _ in XCTFail("must not transform"); throw ModelDown() }
+        let reader = reader(copying: "x")
+        let ax = self.ax!
+        let moves: [(String, () -> Void, String)] = [
+            ("another app", { ax.pid = 43 }, "You switched apps before OLIV read your selection — your text is unchanged"),
+            ("another window", { ax.window = "window-2" }, "Your selection changed while OLIV was listening — your text is unchanged"),
+            ("another range", { ax.range = NSRange(location: 4, length: 4) }, "Your selection changed while OLIV was listening — your text is unchanged"),
+            ("other text, same range", { ax.selected = "something else entirely!!" }, "Your selection changed while OLIV was listening — your text is unchanged"),
+        ]
+        for (name, move, notice) in moves {
+            let saved = (ax.pid, ax.window, ax.range, ax.selected)
+            var frozen = job(transformer: transformer, reader: reader)
+            frozen.releaseFocus = reader.focusNow()
+            move()
+            let prepared = VoiceEditRunner.prepareCommand(frozen)
+            XCTAssertNil(prepared.target, name)
+            XCTAssertEqual(prepared.refusal?.notice?.text, notice, name)
+            (ax.pid, ax.window, ax.range, ax.selected) = saved
+        }
+        var frozen = job(transformer: transformer, reader: reader)
+        frozen.releaseFocus = reader.focusNow()
+        XCTAssertEqual(VoiceEditRunner.prepareCommand(frozen).target?.text, "the text the user selected", "nothing moved")
+    }
+
     /// The re-copy takes a moment: moving the cursor, the window or the app
     /// while it runs must not let the edit replace what is selected after.
     func testFocusThatMovesDuringTheReCopyIsCaught() {

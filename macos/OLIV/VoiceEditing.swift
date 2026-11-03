@@ -200,6 +200,10 @@ struct VoiceEditJob {
     let modelReady: Bool
     /// Display name of the undo-last-paste shortcut, for the success notice.
     let undoHint: String?
+    /// Command mode: the app, field, window and selection when the key came
+    /// up. The selection is read only after the microphone has closed (up to
+    /// a few seconds); if it moved meanwhile, nothing is edited.
+    var releaseFocus: FocusSnapshot? = nil
 }
 
 /// A HUD notice: text + SF Symbol.
@@ -236,6 +240,13 @@ enum VoiceEditRunner {
         }
         switch job.reader.capture(recentPaste: job.recentPaste) {
         case .selected(let capture):
+            if let moved = movedSinceRelease(job.releaseFocus, capture) {
+                return (nil, VoiceEditResult(outcome: .nothingToDo, notice: moved == .otherApp
+                    ? VoiceEditNotice(text: String(localized: "You switched apps before OLIV read your selection — your text is unchanged"),
+                                      symbol: "exclamationmark.triangle")
+                    : VoiceEditNotice(text: String(localized: "Your selection changed while OLIV was listening — your text is unchanged"),
+                                      symbol: "exclamationmark.triangle")))
+            }
             if capture.text.count > maxSelection {
                 return (nil, VoiceEditResult(outcome: .nothingToDo, notice: VoiceEditNotice(
                     text: "That selection is too long — select up to \(maxSelection.formatted()) characters",
@@ -249,6 +260,17 @@ enum VoiceEditRunner {
                 text: "Select some text first, then hold the Command mode shortcut",
                 symbol: "selection.pin.in.out")))
         }
+    }
+
+    /// Whether the selection read now is no longer the one the user had when
+    /// the key came up: another app, field, window or range, or (where
+    /// Accessibility exposes it) other selected text. nil when it's the same,
+    /// or when there's nothing reliable to compare against.
+    static func movedSinceRelease(_ frozen: FocusSnapshot?, _ capture: SelectionCapture) -> TargetCheck? {
+        guard let frozen, let now = capture.focus else { return nil }
+        if let moved = SelectionReader.moved(from: frozen, to: now), moved != .unverifiable { return moved }
+        if capture.source == .accessibility, let was = frozen.selectedText, was != capture.text { return .changed }
+        return nil
     }
 
     /// Matches `transform::MAX_SOURCE_CHARS` in the Rust core.

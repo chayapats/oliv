@@ -731,7 +731,10 @@ final class DictationController {
             reader: selectionReader,
             recentPaste: lastPastedText,
             modelReady: cleanupModelReady(),
-            undoHint: undoHotkeyChord?.displayName)
+            undoHint: undoHotkeyChord?.displayName,
+            // Frozen now, on release: the selection itself is read only after
+            // the microphone closes, and must still be this one.
+            releaseFocus: mode == .command ? selectionReader.focusNow() : nil)
         let options = Self.dictationOptions(
             engine: engine, cleanup: cleanup, removeFillers: removeFillers,
             entries: dictionaryEntries, legacySnippets: legacySnippets,

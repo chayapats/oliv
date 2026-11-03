@@ -271,6 +271,10 @@ final class SelectionReader {
         return nil
     }
 
+    /// The focused app, field, window and selection right now (Command mode
+    /// freezes this when the key comes up).
+    func focusNow() -> FocusSnapshot { accessibility.focusSnapshot() }
+
     /// The copy fallback: ⌘C, read the text, put the user's clipboard back.
     /// nil when the app didn't copy anything (nothing selected, or ⌘C is not
     /// copy there).
