@@ -1,8 +1,11 @@
-// Live preview (#26): show the words in the recording HUD while the key is
-// held. Every so often the newest audio is transcribed on-device — speech to
-// text only, greedy, no cleanup model — and the HUD shows the tail of it. The
-// preview is never pasted, logged or kept: the final pass after release is
-// exactly the one that ran before this feature, and it is what gets pasted.
+// Live preview (#26, #46): show the words in the recording HUD while the key
+// is held. A few times a second the newest audio is transcribed on-device —
+// greedy, with the encoder run on the audio there is rather than Whisper's
+// 30 s window, and the Rust text core's light cleanup (dictionary, numbers, ๆ;
+// never the cleanup model) — and the HUD shows the tail of it: the words two
+// previews in a row agree on as settled, the rest dimmed. The preview is never
+// pasted, logged or kept: the final pass after release is exactly the one that
+// ran before this feature, and it is what gets pasted.
 //
 // Cost control, in order of importance:
 //   • the final pass never waits behind a preview: release cancels the one in
@@ -36,15 +39,88 @@ enum LivePreview {
     /// vowel or tone mark never loses its consonant; prefers a word boundary
     /// when one is close.
     static func tail(_ text: String, limit: Int = maxCharacters) -> String {
-        let flat = text.split(whereSeparator: \.isNewline).joined(separator: " ")
-            .trimmingCharacters(in: .whitespaces)
-        guard flat.count > limit, limit > 1 else { return flat }
-        var cut = Substring(flat.suffix(limit - 1))
-        if let space = cut.firstIndex(of: " "), cut.distance(from: cut.startIndex, to: space) <= 12 {
-            cut = cut[cut.index(after: space)...]
-        }
-        return "…" + cut.trimmingCharacters(in: .whitespaces)
+        tail(LivePreviewLine(settled: "", tentative: text), limit: limit).text
     }
+
+    /// `tail` for a line with settled and tentative words: the same cut, with
+    /// each part keeping what is left of it.
+    static func tail(_ line: LivePreviewLine, limit: Int = maxCharacters) -> LivePreviewLine {
+        let settled = flatten(line.settled), tentative = flatten(line.tentative)
+        let full = settled + tentative
+        // Leading and trailing spaces never show.
+        let lead = full.prefix { $0.isWhitespace }.count
+        let trail = full.count == lead ? 0 : full.reversed().prefix { $0.isWhitespace }.count
+        var start = lead, ellipsis = false
+        if full.count - lead - trail > limit, limit > 1 {
+            ellipsis = true
+            start = full.count - trail - (limit - 1)
+            let cut = full.dropFirst(start).dropLast(trail)
+            if let space = cut.firstIndex(of: " "), cut.distance(from: cut.startIndex, to: space) <= 12 {
+                start += cut.distance(from: cut.startIndex, to: space) + 1
+            }
+            start += full.dropFirst(start).prefix { $0.isWhitespace }.count
+        }
+        let end = full.count - trail
+        let keptSettled = max(0, min(settled.count, end) - start)
+        let shown = full.dropFirst(start).prefix(max(0, end - start))
+        var result = LivePreviewLine(settled: String(shown.prefix(keptSettled)),
+                                     tentative: String(shown.dropFirst(keptSettled)))
+        if ellipsis {
+            if result.settled.isEmpty { result.tentative = "…" + result.tentative }
+            else { result.settled = "…" + result.settled }
+        }
+        return result
+    }
+
+    /// Newlines become spaces, so a preview is one run of text.
+    private static func flatten(_ text: String) -> String {
+        String(text.map { $0.isNewline ? " " : $0 })
+    }
+
+    /// What to show for `current` after `previous` (the last preview that had
+    /// text): the words both agree on from the start are settled, the rest is
+    /// tentative. Words are cut where the system's word breaker (which knows
+    /// Thai) puts them, so half a word never settles. When the 12 s window
+    /// has slid on, the agreement may start later in `previous`.
+    static func line(previous: String?, current: String) -> LivePreviewLine {
+        guard let previous, !previous.isEmpty, !current.isEmpty else {
+            return LivePreviewLine(settled: "", tentative: current)
+        }
+        let old = Array(previous), new = Array(current)
+        var agreed = 0
+        for start in [0] + wordStarts(previous) {
+            var count = 0
+            while start + count < old.count, count < new.count, old[start + count] == new[count] { count += 1 }
+            agreed = max(agreed, count)
+            if agreed == new.count { break }
+        }
+        // Settle whole words only: back off to the last word end inside the
+        // agreement (all of it when the texts agree to the end of `current`).
+        let cut = agreed == new.count ? agreed : (wordEnds(current).last { $0 <= agreed } ?? 0)
+        return LivePreviewLine(settled: String(new.prefix(cut)), tentative: String(new.dropFirst(cut)))
+    }
+
+    /// Character offsets where words start / end in `text`.
+    private static func wordStarts(_ text: String) -> [Int] { words(text).map(\.start) }
+    private static func wordEnds(_ text: String) -> [Int] { words(text).map(\.end) }
+    private static func words(_ text: String) -> [(start: Int, end: Int)] {
+        var result: [(Int, Int)] = []
+        text.enumerateSubstrings(in: text.startIndex..<text.endIndex, options: [.byWords, .substringNotRequired]) {
+            _, range, _, _ in
+            result.append((text.distance(from: text.startIndex, to: range.lowerBound),
+                           text.distance(from: text.startIndex, to: range.upperBound)))
+        }
+        return result
+    }
+}
+
+/// One preview as the HUD shows it: words two previews in a row agreed on,
+/// then the newest, still-moving words (drawn dimmer).
+struct LivePreviewLine: Equatable {
+    var settled: String
+    var tentative: String
+    var text: String { settled + tentative }
+    var isEmpty: Bool { settled.isEmpty && tentative.isEmpty }
 }
 
 /// One preview's outcome. `skipped` names why there is no text: "cancelled",
@@ -52,6 +128,13 @@ enum LivePreview {
 struct LivePreviewResult: Equatable {
     var text: String
     var skipped: String?
+    /// The text before the light cleanup (only when asked for; evaluation).
+    var raw: String?
+    /// Seconds per stage, for the harness: "sidecar" (the Rust worker's whole
+    /// turn), "stt" (its wait on the model helper), "clean", and the helper's
+    /// "audio" (decoding the request), "mel", "encode", "decode", plus
+    /// "frames" (encoder input frames). Never any text.
+    var timings: [String: Double] = [:]
 
     /// The model decoded this preview, whether or not it has text to show:
     /// "noSpeech" is a full decode whose text was a known hallucination, and
@@ -65,12 +148,45 @@ struct LivePreviewResult: Equatable {
 extension SidecarClient {
     /// Transcribe the newest audio for the HUD. Shares the request queue with
     /// `dictate`; see `cancelPreviews(through:)` for why release never waits.
-    func preview(samples: [Float], engine: String, seq: Int) throws -> LivePreviewResult {
+    /// `cleanup`: the dictation's options, for the light cleanup (no model);
+    /// nil shows the raw transcript. `extra` adds evaluation-only fields.
+    func preview(samples: [Float], engine: String, seq: Int, cleanup: DictationOptions? = nil,
+                 extra: [String: Any] = [:]) throws -> LivePreviewResult {
         let data = samples.withUnsafeBufferPointer { Data(buffer: $0) }
-        let reply = try exchange(["cmd": "preview", "engine": engine, "preview_seq": seq,
-                                  "pcm_b64": data.base64EncodedString()],
-                                 timeout: SidecarClient.dictateTimeout)
-        return LivePreviewResult(text: reply["text"] as? String ?? "", skipped: reply["skipped"] as? String)
+        let body = Self.previewBody(engine: engine, pcmB64: data.base64EncodedString(), seq: seq, cleanup: cleanup)
+            .merging(extra) { _, new in new }
+        let reply = try exchange(body, timeout: SidecarClient.dictateTimeout)
+        return Self.previewResult(reply)
+    }
+
+    /// The `preview` request: the dictate request's options (so the light
+    /// cleanup matches the final's dictionary, words and formatting), minus
+    /// names on screen, plus the preview number.
+    nonisolated static func previewBody(engine: String, pcmB64: String, seq: Int,
+                                        cleanup options: DictationOptions?) -> [String: Any] {
+        var body: [String: Any] = ["engine": engine, "pcm_b64": pcmB64]
+        if let options {
+            body = dictateBody(engine: engine, pcmB64: pcmB64, cleanup: options.cleanup,
+                               removeFillers: options.removeFillers, replacements: options.replacements,
+                               vocabulary: options.vocabulary, formatCommands: options.formatCommands,
+                               thaiFormat: options.thaiFormat, dictionary: options.dictionary)
+            body["light_cleanup"] = true
+        }
+        body["cmd"] = "preview"
+        body["preview_seq"] = seq
+        return body
+    }
+
+    nonisolated static func previewResult(_ reply: [String: Any]) -> LivePreviewResult {
+        var timings: [String: Double] = [:]
+        for (key, field) in [("sidecar", "t_sidecar"), ("stt", "t_stt"), ("clean", "t_clean")] {
+            if let value = (reply[field] as? NSNumber)?.doubleValue { timings[key] = value }
+        }
+        for (key, value) in reply["timings"] as? [String: Any] ?? [:] {
+            if let value = (value as? NSNumber)?.doubleValue { timings[key] = value }
+        }
+        return LivePreviewResult(text: reply["text"] as? String ?? "", skipped: reply["skipped"] as? String,
+                                 raw: reply["raw"] as? String, timings: timings)
     }
 
     /// Stop previews up to `seq`, including one being decoded right now. Sent
@@ -84,19 +200,21 @@ extension SidecarClient {
 /// How often to preview, and whether to at all, on this Mac. A pure value;
 /// LivePreviewPacer keeps one for the whole app run.
 struct LivePreviewGovernor: Equatable {
+    /// Tuned in #46 for previews that encode only the audio there is (about
+    /// 0.15–0.3 s each on an M4 Pro for a few seconds of speech).
     struct Policy: Equatable {
         /// Fastest cadence (start to start).
-        var minInterval: TimeInterval = 1.0
+        var minInterval: TimeInterval = 0.3
         /// Slowest cadence worth showing.
-        var maxInterval: TimeInterval = 3.0
+        var maxInterval: TimeInterval = 1.5
         /// Previews may keep the GPU busy at most this share of the time. The
-        /// gap between previews grows with their cost to honour it, so this is
-        /// their real-time factor against the speech that arrives in between.
-        /// A preview that can't honour it even at `maxInterval` (here: one
-        /// taking over 0.9 s) is slow. (Per second of the audio window it
-        /// transcribes, the factor would mostly measure Whisper's fixed 30 s
-        /// encode on short windows, so that is only reported, by the harness.)
-        var maxBusyFraction: Double = 0.3
+        /// gap between previews grows with their cost to honour it. While the
+        /// key is held nothing else needs the GPU, and release cancels the
+        /// preview in flight, so the share is high. A preview that can't
+        /// honour it even at `maxInterval` (here: one taking over 1.125 s) is
+        /// slow: a slower Mac (a base M1, by GPU size, takes about 3× as long)
+        /// spaces previews out, and turns them off when they take that long.
+        var maxBusyFraction: Double = 0.75
         /// Consecutive slow previews that turn previews off for the app run.
         var slowLimit = 2
         /// A release that waited longer than this for a cancelled preview to
@@ -105,11 +223,16 @@ struct LivePreviewGovernor: Equatable {
         /// …and this many in a row turn previews off for the app run.
         var releaseWaitLimit = 2
         /// No preview before this much audio, or before this much is new.
-        var minAudio: TimeInterval = 1.0
-        var minNewAudio: TimeInterval = 0.5
+        var minAudio: TimeInterval = 0.5
+        var minNewAudio: TimeInterval = 0.25
         /// The first measured preview of the run warms the GPU kernels; it
         /// paces the next one but never counts as slow.
         var warmUpPreviews = 1
+
+        /// The policy before #46 (1–3 s apart, 30% of the GPU, from 1 s of
+        /// audio), for the harness's before/after comparison.
+        static let beforeShortEncode = Policy(minInterval: 1.0, maxInterval: 3.0, maxBusyFraction: 0.3,
+                                              minAudio: 1.0, minNewAudio: 0.5)
     }
 
     enum Decision: Equatable { case start, wait, busy, off }
@@ -251,7 +374,7 @@ final class LivePreviewSession: @unchecked Sendable {
         /// Stop previews up to `seq`, even mid-decode. Must not block.
         var cancel: (_ through: Int) -> Void
         /// New text for the HUD, on the session's queue; never called after stop().
-        var show: (_ session: LivePreviewSession, _ text: String) -> Void
+        var show: (_ session: LivePreviewSession, _ line: LivePreviewLine) -> Void
     }
 
     /// What one hold did; for tests and the latency harness. Never any text.
@@ -268,6 +391,8 @@ final class LivePreviewSession: @unchecked Sendable {
         var previewAudioSeconds: [Double] = []
         /// Previews that came back without text, by reason.
         var skipped: [String: Int] = [:]
+        /// When each shown preview reached `show`, seconds after start().
+        var shownAt: [TimeInterval] = []
     }
 
     private let pacer: LivePreviewPacer
@@ -283,11 +408,14 @@ final class LivePreviewSession: @unchecked Sendable {
     private var lastStart: TimeInterval?
     private var previewedAudio: Double = 0
     private var stoppedAt: TimeInterval?
+    private var startedAt: TimeInterval?
+    /// The last preview that had text, for what is settled (LivePreview.line).
+    private var lastText: String?
     private var stats = Stats()
     private let stopLock = NSLock()
     private var stopped = false
 
-    init(pacer: LivePreviewPacer, hooks: Hooks, tick: TimeInterval = 0.2,
+    init(pacer: LivePreviewPacer, hooks: Hooks, tick: TimeInterval = 0.05,
          windowSamples: Int = LivePreview.windowSamples,
          now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
         self.pacer = pacer
@@ -300,6 +428,7 @@ final class LivePreviewSession: @unchecked Sendable {
     func start() {
         queue.sync {
             guard timer == nil, !isStopped else { return }
+            startedAt = now()
             let timer = DispatchSource.makeTimerSource(queue: queue)
             timer.schedule(deadline: .now() + tick, repeating: tick, leeway: .milliseconds(20))
             timer.setEventHandler { [weak self] in self?.onTick() }
@@ -394,7 +523,10 @@ final class LivePreviewSession: @unchecked Sendable {
         }
         pacer.record(seconds: elapsed)
         guard !isStopped, !result.text.isEmpty else { return }
+        let line = LivePreview.line(previous: lastText, current: result.text)
+        lastText = result.text
         stats.shown += 1
-        hooks.show(self, result.text)
+        stats.shownAt.append(now() - (startedAt ?? 0))
+        hooks.show(self, line)
     }
 }

@@ -12,24 +12,24 @@ final class LivePreviewGovernorTests: XCTestCase {
 
     func testOneInFlightAndEnoughNewAudioBeforeTheNextPreview() {
         let g = governor()
-        XCTAssertEqual(g.decide(now: 10, lastStart: nil, inFlight: false, audioSeconds: 0.5, previewedAudioSeconds: 0), .wait)
-        XCTAssertEqual(g.decide(now: 10, lastStart: nil, inFlight: false, audioSeconds: 1.2, previewedAudioSeconds: 0), .start)
+        XCTAssertEqual(g.decide(now: 10, lastStart: nil, inFlight: false, audioSeconds: 0.4, previewedAudioSeconds: 0), .wait)
+        XCTAssertEqual(g.decide(now: 10, lastStart: nil, inFlight: false, audioSeconds: 0.6, previewedAudioSeconds: 0), .start)
         XCTAssertEqual(g.decide(now: 10, lastStart: nil, inFlight: true, audioSeconds: 5, previewedAudioSeconds: 0), .busy)
         // Too soon after the last start, then too little new audio.
-        XCTAssertEqual(g.decide(now: 10.5, lastStart: 10, inFlight: false, audioSeconds: 5, previewedAudioSeconds: 2), .wait)
-        XCTAssertEqual(g.decide(now: 12, lastStart: 10, inFlight: false, audioSeconds: 2.2, previewedAudioSeconds: 2), .wait)
-        XCTAssertEqual(g.decide(now: 12, lastStart: 10, inFlight: false, audioSeconds: 5, previewedAudioSeconds: 2), .start)
+        XCTAssertEqual(g.decide(now: 10.2, lastStart: 10, inFlight: false, audioSeconds: 5, previewedAudioSeconds: 2), .wait)
+        XCTAssertEqual(g.decide(now: 10.5, lastStart: 10, inFlight: false, audioSeconds: 2.1, previewedAudioSeconds: 2), .wait)
+        XCTAssertEqual(g.decide(now: 10.5, lastStart: 10, inFlight: false, audioSeconds: 2.3, previewedAudioSeconds: 2), .start)
     }
 
     func testIntervalBacksOffWithWhatEachPreviewCosts() {
         var g = governor()
-        XCTAssertEqual(g.interval, 1.0)
-        g.record(seconds: 0.6)          // keep busy ≤ 30% → 2 s apart
-        XCTAssertEqual(g.interval, 2.0, accuracy: 1e-9)
-        XCTAssertEqual(g.decide(now: 11.5, lastStart: 10, inFlight: false, audioSeconds: 9, previewedAudioSeconds: 2), .wait)
-        XCTAssertEqual(g.decide(now: 12.1, lastStart: 10, inFlight: false, audioSeconds: 9, previewedAudioSeconds: 2), .start)
+        XCTAssertEqual(g.interval, 0.3)
+        g.record(seconds: 0.6)          // keep busy ≤ 75% → 0.8 s apart
+        XCTAssertEqual(g.interval, 0.8, accuracy: 1e-9)
+        XCTAssertEqual(g.decide(now: 10.7, lastStart: 10, inFlight: false, audioSeconds: 9, previewedAudioSeconds: 2), .wait)
+        XCTAssertEqual(g.decide(now: 10.85, lastStart: 10, inFlight: false, audioSeconds: 9, previewedAudioSeconds: 2), .start)
         g.record(seconds: 0.1)
-        XCTAssertEqual(g.interval, 1.0, accuracy: 1e-9)
+        XCTAssertEqual(g.interval, 0.3, accuracy: 1e-9)
         XCTAssertFalse(g.isDisabled)
     }
 
@@ -37,17 +37,40 @@ final class LivePreviewGovernorTests: XCTestCase {
         var g = governor()
         g.record(seconds: 2.0)            // warm-up: paces, never counts
         XCTAssertFalse(g.isDisabled)
-        XCTAssertEqual(g.interval, 3.0)   // capped at the slowest cadence
+        XCTAssertEqual(g.interval, 1.5)   // capped at the slowest cadence
         g.record(seconds: 2.0)            // slow 1
         g.record(seconds: 0.1)            // a fast one resets the streak
-        g.record(seconds: 0.85)           // fits 30% of a 3 s cadence: not slow
-        g.record(seconds: 1.0)            // slow: needs over 3 s between previews
+        g.record(seconds: 1.1)            // fits 75% of a 1.5 s cadence: not slow
+        g.record(seconds: 1.2)            // slow: needs over 1.5 s between previews
         XCTAssertFalse(g.isDisabled)
-        g.record(seconds: 0.95)           // slow 2 in a row
+        g.record(seconds: 1.15)           // slow 2 in a row
         XCTAssertTrue(g.isDisabled)
         XCTAssertEqual(g.decide(now: 100, lastStart: nil, inFlight: false, audioSeconds: 9, previewedAudioSeconds: 0), .off)
         g.record(seconds: 0.05)         // never back on within the run
         XCTAssertTrue(g.isDisabled)
+    }
+
+    /// A Mac about 3.5× slower than the M4 Pro the policy was measured on (a
+    /// base M1's GPU): previews space out instead of crowding the GPU, and
+    /// turn off once a long hold makes them take over 1.125 s each.
+    func testASlowerMacSpacesPreviewsOutThenTurnsThemOff() {
+        var g = governor()
+        let m4Pro = [0.18, 0.2, 0.22, 0.25, 0.3]        // a few seconds of speech (#46)
+        for seconds in m4Pro { g.record(seconds: seconds) }
+        XCTAssertEqual(g.interval, 0.4, accuracy: 1e-9)  // 0.3 s / 0.75
+        var m1 = governor()
+        for seconds in m4Pro.map({ $0 * 3.5 }) {
+            m1.record(seconds: seconds)
+            XCTAssertFalse(m1.isDisabled)
+        }
+        XCTAssertEqual(m1.interval, 1.4, accuracy: 1e-9) // 1.05 s / 0.75: spaced out
+        // A 10 s window costs about 0.6 s on the M4 Pro, 2.1 s on the M1.
+        m1.record(seconds: 0.6 * 3.5)
+        m1.record(seconds: 0.6 * 3.5)
+        XCTAssertEqual(m1.disabledReason, "previews can't keep up on this Mac")
+        g.record(seconds: 0.6)
+        g.record(seconds: 0.6)
+        XCTAssertFalse(g.isDisabled)
     }
 
     func testReleasesHeldUpByACancelledPreviewTurnPreviewsOff() {
@@ -75,21 +98,21 @@ final class LivePreviewGovernorTests: XCTestCase {
         var g = governor()
         g.record(seconds: 0.1)                 // warm-up
         g.recordFailure(seconds: 0.6)          // the model ran: its cost paces the next one
-        XCTAssertEqual(g.interval, 2.0, accuracy: 1e-9)
+        XCTAssertEqual(g.interval, 0.8, accuracy: 1e-9)
         XCTAssertFalse(g.isDisabled)
         g.recordFailure(seconds: 0.1)          // a second failure in a row
         XCTAssertEqual(g.disabledReason, "previews failed")
 
         var slow = governor()
         slow.record(seconds: 0.1)              // warm-up
-        slow.record(seconds: 1.0)              // slow 1
-        slow.recordFailure(seconds: 1.0)       // slow 2, though it failed
+        slow.record(seconds: 1.2)              // slow 1
+        slow.recordFailure(seconds: 1.2)       // slow 2, though it failed
         XCTAssertEqual(slow.disabledReason, "previews can't keep up on this Mac")
 
         var errored = governor()
         errored.record(seconds: 0.6)
         errored.recordFailure()                // the sidecar errored: no decode to pace by
-        XCTAssertEqual(errored.interval, 2.0, accuracy: 1e-9)
+        XCTAssertEqual(errored.interval, 0.8, accuracy: 1e-9)
     }
 
     func testSequenceNumbersOnlyGrowAcrossHolds() {
@@ -176,6 +199,8 @@ private final class FakePreview: @unchecked Sendable {
     var blockUntilCancelled = false
     let release = DispatchSemaphore(value: 0)
     var text = "preview words"
+    /// When set, previews return these texts in turn (then `text`).
+    var texts: [String] = []
     /// When set, every preview comes back without text for this reason…
     var skipped: String?
     /// …after this long "decoding".
@@ -184,7 +209,7 @@ private final class FakePreview: @unchecked Sendable {
     func log(_ event: String) { lock.lock(); events.append(event); lock.unlock() }
     var log: [String] { lock.lock(); defer { lock.unlock() }; return events }
 
-    func hooks(shown: @escaping (String) -> Void = { _ in }) -> LivePreviewSession.Hooks {
+    func hooks(shownLine: @escaping (LivePreviewLine) -> Void = { _ in }) -> LivePreviewSession.Hooks {
         .init(latestSamples: { buffer in
             let total = 48_000   // 3 s so far
             let count = min(buffer.count, total)
@@ -198,11 +223,18 @@ private final class FakePreview: @unchecked Sendable {
                 return LivePreviewResult(text: "", skipped: "cancelled")
             }
             if delay > 0 { Thread.sleep(forTimeInterval: delay) }
-            return LivePreviewResult(text: skipped == nil ? text : "", skipped: skipped)
+            lock.lock()
+            let next = texts.isEmpty ? text : texts.removeFirst()
+            lock.unlock()
+            return LivePreviewResult(text: skipped == nil ? next : "", skipped: skipped)
         }, cancel: { [self] seq in
             log("cancel \(seq)")
             release.signal()
-        }, show: { _, text in shown(text) })
+        }, show: { _, line in shownLine(line) })
+    }
+
+    func hooks(shown: @escaping (String) -> Void) -> LivePreviewSession.Hooks {
+        hooks(shownLine: { shown($0.text) })
     }
 }
 
@@ -227,7 +259,7 @@ final class LivePreviewSessionTests: XCTestCase {
         let fake = FakePreview()
         fake.skipped = "noSpeech"
         fake.delay = 0.06
-        let pacer = pacer { $0.maxInterval = 0.1 }   // slow: over 0.03 s (30% of 0.1 s)
+        let pacer = pacer { $0.maxInterval = 0.1; $0.maxBusyFraction = 0.3 }   // slow: over 0.03 s
         let session = LivePreviewSession(pacer: pacer, hooks: fake.hooks(), tick: 0.01, windowSamples: 16_000)
         session.start()
         waitUntil { !pacer.isEnabled }
@@ -260,7 +292,7 @@ final class LivePreviewSessionTests: XCTestCase {
             let fake = FakePreview()
             fake.skipped = reason
             let pacer = pacer()
-            pacer.record(seconds: 0.6)      // backed off to 2 s apart
+            pacer.record(seconds: 0.6)      // backed off to 0.8 s apart
             pacer.recordFailure()           // one failure so far
             let session = LivePreviewSession(pacer: pacer, hooks: fake.hooks(), tick: 0.01, windowSamples: 16_000)
             session.start()
@@ -268,7 +300,7 @@ final class LivePreviewSessionTests: XCTestCase {
             session.stop()
             XCTAssertEqual(session.currentStats.skipped, [reason: 1])
             XCTAssertEqual(session.currentStats.previewSeconds, [], reason)
-            XCTAssertEqual(pacer.interval, 2.0, accuracy: 1e-9, reason)
+            XCTAssertEqual(pacer.interval, 0.8, accuracy: 1e-9, reason)
             // Nor did it reset the failure streak.
             pacer.recordFailure()
             XCTAssertFalse(pacer.isEnabled, reason)
@@ -293,7 +325,7 @@ final class LivePreviewSessionTests: XCTestCase {
         fake.blockUntilCancelled = true
         let shown = expectation(description: "nothing shown after release")
         shown.isInverted = true
-        let session = LivePreviewSession(pacer: pacer(), hooks: fake.hooks { _ in shown.fulfill() },
+        let session = LivePreviewSession(pacer: pacer(), hooks: fake.hooks(shown: { _ in shown.fulfill() }),
                                          tick: 0.01, windowSamples: 16_000)
         session.start()
         let deadline = Date().addingTimeInterval(5)
@@ -319,14 +351,32 @@ final class LivePreviewSessionTests: XCTestCase {
         let fake = FakePreview()
         let shown = expectation(description: "preview shown")
         shown.assertForOverFulfill = false
-        let session = LivePreviewSession(pacer: pacer(), hooks: fake.hooks { text in
+        let session = LivePreviewSession(pacer: pacer(), hooks: fake.hooks(shown: { text in
             XCTAssertEqual(text, "preview words")
             shown.fulfill()
-        }, tick: 0.01, windowSamples: 16_000)
+        }), tick: 0.01, windowSamples: 16_000)
         session.start()
         wait(for: [shown], timeout: 5)
         session.stop()
         XCTAssertGreaterThan(session.currentStats.shown, 0)
+    }
+
+    func testTheWordsTwoPreviewsAgreeOnAreShownSettled() {
+        let fake = FakePreview()
+        fake.texts = ["ช่วย deploy", "ช่วย deploy เวอร์ชันใหม่"]
+        fake.text = "ช่วย deploy เวอร์ชันใหม่"
+        let lines = Recorder<LivePreviewLine>()
+        let session = LivePreviewSession(pacer: pacer(), hooks: fake.hooks(shownLine: { lines.append($0) }),
+                                         tick: 0.01, windowSamples: 16_000)
+        session.start()
+        waitUntil { lines.all.count >= 3 }
+        session.stop()
+        let shown = lines.all
+        XCTAssertEqual(shown[0], LivePreviewLine(settled: "", tentative: "ช่วย deploy"), "nothing to agree with yet")
+        XCTAssertEqual(shown[1], LivePreviewLine(settled: "ช่วย deploy", tentative: " เวอร์ชันใหม่"))
+        XCTAssertEqual(shown[2], LivePreviewLine(settled: "ช่วย deploy เวอร์ชันใหม่", tentative: ""))
+        XCTAssertEqual(session.currentStats.shownAt.count, session.currentStats.shown)
+        XCTAssertEqual(session.currentStats.shownAt, session.currentStats.shownAt.sorted())
     }
 
     func testAnOffPacerNeverStartsAPreview() {

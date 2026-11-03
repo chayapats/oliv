@@ -1,7 +1,8 @@
 // Offscreen renders of the recording HUD with live-preview text (#26), in light
-// and dark mode, for checking that Thai vowels and tone marks never clip and
-// that the newest words stay visible. Nothing is shown on screen; the sample
-// sentences are made up.
+// and dark mode, for checking that Thai vowels and tone marks never clip, that
+// the newest words stay visible, and that tentative words (#46) read dimmer
+// than settled ones. Nothing is shown on screen; the sample sentences are made
+// up.
 //
 // Skipped unless OLIV_HUD_SNAPSHOT_DIR is set:
 //
@@ -24,6 +25,14 @@ final class LivePreviewHUDSnapshotTests: XCTestCase {
         ("english", "Let's move the standup to ten thirty tomorrow and share the quarterly numbers before lunch"),
     ]
 
+    /// Settled words, then the newest, still-moving ones (#46).
+    static let settling: [(name: String, settled: String, tentative: String)] = [
+        ("settling-thai", "พรุ่งนี้เช้าเก้าโมงประชุมทีม", "ที่ห้องใหญ่ ช่วยเตรียมสไลด์"),
+        ("settling-mixed", "ช่วย deploy เวอร์ชันใหม่ขึ้น staging แล้วเช็ค log ใน Grafana", " ให้หน่อย ถ้า error rate"),
+        ("settling-marks", "ญี่ปุ่นกี่ฤดูที่ผู้ใหญ่ปู่ย่าเล่าสู่กันฟัง", " น้ำค้างแข็งตั้งแต่เดือนสิบเอ็ด"),
+        ("settling-start", "", "สวัสดีครับ วันนี้"),
+    ]
+
     private var outputDir: URL!
 
     override func setUpWithError() throws {
@@ -35,13 +44,17 @@ final class LivePreviewHUDSnapshotTests: XCTestCase {
     }
 
     private func model(phase: HUDPhase, text: String) -> HUDModel {
+        model(phase: phase, line: LivePreviewLine(settled: text, tentative: ""))
+    }
+
+    private func model(phase: HUDPhase, line: LivePreviewLine) -> HUDModel {
         let model = HUDModel()
         model.engineID = SidecarClient.defaultEngine
         for i in 0..<HUDModel.barCount {
             model.push(level: Float(0.35 + 0.3 * sin(Double(i) * 0.7)))
         }
         model.phase = phase
-        model.previewText = LivePreview.tail(text)
+        model.preview = LivePreview.tail(line)
         return model
     }
 
@@ -63,6 +76,10 @@ final class LivePreviewHUDSnapshotTests: XCTestCase {
             try render(model(phase: .processing, text: ""), scheme: scheme, name: "processing")
             for sample in Self.samples {
                 try render(model(phase: .recording, text: sample.text), scheme: scheme, name: "preview-\(sample.name)")
+            }
+            for sample in Self.settling {
+                let line = LivePreviewLine(settled: sample.settled, tentative: sample.tentative)
+                try render(model(phase: .recording, line: line), scheme: scheme, name: "preview-\(sample.name)")
             }
             // Command mode and translation keep their badge on the grown pill.
             for mode in [DictationMode.command, .translate] {

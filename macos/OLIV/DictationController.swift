@@ -989,7 +989,10 @@ final class DictationController {
         if let previewTranscriber {
             transcribe = previewTranscriber
         } else if let sidecar {
-            transcribe = { samples, engine, seq in try sidecar.preview(samples: samples, engine: engine, seq: seq) }
+            let options = previewOptions(engine: engine)
+            transcribe = { samples, engine, seq in
+                try sidecar.preview(samples: samples, engine: engine, seq: seq, cleanup: options)
+            }
         } else {
             transcribe = nil
         }
@@ -1000,19 +1003,33 @@ final class DictationController {
             latestSamples: { worker.copyLatestSamples(into: &$0) },
             transcribe: { samples, seq in try transcribe(samples, engine, seq) },
             cancel: cancel,
-            show: { [weak self] session, text in
+            show: { [weak self] session, line in
                 DispatchQueue.main.async {
-                    MainActor.assumeIsolated { self?.showPreview(text, from: session) }
+                    MainActor.assumeIsolated { self?.showPreview(line, from: session) }
                 }
             }))
         previewSession = session
         session.start()
     }
 
-    private func showPreview(_ text: String, from session: LivePreviewSession) {
+    /// The options for a preview's light cleanup (#46): what the final pass
+    /// would use if the key came up now — the frontmost app's verbatim
+    /// setting, the Dictionary, formatting — minus names on screen. The
+    /// sidecar runs only the deterministic steps; never the cleanup model.
+    func previewOptions(engine: String) -> DictationOptions {
+        let cleanup = Self.resolveCleanup(globalEnabled: cleanupEnabled, verbatimApps: verbatimApps,
+                                          frontmostBundleID: frontmostBundleID())
+        return Self.dictationOptions(
+            engine: engine, cleanup: cleanup, removeFillers: removeFillers,
+            entries: dictionaryEntries, legacySnippets: legacySnippets,
+            serverAppliesDictionary: dictionarySync?.serverAppliesDictionary == true,
+            formatCommands: formatCommands && recordingMode != .command, thaiFormat: thaiFormat)
+    }
+
+    private func showPreview(_ line: LivePreviewLine, from session: LivePreviewSession) {
         guard previewSession === session, appState.status == .recording else { return }
-        previewObserver?(text)
-        hud?.update(preview: text)
+        previewObserver?(line.text)
+        hud?.update(preview: line)
     }
 
     /// Release (or teardown): no more previews, and the one in flight is

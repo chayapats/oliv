@@ -59,10 +59,13 @@ Sparkle appcast's release notes, so keep entries short and end-user readable.
   on-device text processing, not yet with the OLIV API engine or the free
   trial.
 - **See your words while you speak.** While you hold the key, the recording
-  indicator shows what OLIV has heard so far, so you know early if it misheard.
-  It's a quick on-device preview: the text OLIV types still comes from the full
-  pass after you let go, just as fast as before. On-device engines only; a Mac
-  that can't keep up turns it off by itself. Turn it off in Settings › General.
+  indicator shows what OLIV has heard so far, updated a few times a second, so
+  you know early if it misheard. Words that have stopped changing are solid and
+  the newest ones dimmer, and English terms, your Dictionary words and numbers
+  already look the way they'll be typed. It's a quick on-device preview: the
+  text OLIV types still comes from the full pass after you let go, just as fast
+  as before. On-device engines only; a slower Mac updates it less often, and
+  turns it off if it can't keep up. Turn it off in Settings › General.
 - **Corrections that lead into each other apply once.** With rules like
   `foo → docker` and `docker → X`, a word OLIV already corrected is no longer
   corrected again after the cleanup model changes its capitals or spacing.

@@ -77,7 +77,7 @@ final class RecordingHUDController {
         if phase == .recording && (!isVisible || model.phase != .recording) {
             model.resetHistory()
         }
-        if phase != .recording || !isVisible { model.previewText = "" }
+        if phase != .recording || !isVisible { model.preview = LivePreviewLine(settled: "", tentative: "") }
         model.phase = phase
         applyOverlayChrome(panel)
         position(panel)
@@ -108,13 +108,14 @@ final class RecordingHUDController {
         model.push(level: level)
     }
 
-    /// Live preview (#26): the newest words, tail first. Recording only; the
-    /// pill grows once and keeps its size until the key comes up.
-    func update(preview text: String) {
+    /// Live preview (#26): the newest words, tail first; settled words solid,
+    /// tentative ones dimmer (#46). Recording only; the pill grows once and
+    /// keeps its size until the key comes up.
+    func update(preview line: LivePreviewLine) {
         guard isVisible, model.phase == .recording else { return }
-        let tail = LivePreview.tail(text)
-        guard !tail.isEmpty, tail != model.previewText else { return }
-        model.previewText = tail
+        let tail = LivePreview.tail(line)
+        guard !tail.isEmpty, tail != model.preview else { return }
+        model.preview = tail
     }
 
     /// Acknowledge a hotkey press that arrived while still processing: pulse
@@ -262,9 +263,15 @@ final class HUDModel: ObservableObject {
     @Published var noticeText = ""
     @Published var noticeSymbol = "exclamationmark.circle"
     /// Live preview (#26): already tail-truncated; empty = compact pill.
-    @Published var previewText = ""
+    @Published var preview = LivePreviewLine(settled: "", tentative: "")
 
-    var showsPreview: Bool { phase == .recording && !previewText.isEmpty }
+    /// The preview as plain text; setting it makes all of it tentative.
+    var previewText: String {
+        get { preview.text }
+        set { preview = LivePreviewLine(settled: "", tentative: newValue) }
+    }
+
+    var showsPreview: Bool { phase == .recording && !preview.isEmpty }
 
     private let smoothing: Float = 0.35   // how far each sample pulls the value
 
@@ -414,9 +421,10 @@ private struct LivePreviewPillContent: View {
                 }
                 .frame(width: 140, height: 16)
             }
-            Text(model.previewText)
+            // Settled words solid; the newest, still-moving ones dimmer.
+            (Text(model.preview.settled).foregroundStyle(.primary)
+                + Text(model.preview.tentative).foregroundStyle(.secondary))
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.primary)
                 .lineSpacing(2)
                 .lineLimit(2)
                 .truncationMode(.head)
