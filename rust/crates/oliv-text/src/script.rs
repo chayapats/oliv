@@ -4,6 +4,10 @@
 //! the cleanup model wrote a Hangul syllable into one Thai name and Lao letters
 //! into another.
 
+use std::sync::LazyLock;
+
+use regex::Regex;
+
 use crate::pyu::{is_space, is_thai};
 
 /// Latin letters with their diacritics, IPA and the Latin extensions.
@@ -19,7 +23,8 @@ fn is_latin(c: char) -> bool {
 }
 
 /// Blocks of other scripts, so their combining marks (a Lao tone mark, a
-/// virama), which are not letters, count as well.
+/// virama), which are not letters, count as well. Only marks: their digits,
+/// currency signs and punctuation (Khmer ០–៩ and ៛, a danda) are kept.
 fn in_other_script_block(c: char) -> bool {
     matches!(c,
         '\u{0370}'..='\u{0dff}'
@@ -37,15 +42,23 @@ fn in_other_script_block(c: char) -> bool {
         | '\u{ff66}'..='\u{ffdc}')
 }
 
+static MARK: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\p{M}$").unwrap());
+
+/// A combining mark (Unicode category M).
+fn is_mark(c: char) -> bool {
+    let mut buf = [0u8; 4];
+    MARK.is_match(c.encode_utf8(&mut buf))
+}
+
 /// A letter or mark of a script other than Thai and Latin, or U+FFFD (a byte
 /// the recognizer could not decode). Digits, punctuation, symbols, emoji and
-/// whitespace are not foreign.
+/// whitespace are not foreign, whichever script they belong to.
 pub fn is_foreign(c: char) -> bool {
     c == '\u{fffd}'
         || (!is_thai(c)
             && !is_latin(c)
             && !is_space(c)
-            && (c.is_alphabetic() || in_other_script_block(c)))
+            && (c.is_alphabetic() || (in_other_script_block(c) && is_mark(c))))
 }
 
 /// Whether `output` has a foreign char that `input` does not: a rewrite that
@@ -67,12 +80,29 @@ mod tests {
         {
             assert!(!is_foreign(c), "{c:?}");
         }
+        // Other scripts' digits, currency signs and punctuation: a price in
+        // Khmer digits and riel, a Devanagari danda, a fullwidth comma.
+        for c in "០១២៣៤៥៦៧៨៩៛។\u{964}\u{ff0c}".chars() {
+            assert!(!is_foreign(c), "{c:?}");
+        }
         // Hangul, Han, kana, Lao (letter, vowel sign, tone mark), Cyrillic,
         // Greek, Arabic, Devanagari, fullwidth Latin, U+FFFD.
         for c in "투谢あア\u{e8a}\u{eb1}\u{ec8}\u{410}\u{3bc}\u{633}\u{915}\u{ff54}\u{fffd}".chars()
         {
             assert!(is_foreign(c), "{c:?}");
         }
+    }
+
+    #[test]
+    fn foreign_strip_keeps_other_scripts_digits_and_currency() {
+        assert_eq!(
+            crate::hallucination::strip_foreign("ราคา ១០០៛"),
+            "ราคา ១០០៛"
+        );
+        assert_eq!(
+            crate::hallucination::strip_foreign("ราคา ១០០៛ 투"),
+            "ราคา ១០០៛"
+        );
     }
 
     #[test]

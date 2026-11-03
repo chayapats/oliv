@@ -252,6 +252,27 @@ pub fn protect_listed_terms(dict_text: &str, cand: &str, vocab: &[String]) -> (S
 }
 
 /// Sets `marks` over every occurrence of `term` in `text`.
+/// `mark`, but a term that starts or ends with an ASCII letter or digit
+/// only matches whole there: `NAT` doesn't mark the start of `Nattapong`.
+/// Thai edges still match inside text, which has no spaces between words.
+fn mark_whole(text: &[char], term: &[char], marks: &mut [bool]) {
+    if term.is_empty() || term.len() > text.len() {
+        return;
+    }
+    let alnum = |c: &char| c.is_ascii_alphanumeric();
+    for i in 0..=text.len() - term.len() {
+        let j = i + term.len();
+        if text[i..j] != *term {
+            continue;
+        }
+        let open = !term.first().is_some_and(alnum) || i == 0 || !alnum(&text[i - 1]);
+        let close = !term.last().is_some_and(alnum) || j == text.len() || !alnum(&text[j]);
+        if open && close {
+            marks[i..j].iter_mut().for_each(|p| *p = true);
+        }
+    }
+}
+
 fn mark(text: &[char], term: &[char], marks: &mut [bool]) {
     if term.is_empty() || term.len() > text.len() {
         return;
@@ -408,7 +429,7 @@ pub fn keep_thai_speech(dict_text: &str, cand: &str, vocab: &[String]) -> (Strin
     let low: Vec<char> = b.iter().map(char::to_ascii_lowercase).collect();
     for term in vocab.iter().map(|t| strip(t)) {
         let term: Vec<char> = term.chars().map(|c| c.to_ascii_lowercase()).collect();
-        mark(&low, &term, &mut listed);
+        mark_whole(&low, &term, &mut listed);
     }
     let spans = token_spans(dict_text);
     let runs = align(&a, &b);
@@ -586,6 +607,8 @@ mod thai_speech_tests {
         // A listed Latin spelling is what the user asked for.
         let cand = "นัดคุณ Nattapong ไว้บ่ายสอง";
         assert_eq!(k(dict, cand, &["Nattapong"]), (cand.to_string(), 0));
+        // …but only the whole term: a listed NAT is not Nattapong.
+        assert_eq!(k(dict, cand, &["NAT"]), (dict.to_string(), 1));
     }
 
     #[test]
