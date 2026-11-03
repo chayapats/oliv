@@ -259,6 +259,11 @@ final class SelectionReader {
         guard let nowElement = now.element else { return .unverifiable }
         guard nowElement == element else { return .changed }
         if let window = was.window, now.window != window { return .changed }
+        // Apps that don't expose a selection range (Electron: Slack, VS Code)
+        // are checked by app, field, window and selected text only. Selecting
+        // an identical copy of the same text elsewhere while the model runs
+        // would get the edit; that is accepted on purpose, so these apps keep
+        // in-place replacement, and undo-last-paste puts the text back.
         if let range = was.selectedRange {
             guard let nowRange = now.selectedRange else { return .unverifiable }
             guard nowRange == range else { return .changed }
