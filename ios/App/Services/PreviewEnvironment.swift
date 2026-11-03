@@ -1,4 +1,5 @@
 #if DEBUG
+import AVFoundation
 import Foundation
 import Observation
 import OlivCore
@@ -23,7 +24,8 @@ enum PreviewEnvironment {
         let model = AppModel(directory: directory,
             credentials: MemoryCredentialStore(token: firstRun ? nil : "fixture-token"),
             capture: FixtureAudioCapture(directory: directory,
-                                         synthesizesSpeechObservations: automaticKeyboardFixture),
+                                         synthesizesSpeechObservations: automaticKeyboardFixture,
+                                         asksSystemForPermission: args.contains("--system-microphone-permission")),
             liveActivitiesEnabled: false,
             keyboardDelivery: !realAudioFixture && (args.contains("--keyboard-test-host") || args.contains("--keyboard-integration-demo"))
                 ? KeyboardDeliveryCoordinator.makeDefault() : nil,
@@ -254,8 +256,19 @@ actor FixtureOlivService: OlivServing {
 @MainActor
 final class FixtureAudioCapture: AudioCapturing {
     let recoveryURL: URL
-    var hasPermission = true
-    var permissionDenied = false
+    /// Recording stays synthetic, but the permission is the real one: a UI test
+    /// can refuse iOS's prompt and visit OLIV's page in iPhone Settings.
+    private let asksSystemForPermission: Bool
+    private var fixedPermission = true
+    private var fixedDenial = false
+    var hasPermission: Bool {
+        get { asksSystemForPermission ? AVAudioApplication.shared.recordPermission == .granted : fixedPermission }
+        set { fixedPermission = newValue }
+    }
+    var permissionDenied: Bool {
+        get { asksSystemForPermission ? AVAudioApplication.shared.recordPermission == .denied : fixedDenial }
+        set { fixedDenial = newValue }
+    }
     var onInterruption: (() -> Void)?
     var startedAt: Date?
     var startCount = 0
@@ -265,11 +278,15 @@ final class FixtureAudioCapture: AudioCapturing {
     private let synthesizesSpeechObservations: Bool
     private var speechDetectionEnabled = false
     private var nextSpeechWindow = 0
-    init(directory: URL, synthesizesSpeechObservations: Bool = false) {
+    init(directory: URL, synthesizesSpeechObservations: Bool = false, asksSystemForPermission: Bool = false) {
         recoveryURL = directory.appendingPathComponent("fixture-inflight.wav")
         self.synthesizesSpeechObservations = synthesizesSpeechObservations
+        self.asksSystemForPermission = asksSystemForPermission
     }
-    func requestPermission() async -> Bool { hasPermission }
+    func requestPermission() async -> Bool {
+        guard asksSystemForPermission, !hasPermission else { return hasPermission }
+        return await AVAudioApplication.requestRecordPermission()
+    }
     func start() throws { try start(detectSpeech: false) }
     func start(detectSpeech: Bool) throws {
         if let startError { throw startError }

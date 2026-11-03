@@ -25,6 +25,9 @@ args=()
 if [[ "${OLIV_RUN_MICROPHONE_TESTS:-0}" != "1" ]]; then
   args+=("-skip-testing:OlivTests/AppModelTests/testRealAudioRecorderProducesCompatiblePCMWithoutNetworking")
   args+=("-skip-testing:OlivTests/AudioPipelineTests/testRealAutomaticCaptureEngineRecordsAnalyzesAndRestartsWithoutNetworking")
+else
+  # The setup UI test refuses iOS's microphone prompt, then leaves it undecided.
+  xcrun simctl privacy "$OLIV_SIMULATOR_ID" grant microphone com.chayapat.oliv.ios
 fi
 xcodebuild -project Oliv.xcodeproj -scheme Oliv \
   -destination "platform=iOS Simulator,id=$OLIV_SIMULATOR_ID" \

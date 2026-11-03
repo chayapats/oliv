@@ -50,6 +50,54 @@ final class OlivUITests: XCTestCase {
         XCTAssertTrue(app.switches["ownServerToggle"].waitForExistence(timeout: 3))
     }
 
+    /// Build 19 left only "Open Settings" here, so someone who refused, or whose
+    /// device policy forbids the microphone, could never leave setup.
+    @MainActor
+    func testRefusedMicrophoneStillLeadsOutOfSetup() {
+        let app = XCUIApplication()
+        // The real iOS permission; recording and the server stay simulated.
+        app.resetAuthorizationStatus(for: .microphone)
+        // Leave the simulator undecided, as a new install would be, not refused.
+        addTeardownBlock { @MainActor in XCUIApplication().resetAuthorizationStatus(for: .microphone) }
+        app.launchArguments = ["--ui-testing", "--first-run", "--system-microphone-permission"]
+        app.launch()
+        tap(app.buttons["startTrialButton"], in: app)
+        tap(app.buttons["allowMicrophoneButton"], in: app)
+        refuseMicrophonePrompt()
+        assertWayForwardWithoutMicrophone(in: app)
+        attachScreenshot(app, named: "OLIV-setup-microphone-refused")
+
+        tap(app.buttons["openSettingsButton"], in: app)
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        XCTAssertTrue(settings.wait(for: .runningForeground, timeout: 20), "Open Settings must reach iPhone Settings")
+        app.activate()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
+
+        // Still refused after the round trip: the way forward must remain.
+        assertWayForwardWithoutMicrophone(in: app)
+        tap(app.buttons["skipMicrophoneButton"], in: app)
+        XCTAssertTrue(app.tabBars.buttons["Capture"].waitForExistence(timeout: 5), "Skipping must leave setup")
+        XCTAssertFalse(app.buttons["skipMicrophoneButton"].exists)
+    }
+
+    @MainActor
+    private func assertWayForwardWithoutMicrophone(in app: XCUIApplication,
+                                                   file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(app.buttons["openSettingsButton"].waitForExistence(timeout: 5),
+                      "A refused microphone should offer iPhone Settings", file: file, line: line)
+        XCTAssertTrue(app.buttons["skipMicrophoneButton"].exists,
+                      "A refused microphone must not trap someone in setup", file: file, line: line)
+    }
+
+    @MainActor
+    private func refuseMicrophonePrompt(file: StaticString = #filePath, line: UInt = #line) {
+        let alert = XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.firstMatch
+        XCTAssertTrue(alert.waitForExistence(timeout: 10), "iOS should ask for the microphone", file: file, line: line)
+        // "Don’t Allow" is the first button; match its start, not the apostrophe.
+        let refuse = alert.buttons.matching(NSPredicate(format: "label BEGINSWITH[c] %@", "Don")).firstMatch
+        (refuse.exists ? refuse : alert.buttons.element(boundBy: 0)).tap()
+    }
+
     @MainActor
     func testFirstRunOffersAnExistingKeyWithoutTrial() {
         let app = launch(["--first-run"])

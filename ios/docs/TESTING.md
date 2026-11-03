@@ -35,6 +35,29 @@ Still open:
 - These runs used a quiet room's no-speech path. The insertion and upload paths are covered by earlier evidence and unit tests, not by this table.
 - Toggle OLIV from Action Button → Controls and from Control Center hasn't been run: the test phone's button is assigned a shortcut.
 
+## Refused microphone in setup — build 20
+
+Build 19's setup offered only **Open Settings** once the microphone was refused,
+so anyone who couldn't or wouldn't allow it was stuck in setup. `main` adds
+**Skip for now**, which ends setup. Checked on 2026-11-03 on an iPhone 17 Pro
+simulator, iOS 26.4.1, with Xcode 27:
+
+- `OlivUITests/testRefusedMicrophoneStillLeadsOutOfSetup` starts the trial
+  with fixtures but uses the real permission (`--system-microphone-permission`):
+  it resets the permission, taps **Don't Allow** on iOS's prompt, follows
+  **Open Settings** into iPhone Settings, comes back, and leaves setup with
+  **Skip for now**. With build 19's `SetupView` the same test fails because
+  there is no Skip.
+- Allowing the microphone while OLIV waits in Settings (`simctl privacy grant`)
+  ends OLIV's process (signal 9), as iOS does when a permission changes. On the
+  next launch, the microphone step moves straight on to **Try it now**. A real
+  install resumes setup at that step, because the trial key and the unfinished
+  setup are saved (`testReopeningContinuesSetupThatTheTrialStarted`).
+
+Every other step already had a way forward: **I have an API key** on the
+first, **Skip for now** or **Next** on the practice and keyboard steps, and
+**Finish** on the last.
+
 ## Host keyboard crash and Safari completion — 2026-10-30
 
 **Keyboard missing in some apps (fixed).** Two device crash reports from build 14 (`OlivKeyboard`, iOS 27.0.1) share one stack: `viewDidAppear → requestBridgeEvent → refreshFocus → UUID._unconditionallyBridgeFromObjectiveC`, `EXC_BREAKPOINT`/SIGTRAP. Swift imports `UITextDocumentProxy.documentIdentifier` as non-optional, but the remote proxy returns nil whenever no host text session is attached. A probe logged nil in every `viewDidLoad`, before the first document callback, and in every `viewWillDisappear`. `viewDidAppear` arrives through UIKit's queueing proxy and can land after a host has already dropped focus. The trap killed the extension, so the field showed no keyboard until it was refocused (the "tap elsewhere, tap again" report). The crashing path requires Full Access.
