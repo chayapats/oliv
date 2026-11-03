@@ -74,7 +74,7 @@ Then you fix every word by hand. OLIV turns the English words back into English,
 - **The cleanup step makes the difference.** On the held-out set, accuracy drops to 60% without it.
 - **OLIV's raw speech model is not the strongest.** Whisper large-v3 transcribes slightly better before cleanup. OLIV wins on the full pipeline while staying local and about half the size. All results were re-measured on 0.2.2 (28 October 2026).
 - **Names are tested on a public benchmark too.** On [Thai ContextASR Bench](https://huggingface.co/datasets/wayu-ai/thai-contextasr-bench) (2,062 utterances from many voices), OLIV 0.2.2 recognizes 63% of the names and terms on a supplied list, up from 46% before. See the [method and results](benchmark/contextasr.md).
-- **These numbers have limits.** "Meaning match" is LaBSE semantic similarity of at least 0.80, not word-for-word accuracy. All clips were recorded by one speaker (the developer), so other voices, accents and noisy rooms are untested. Names and numbers can be wrong even when the meaning counts as a match, so check before you send.
+- **These numbers have limits.** "Meaning match" is LaBSE semantic similarity of at least 0.80, not word-for-word accuracy. All clips were recorded by one speaker (the developer). On FLEURS Thai, read by many speakers, 95% of recordings kept their meaning, though the exact wording varied with the voice ([details](benchmark/speakers.md)). Recordings by other people on their own Macs and in noisy rooms are still to come. Names and numbers can be wrong even when the meaning counts as a match, so check before you send.
 
 The [interactive benchmark](https://chayapats.github.io/oliv/) includes failures, playable audio and the full method.
 

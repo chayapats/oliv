@@ -37,7 +37,8 @@ similarity to the reference is at least 0.80.
 On all 264 clips the full pipeline scores WER 0.145 and CER 0.092, with a median
 of about 1.0 s from releasing the key to text. [Wispr Flow](https://chayapats.github.io/oliv/oliv-vs-wispr.html)
 scored 92.8% on the same 264 clips (median 1.4 s). One speaker recorded every
-clip, so other voices, accents and noisy rooms are untested.
+clip; [Other voices](#other-voices) has a multi-voice estimate on FLEURS Thai
+and the kit for measuring other people.
 
 ## Run it yourself
 
@@ -93,6 +94,27 @@ excluded from the default offline sweep.
 `oliv-dev contextasr` runs the public Thai ContextASR Bench (contextual biasing
 with mixed Thai/Latin vocabulary lists) through the same sidecar; see
 [contextasr.md](contextasr.md) for setup, metrics, scorer parity and results.
+
+## Other voices
+
+The numbers above come from one speaker. `oliv-dev speakers` measures other
+voices with the same pipeline and metric; see [speakers.md](speakers.md) for
+the full procedure and the latest results.
+
+```sh
+build/native-tools/oliv-dev speakers kit       # private 30-sentence kit + consent note + Mac recording script
+# each speaker: benchmark/data/speakers/<pseudonym>/consent.json and <kit id>.m4a files
+build/native-tools/oliv-dev speakers score --model-dir /path/to/LaBSE/snapshot
+bash scripts/fetch_fleurs_th.sh                # public multi-voice proxy (FLEURS Thai, CC-BY-4.0)
+build/native-tools/oliv-dev speakers fleurs --model-dir /path/to/LaBSE/snapshot --sentences 80
+```
+
+`score` reports meaning match, WER, CER and latency per speaker and per group,
+next to the developer's recordings of the same sentences, with a paired
+bootstrap interval. `fleurs` compares readers of the same FLEURS sentence to
+show how much the result depends on the voice. The kit and every per-clip file
+stay in gitignored directories; `report.md` and `summary.json` hold aggregates
+only.
 
 Voice recordings, manifests and per-clip reports remain private and untracked.
 Record your own corpus following `data/manifest.example.jsonl`. Reports never
