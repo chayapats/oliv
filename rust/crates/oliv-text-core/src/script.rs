@@ -2,13 +2,13 @@
 //! any other script (Hangul, Han, kana, Lao, Cyrillic, ...) in a transcript is a
 //! recognition artifact, and in a cleanup result a model error: on FLEURS Thai
 //! the cleanup model wrote a Hangul syllable into one Thai name and Lao letters
-//! into another.
+//! into another. Shared by the Mac pipeline (`oliv-text`) and the OLIV server.
 
 use std::sync::LazyLock;
 
 use regex::Regex;
 
-use crate::pyu::{is_space, is_thai};
+use crate::pyu::{is_space, is_thai, strip};
 
 /// Latin letters with their diacritics, IPA and the Latin extensions.
 fn is_latin(c: char) -> bool {
@@ -67,6 +67,45 @@ pub fn adds_foreign(input: &str, output: &str) -> bool {
     output.chars().any(|c| is_foreign(c) && !input.contains(c))
 }
 
+/// `_strip_cjk` for every script but Thai and Latin ([`is_foreign`]), plus
+/// undecodable bytes (U+FFFD); not in the Python reference. OLIV dictates
+/// Thai and English, so such letters in a transcript are recognition artifacts
+/// (a Cyrillic tail after a hallucinated FLEURS transcript), never words to type.
+pub fn strip_foreign(text: &str) -> String {
+    strip_chars(text, is_foreign)
+}
+
+/// `text` without the chars `drop` selects, whitespace runs then squeezed to
+/// one space (`re.sub(r"\s{2,}", " ", ...)`) and the ends stripped, as in
+/// `_strip_cjk`; `text` unchanged if it has no such char.
+pub fn strip_chars(text: &str, drop: fn(char) -> bool) -> String {
+    if !text.chars().any(drop) {
+        return text.to_string();
+    }
+    let kept: Vec<char> = text.chars().filter(|&c| !drop(c)).collect();
+    // re.sub(r"\s{2,}", " ", ...)
+    let mut out = String::with_capacity(text.len());
+    let mut i = 0;
+    while i < kept.len() {
+        if is_space(kept[i]) {
+            let mut j = i;
+            while j < kept.len() && is_space(kept[j]) {
+                j += 1;
+            }
+            if j - i >= 2 {
+                out.push(' ');
+            } else {
+                out.push(kept[i]);
+            }
+            i = j;
+        } else {
+            out.push(kept[i]);
+            i += 1;
+        }
+    }
+    strip(&out).to_string()
+}
+
 #[cfg(test)]
 mod tests {
     use super::{adds_foreign, is_foreign};
@@ -95,14 +134,8 @@ mod tests {
 
     #[test]
     fn foreign_strip_keeps_other_scripts_digits_and_currency() {
-        assert_eq!(
-            crate::hallucination::strip_foreign("ราคา ១០០៛"),
-            "ราคา ១០០៛"
-        );
-        assert_eq!(
-            crate::hallucination::strip_foreign("ราคา ១០០៛ 투"),
-            "ราคา ១០០៛"
-        );
+        assert_eq!(super::strip_foreign("ราคา ១០០៛"), "ราคา ១០០៛");
+        assert_eq!(super::strip_foreign("ราคา ១០០៛ 투"), "ราคา ១០០៛");
     }
 
     #[test]

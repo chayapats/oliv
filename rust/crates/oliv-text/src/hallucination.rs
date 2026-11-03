@@ -4,6 +4,9 @@
 use std::collections::HashMap;
 
 use crate::pyu::{casefold, collapse_ws, is_space, is_word, lower, remove_ws, split_ws, strip};
+use crate::script::strip_chars;
+/// The foreign-script strip lives in `oliv-text-core`, shared with the server.
+pub use crate::script::strip_foreign;
 
 fn is_cjk(c: char) -> bool {
     matches!(c,
@@ -17,42 +20,6 @@ fn is_cjk(c: char) -> bool {
 /// `_strip_cjk`: drop CJK / kana / hangul, then squeeze whitespace runs.
 pub fn strip_cjk(text: &str) -> String {
     strip_chars(text, is_cjk)
-}
-
-/// [`strip_cjk`] for every script but Thai and Latin ([`crate::script::is_foreign`]),
-/// plus undecodable bytes (U+FFFD); not in the Python reference. OLIV dictates
-/// Thai and English, so such letters in a transcript are recognition artifacts
-/// (a Cyrillic tail after a hallucinated FLEURS transcript), never words to type.
-pub fn strip_foreign(text: &str) -> String {
-    strip_chars(text, crate::script::is_foreign)
-}
-
-fn strip_chars(text: &str, drop: fn(char) -> bool) -> String {
-    if !text.chars().any(drop) {
-        return text.to_string();
-    }
-    let kept: Vec<char> = text.chars().filter(|&c| !drop(c)).collect();
-    // re.sub(r"\s{2,}", " ", ...)
-    let mut out = String::with_capacity(text.len());
-    let mut i = 0;
-    while i < kept.len() {
-        if is_space(kept[i]) {
-            let mut j = i;
-            while j < kept.len() && is_space(kept[j]) {
-                j += 1;
-            }
-            if j - i >= 2 {
-                out.push(' ');
-            } else {
-                out.push(kept[i]);
-            }
-            i = j;
-        } else {
-            out.push(kept[i]);
-            i += 1;
-        }
-    }
-    strip(&out).to_string()
 }
 
 const HALLUCINATION_PHRASES: [&str; 15] = [

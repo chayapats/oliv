@@ -1,10 +1,12 @@
 //! Portable OLIV text pipeline, extracted from the OLIV server (`server/`).
 //!
 //! The deterministic text core (segmentation, dictionary, numbers, phonetic
-//! matching, metrics) lives in `oliv-text-core`, shared with the OLIV server; it is
-//! re-exported here so `crate::pyu` etc. keep working.
+//! matching, metrics, the script and Thai-speech cleanup guards) lives in
+//! `oliv-text-core`, shared with the OLIV server; it is re-exported here so
+//! `crate::pyu` etc. keep working.
 pub use oliv_text_core::{
-    data, dictionary, metrics, phonetic, pyu, royin, tokenize, trie, user_dictionary, wordtonum,
+    cleanup_guard, data, dictionary, metrics, phonetic, pyu, royin, script, tokenize, trie,
+    user_dictionary, wordtonum,
 };
 
 pub mod audio;
@@ -18,7 +20,6 @@ pub mod llm;
 pub mod local;
 pub mod pipeline;
 mod prompts_text;
-pub mod script;
 pub mod spacing;
 pub mod stt;
 pub mod thai_format;

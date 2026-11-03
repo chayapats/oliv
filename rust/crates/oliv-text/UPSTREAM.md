@@ -13,9 +13,10 @@ Thai corpus files retain their separate `data/LICENSE-pythainlp` license.
 
 Extraction removes HTTP server/config/inference adapters from the core,
 and keeps the pure LLM/STT contracts. The deterministic text modules
-(segmentation, dictionary, numbers, romanization, phonetic matching, metrics)
-and the embedded corpus data live in the sibling `oliv-text-core` crate, which
-the server in `server/` also depends on; this crate re-exports them.
+(segmentation, dictionary, numbers, romanization, phonetic matching, metrics,
+the script and Thai-speech cleanup guards) and the embedded corpus data live in
+the sibling `oliv-text-core` crate, which the server in `server/` also
+depends on; this crate re-exports them.
 Mac-specific extensions live in `commands.rs`, `audio.rs`, and `local.rs`.
 Corpus-derived upstream goldens are excluded from this public repository.
 Public fixtures are frozen from public test literals and synthetic examples
