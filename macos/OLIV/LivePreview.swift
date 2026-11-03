@@ -225,6 +225,11 @@ struct LivePreviewGovernor: Equatable {
         /// No preview before this much audio, or before this much is new.
         var minAudio: TimeInterval = 0.5
         var minNewAudio: TimeInterval = 0.25
+        /// A preview the sidecar found silent never reached the model, so it
+        /// cost next to nothing: the next one may start this soon after it,
+        /// with this much new audio, so the first words aren't held back by
+        /// the silence before them. nil: paced like any other preview.
+        var afterSilence: TimeInterval? = 0.1
         /// The first measured preview of the run warms the GPU kernels; it
         /// paces the next one but never counts as slow.
         var warmUpPreviews = 1
@@ -232,7 +237,7 @@ struct LivePreviewGovernor: Equatable {
         /// The policy before #46 (1–3 s apart, 30% of the GPU, from 1 s of
         /// audio), for the harness's before/after comparison.
         static let beforeShortEncode = Policy(minInterval: 1.0, maxInterval: 3.0, maxBusyFraction: 0.3,
-                                              minAudio: 1.0, minNewAudio: 0.5)
+                                              minAudio: 1.0, minNewAudio: 0.5, afterSilence: nil)
     }
 
     enum Decision: Equatable { case start, wait, busy, off }
@@ -252,14 +257,18 @@ struct LivePreviewGovernor: Equatable {
 
     var isDisabled: Bool { disabledReason != nil }
 
+    /// `lastWasSilent`: the last preview was skipped as silence (see
+    /// `Policy.afterSilence`).
     func decide(now: TimeInterval, lastStart: TimeInterval?, inFlight: Bool,
-                audioSeconds: Double, previewedAudioSeconds: Double) -> Decision {
+                audioSeconds: Double, previewedAudioSeconds: Double, lastWasSilent: Bool = false) -> Decision {
         if isDisabled { return .off }
         if inFlight { return .busy }
-        if audioSeconds < policy.minAudio || audioSeconds - previewedAudioSeconds < policy.minNewAudio {
+        let quick = lastWasSilent ? policy.afterSilence : nil
+        if audioSeconds < policy.minAudio
+            || audioSeconds - previewedAudioSeconds < min(policy.minNewAudio, quick ?? .infinity) {
             return .wait
         }
-        if let lastStart, now - lastStart < interval { return .wait }
+        if let lastStart, now - lastStart < min(interval, quick ?? .infinity) { return .wait }
         return .start
     }
 
@@ -334,10 +343,12 @@ final class LivePreviewPacer: @unchecked Sendable {
     func nextSeq() -> Int { sequence.next() }
 
     func decide(now: TimeInterval, lastStart: TimeInterval?, inFlight: Bool,
-                audioSeconds: Double, previewedAudioSeconds: Double) -> LivePreviewGovernor.Decision {
+                audioSeconds: Double, previewedAudioSeconds: Double,
+                lastWasSilent: Bool = false) -> LivePreviewGovernor.Decision {
         lock.lock(); defer { lock.unlock() }
         return governor.decide(now: now, lastStart: lastStart, inFlight: inFlight,
-                               audioSeconds: audioSeconds, previewedAudioSeconds: previewedAudioSeconds)
+                               audioSeconds: audioSeconds, previewedAudioSeconds: previewedAudioSeconds,
+                               lastWasSilent: lastWasSilent)
     }
 
     func record(seconds: Double) {
@@ -411,6 +422,8 @@ final class LivePreviewSession: @unchecked Sendable {
     private var startedAt: TimeInterval?
     /// The last preview that had text, for what is settled (LivePreview.line).
     private var lastText: String?
+    /// The last preview came back "silent" (it never reached the model).
+    private var lastSilent = false
     private var stats = Stats()
     private let stopLock = NSLock()
     private var stopped = false
@@ -461,7 +474,8 @@ final class LivePreviewSession: @unchecked Sendable {
         let total = hooks.latestSamples(&none).total
         let audioSeconds = Double(total) / LivePreview.sampleRate
         switch pacer.decide(now: now(), lastStart: lastStart, inFlight: inFlight != nil,
-                            audioSeconds: audioSeconds, previewedAudioSeconds: previewedAudio) {
+                            audioSeconds: audioSeconds, previewedAudioSeconds: previewedAudio,
+                            lastWasSilent: lastSilent) {
         case .busy:
             stats.skippedBusy += 1
             return
@@ -500,6 +514,7 @@ final class LivePreviewSession: @unchecked Sendable {
     private func finish(seq: Int, result: LivePreviewResult?, elapsed: Double, audioSeconds: Double) {
         guard inFlight == seq else { return }
         inFlight = nil
+        lastSilent = result?.skipped == "silent"
         if let stoppedAt {
             let waited = now() - stoppedAt
             stats.releaseWait = waited

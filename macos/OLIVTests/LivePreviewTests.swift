@@ -21,6 +21,25 @@ final class LivePreviewGovernorTests: XCTestCase {
         XCTAssertEqual(g.decide(now: 10.5, lastStart: 10, inFlight: false, audioSeconds: 2.3, previewedAudioSeconds: 2), .start)
     }
 
+    func testAPreviewFoundSilentDoesntHoldBackTheNext() {
+        var g = governor()
+        g.record(seconds: 0.6)          // 0.8 s apart
+        // After a decode: the full interval and 0.25 s of new audio.
+        XCTAssertEqual(g.decide(now: 10.15, lastStart: 10, inFlight: false, audioSeconds: 0.75,
+                                previewedAudioSeconds: 0.6), .wait)
+        // After silence (no model ran): 0.1 s later, with 0.1 s more audio.
+        XCTAssertEqual(g.decide(now: 10.15, lastStart: 10, inFlight: false, audioSeconds: 0.75,
+                                previewedAudioSeconds: 0.6, lastWasSilent: true), .start)
+        XCTAssertEqual(g.decide(now: 10.05, lastStart: 10, inFlight: false, audioSeconds: 0.75,
+                                previewedAudioSeconds: 0.6, lastWasSilent: true), .wait)
+        XCTAssertEqual(g.decide(now: 10.15, lastStart: 10, inFlight: false, audioSeconds: 0.65,
+                                previewedAudioSeconds: 0.6, lastWasSilent: true), .wait)
+        // The policy before #46 paced silence like anything else.
+        let before = LivePreviewGovernor(policy: .beforeShortEncode)
+        XCTAssertEqual(before.decide(now: 10.15, lastStart: 10, inFlight: false, audioSeconds: 1.75,
+                                     previewedAudioSeconds: 1.6, lastWasSilent: true), .wait)
+    }
+
     func testIntervalBacksOffWithWhatEachPreviewCosts() {
         var g = governor()
         XCTAssertEqual(g.interval, 0.3)
@@ -305,6 +324,20 @@ final class LivePreviewSessionTests: XCTestCase {
             pacer.recordFailure()
             XCTAssertFalse(pacer.isEnabled, reason)
         }
+    }
+
+    func testSilenceIsCheckedAgainSoonInsteadOfAfterAFullInterval() {
+        let fake = FakePreview()
+        fake.skipped = "silent"
+        let pacer = pacer { $0.minInterval = 5; $0.maxInterval = 5 }
+        let session = LivePreviewSession(pacer: pacer, hooks: fake.hooks(), tick: 0.01, windowSamples: 16_000)
+        session.start()
+        Thread.sleep(forTimeInterval: 0.45)
+        session.stop()
+        // 0.1 s apart, not 5 s: the first words aren't held back by the
+        // silence before them.
+        XCTAssertGreaterThanOrEqual(fake.log.filter { $0.hasPrefix("transcribe") }.count, 3, "\(fake.log)")
+        XCTAssertEqual(session.currentStats.previewSeconds, [], "silence never paces previews")
     }
 
     func testOnlyOnePreviewRunsAndTicksMeanwhileAreSkipped() {
