@@ -4397,6 +4397,16 @@
         }
       }
     },
+    "You switched apps before OLIV read your selection — your text is unchanged" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณสลับแอปก่อน OLIV จะอ่านข้อความที่เลือก ข้อความยังเหมือนเดิม"
+          }
+        }
+      }
+    },
     "You switched apps — the edit is on the clipboard" : {
       "localizations" : {
         "th" : {
@@ -4463,6 +4473,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เสียงที่คุณอัดจะไปที่เซิร์ฟเวอร์ OLIV จนกว่าดาวน์โหลดจะเสร็จ แล้ว OLIV จะกลับมาใช้ Mac เครื่องนี้เอง"
+          }
+        }
+      }
+    },
+    "Your selection changed while OLIV was listening — your text is unchanged" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อความที่เลือกเปลี่ยนไประหว่างที่ OLIV ฟังอยู่ ข้อความยังเหมือนเดิม"
           }
         }
       }
