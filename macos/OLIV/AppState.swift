@@ -59,6 +59,18 @@ enum DictationExecution: Equatable {
         }
     }
 
+    /// `label` in English, for the wrong-result report: a public GitHub issue
+    /// that maintainers read, the same from every Mac.
+    var reportLabel: String {
+        switch self {
+        case .onDevice(let name): return "On-device · \(name)"
+        case .olivAPI: return "Cloud · OLIV API"
+        case .olivTrial: return "Cloud · OLIV free trial"
+        case .groq: return "Cloud · Groq"
+        case .unknown: return "Unknown engine"
+        }
+    }
+
     var systemImage: String {
         switch self {
         case .onDevice: return "desktopcomputer"

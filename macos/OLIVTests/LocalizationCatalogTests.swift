@@ -115,8 +115,8 @@ final class LocalizationCatalogTests: XCTestCase {
     /// New interface strings show in English until they get a catalog entry
     /// with Thai. Listed in the test log; with OLIV_REQUIRE_TRANSLATIONS=1
     /// (TEST_RUNNER_OLIV_REQUIRE_TRANSLATIONS=1 for xcodebuild) they fail.
-    /// Not a failure by default so that changes in flight can land first and
-    /// be translated together afterwards.
+    /// CI sets it (.github/workflows/mac.yml); a local run only lists them, so
+    /// work in progress can be translated at the end.
     func testEveryInterfaceStringIsInTheCatalog() throws {
         let inCatalog = Set(try catalog("Localizable.xcstrings").map(\.key))
         let missing = try extractedKeys().subtracting(inCatalog).sorted()

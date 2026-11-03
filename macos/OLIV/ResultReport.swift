@@ -207,9 +207,10 @@ extension ResultReport {
     }
 
     /// "On-device · Typhoon (typhoon-turbo-mlx)": the menu's label plus the id.
-    /// The OLIV API is named, never its address.
+    /// The OLIV API is named, never its address. English on every Mac, like
+    /// the rest of the report.
     static func engineLabel(_ engineID: String) -> String {
-        "\(DictationExecution(engineID: engineID).label) (\(engineID))"
+        "\(DictationExecution(engineID: engineID).reportLabel) (\(engineID))"
     }
 
     static func cleanupLabel(_ details: TranscriptLog.Details) -> String {

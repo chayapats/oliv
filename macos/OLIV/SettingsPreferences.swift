@@ -46,8 +46,12 @@ struct GeneralSettingsView: View {
 
 struct ShortcutsSettingsView: View {
     @EnvironmentObject private var settings: OLIVSettings
-    @ObservedObject private var voice = VoiceEditSettings.shared
+    @ObservedObject private var voice: VoiceEditSettings
     @State private var recordingSlot: HotkeySlot?
+
+    init(voice: VoiceEditSettings = .shared) {
+        _voice = ObservedObject(wrappedValue: voice)
+    }
 
     /// Voice-editing shortcuts paused by an overlap with these ones.
     private var voiceBindings: ShortcutBindings {

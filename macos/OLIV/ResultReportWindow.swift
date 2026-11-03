@@ -147,6 +147,7 @@ struct ResultReportView: View {
                 Text(verbatim: value)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -165,7 +166,7 @@ final class ResultReportWindowController: NSObject, NSWindowDelegate {
             window.contentViewController = NSHostingController(rootView: root)
         } else {
             let win = NSWindow(contentViewController: NSHostingController(rootView: root))
-            win.title = "Report a Wrong Result"
+            win.title = String(localized: "Report a Wrong Result")
             win.styleMask = [.titled, .closable]
             win.isReleasedWhenClosed = false
             win.center()

@@ -29,8 +29,8 @@ enum DictationMode: String, Equatable {
     var hudLabel: String? {
         switch self {
         case .dictate: return nil
-        case .translate: return "Thai → English"
-        case .command: return "Command mode"
+        case .translate: return String(localized: "Thai → English", comment: "Recording pill badge while translation is on")
+        case .command: return String(localized: "Command mode")
         }
     }
 
@@ -44,9 +44,9 @@ enum DictationMode: String, Equatable {
 
     var processingLabel: String {
         switch self {
-        case .dictate: return "Transcribing…"
-        case .translate: return "Translating…"
-        case .command: return "Editing…"
+        case .dictate: return String(localized: "Transcribing…")
+        case .translate: return String(localized: "Translating…")
+        case .command: return String(localized: "Editing…")
         }
     }
 }
@@ -228,8 +228,6 @@ struct VoiceEditResult: Equatable {
 }
 
 enum VoiceEditRunner {
-    static let unchanged = "your text is unchanged"
-
     /// Command mode, run right after the key is released and BEFORE the
     /// instruction is transcribed: capture what to edit while the selection
     /// is certainly still there. A non-nil `refusal` ends the utterance.
@@ -242,7 +240,7 @@ enum VoiceEditRunner {
         }
         if !job.modelReady {
             return (nil, VoiceEditResult(outcome: .nothingToDo, notice: VoiceEditNotice(
-                text: "Command mode needs the on-device cleanup model — download it in Settings",
+                text: String(localized: "Command mode needs the on-device cleanup model — download it in Settings"),
                 symbol: "arrow.down.circle")))
         }
         switch job.reader.capture(recentPaste: job.recentPaste) {
@@ -255,17 +253,13 @@ enum VoiceEditRunner {
                                       symbol: "exclamationmark.triangle")))
             }
             if capture.text.count > maxSelection {
-                return (nil, VoiceEditResult(outcome: .nothingToDo, notice: VoiceEditNotice(
-                    text: "That selection is too long — select up to \(maxSelection.formatted()) characters",
-                    symbol: "text.badge.xmark")))
+                return (nil, VoiceEditResult(outcome: .nothingToDo, notice: failedNotice("tooLong")))
             }
             return (capture, nil)
         case .secure:
             return (nil, refused(.passwordManager))
         case .none:
-            return (nil, VoiceEditResult(outcome: .nothingToDo, notice: VoiceEditNotice(
-                text: "Select some text first, then hold the Command mode shortcut",
-                symbol: "selection.pin.in.out")))
+            return (nil, VoiceEditResult(outcome: .nothingToDo, notice: failedNotice("emptySelection")))
         }
     }
 
@@ -296,7 +290,7 @@ enum VoiceEditRunner {
         let instruction = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !instruction.isEmpty else {
             return VoiceEditResult(outcome: .nothingToDo, notice: VoiceEditNotice(
-                text: "Didn’t catch an instruction — \(unchanged)", symbol: "mic.badge.xmark"))
+                text: String(localized: "Didn’t catch an instruction — your text is unchanged"), symbol: "mic.badge.xmark"))
         }
         guard let transformer = job.transformer else {
             return VoiceEditResult(outcome: .nothingToDo, notice: failedNotice("llmError"))
@@ -312,7 +306,7 @@ enum VoiceEditRunner {
         }
         guard result.text != target.text else {
             return VoiceEditResult(outcome: .nothingToDo, notice: VoiceEditNotice(
-                text: "Nothing to change", symbol: "checkmark.circle"))
+                text: String(localized: "Nothing to change"), symbol: "checkmark.circle"))
         }
         // The model took a while: the user may have moved to another app,
         // field or window, or selected something else. Paste only over the
@@ -327,10 +321,10 @@ enum VoiceEditRunner {
                                    notice: clipboardNotice(check), edit: edit)
         }
         let outcome = DictationController.paste(result.text, with: injector)
-        let undo = job.undoHint.map { " · \($0) undoes it" } ?? ""
+        let edited = job.undoHint.map { String(localized: "Edited · \($0) undoes it") } ?? String(localized: "Edited")
         return VoiceEditResult(outcome: outcome, pastedText: result.text,
                                notice: outcome == .pastedOK
-                                   ? VoiceEditNotice(text: "Edited\(undo)", symbol: "wand.and.stars") : nil,
+                                   ? VoiceEditNotice(text: edited, symbol: "wand.and.stars") : nil,
                                edit: edit)
     }
 
@@ -347,19 +341,19 @@ enum VoiceEditRunner {
                             pastedText: transcript, notice: notice, edit: edit(applied: false, flag: flag))
         }
         if job.block != nil {
-            return pasteOriginal(VoiceEditNotice(text: "Translation is off in this app — pasted what you said",
+            return pasteOriginal(VoiceEditNotice(text: String(localized: "Translation is off in this app — pasted what you said"),
                                                  symbol: "globe"), flag: "blocked")
         }
         guard job.modelReady, let transformer = job.transformer else {
             return pasteOriginal(VoiceEditNotice(
-                text: "Translation needs the on-device cleanup model — pasted what you said",
+                text: String(localized: "Translation needs the on-device cleanup model — pasted what you said"),
                 symbol: "arrow.down.circle"), flag: "noModel")
         }
         let result: TransformResult
         do {
             result = try transformer.transform(mode: .translate, instruction: "", text: transcript)
         } catch {
-            return pasteOriginal(VoiceEditNotice(text: "Couldn’t translate — pasted what you said",
+            return pasteOriginal(VoiceEditNotice(text: String(localized: "Couldn’t translate — pasted what you said"),
                                                  symbol: "exclamationmark.triangle.fill"), flag: "llmError")
         }
         if result.applied {
@@ -368,16 +362,16 @@ enum VoiceEditRunner {
         }
         // Already English: nothing to translate, nothing to report.
         if result.flag == "noThai" { return pasteOriginal(nil, flag: result.flag) }
-        return pasteOriginal(VoiceEditNotice(text: "Couldn’t translate that — pasted what you said",
+        return pasteOriginal(VoiceEditNotice(text: String(localized: "Couldn’t translate that — pasted what you said"),
                                              symbol: "exclamationmark.triangle.fill"), flag: result.flag)
     }
 
     /// Why an edit went to the clipboard instead of replacing the selection.
     static func clipboardNotice(_ check: TargetCheck) -> VoiceEditNotice {
         let text = switch check {
-        case .otherApp: "You switched apps — the edit is on the clipboard"
-        case .changed: "Your selection changed — the edit is on the clipboard"
-        case .same, .unverifiable: "Couldn’t confirm your selection — the edit is on the clipboard"
+        case .otherApp: String(localized: "You switched apps — the edit is on the clipboard")
+        case .changed: String(localized: "Your selection changed — the edit is on the clipboard")
+        case .same, .unverifiable: String(localized: "Couldn’t confirm your selection — the edit is on the clipboard")
         }
         return VoiceEditNotice(text: text, symbol: "doc.on.clipboard")
     }
@@ -386,10 +380,10 @@ enum VoiceEditRunner {
         switch block {
         case .verbatim:
             return VoiceEditResult(outcome: .nothingToDo, notice: VoiceEditNotice(
-                text: "Command mode is off in verbatim apps", symbol: "lock"))
+                text: String(localized: "Command mode is off in verbatim apps"), symbol: "lock"))
         case .passwordManager:
             return VoiceEditResult(outcome: .nothingToDo, notice: VoiceEditNotice(
-                text: "Command mode never edits passwords", symbol: "lock.fill"))
+                text: String(localized: "Command mode never edits passwords"), symbol: "lock.fill"))
         }
     }
 
@@ -397,16 +391,16 @@ enum VoiceEditRunner {
     static func failedNotice(_ flag: String) -> VoiceEditNotice {
         switch flag {
         case "tooLong":
-            return VoiceEditNotice(text: "That selection is too long — select up to \(maxSelection.formatted()) characters",
+            return VoiceEditNotice(text: String(localized: "That selection is too long — select up to \(maxSelection.formatted()) characters"),
                                    symbol: "text.badge.xmark")
         case "llmError", "invalidReply":
-            return VoiceEditNotice(text: "Couldn’t reach the on-device model — \(unchanged)",
+            return VoiceEditNotice(text: String(localized: "Couldn’t reach the on-device model — your text is unchanged"),
                                    symbol: "exclamationmark.triangle.fill")
         case "emptySelection":
-            return VoiceEditNotice(text: "Select some text first, then hold the Command mode shortcut",
+            return VoiceEditNotice(text: String(localized: "Select some text first, then hold the Command mode shortcut"),
                                    symbol: "selection.pin.in.out")
         default:
-            return VoiceEditNotice(text: "OLIV wasn’t sure about that edit — \(unchanged)",
+            return VoiceEditNotice(text: String(localized: "OLIV wasn’t sure about that edit — your text is unchanged"),
                                    symbol: "exclamationmark.triangle.fill")
         }
     }

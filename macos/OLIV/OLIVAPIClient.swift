@@ -112,9 +112,7 @@ enum OLIVAPIError: Error, LocalizedError {
         case .busy: return String(localized: "An API dictation is already in progress.")
         case .unsupported: return String(localized: "This OLIV server doesn't support dictionary sync yet.")
         case .cooldown(let seconds):
-            // Whole seconds, clamped: the deadline comes from the server's Retry-After.
-            let wait = seconds.isFinite ? Int(min(max(ceil(seconds), 1), 999_999_999)) : 1
-            return String(localized: "API cooldown — wait \(wait) seconds.")
+            return String(localized: "API cooldown — wait \(Self.wholeSeconds(seconds)) seconds.")
         case .http(401): return String(localized: "API key invalid, expired or revoked. Update it in Settings.")
         case .http(403): return String(localized: "API access denied. Check key scope dictate or contact the administrator.")
         case .http(400), .http(415): return String(localized: "The API rejected the audio/request format.")
@@ -124,6 +122,12 @@ enum OLIVAPIError: Error, LocalizedError {
         case .http(502), .http(504): return String(localized: "The API could not finish transcription. Wait before trying again.")
         case .http: return String(localized: "The API request failed. Try again later.")
         }
+    }
+
+    /// A cooldown in whole seconds for a message, clamped: the deadline comes
+    /// from the server's Retry-After, which can be any size.
+    static func wholeSeconds(_ seconds: TimeInterval) -> Int {
+        seconds.isFinite ? Int(min(max(ceil(seconds), 1), 999_999_999)) : 1
     }
 }
 

@@ -57,6 +57,16 @@
         }
       }
     },
+    "A free trial: a short-lived key with a small daily limit, kept in Keychain. Your Dictionary isn’t sent or synced." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เป็นการทดลองใช้ฟรีด้วย key ชั่วคราวที่ใช้ได้วันละไม่กี่ครั้ง เก็บไว้ในพวงกุญแจ พจนานุกรมของคุณจะไม่ถูกส่งหรือซิงก์"
+          }
+        }
+      }
+    },
     "A little history, only for this session." : {
       "localizations" : {
         "th" : {
@@ -248,6 +258,16 @@
         }
       }
     },
+    "Always translate in these apps" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แปลเสมอในแอปเหล่านี้"
+          }
+        }
+      }
+    },
     "An API dictation is already in progress." : {
       "localizations" : {
         "th" : {
@@ -264,6 +284,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "โมเดลภาษาไทยอีกตัวจาก OLIV เวอร์ชันก่อนๆ"
+          }
+        }
+      }
+    },
+    "App" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แอป"
           }
         }
       }
@@ -398,6 +428,16 @@
         }
       }
     },
+    "Both features run on this Mac with the cleanup model, Gemma E2B. The text you select or dictate is rewritten locally and never uploaded for editing." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทั้งสองอย่างทำงานบน Mac เครื่องนี้ด้วยโมเดลเกลาข้อความ Gemma E2B ข้อความที่คุณเลือกหรือพูดจะถูกเขียนใหม่ในเครื่อง ไม่ถูกอัปโหลดไปแก้ที่อื่น"
+          }
+        }
+      }
+    },
     "Built for Thai and English, including mixed-language speech." : {
       "localizations" : {
         "th" : {
@@ -424,6 +464,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "หัวข้อย่อย"
+          }
+        }
+      }
+    },
+    "Bullet summary" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สรุปเป็นข้อ ๆ"
           }
         }
       }
@@ -474,6 +524,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ตัดเสียงสะท้อนจากลำโพง"
+          }
+        }
+      }
+    },
+    "Change text with your voice, or speak Thai and type English." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สั่งแก้ข้อความด้วยเสียง หรือพูดไทยให้พิมพ์เป็นภาษาอังกฤษ"
           }
         }
       }
@@ -608,6 +668,16 @@
         }
       }
     },
+    "Cleanup" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เกลาข้อความ"
+          }
+        }
+      }
+    },
     "Cleanup (Gemma-E2B)" : {
       "localizations" : {
         "th" : {
@@ -648,6 +718,16 @@
         }
       }
     },
+    "Click Record, then press the shortcut you want to hold for Command mode." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลิก กำหนด แล้วกดปุ่มลัดที่จะกดค้างไว้สำหรับโหมดคำสั่ง"
+          }
+        }
+      }
+    },
     "Click Record, then press the shortcut you want to hold to dictate." : {
       "localizations" : {
         "th" : {
@@ -678,6 +758,16 @@
         }
       }
     },
+    "Cloud · Dictating through the OLIV server" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลาวด์ · พิมพ์ด้วยเสียงผ่านเซิร์ฟเวอร์ OLIV"
+          }
+        }
+      }
+    },
     "Cloud · Groq" : {
       "localizations" : {
         "th" : {
@@ -698,12 +788,62 @@
         }
       }
     },
+    "Cloud · OLIV free trial" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลาวด์ · ทดลองใช้ OLIV ฟรี"
+          }
+        }
+      }
+    },
     "Cloud-hosted Whisper large-v3, with fallback to your local engine." : {
       "localizations" : {
         "th" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Whisper large-v3 บนคลาวด์ และสลับมาใช้เอนจินในเครื่องได้เมื่อจำเป็น"
+          }
+        }
+      }
+    },
+    "Command mode" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โหมดคำสั่ง"
+          }
+        }
+      }
+    },
+    "Command mode is off in verbatim apps" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิดโหมดคำสั่งในแอปที่ไม่เกลาข้อความ"
+          }
+        }
+      }
+    },
+    "Command mode needs the on-device cleanup model — download it in Settings" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โหมดคำสั่งต้องใช้โมเดลเกลาข้อความ ดาวน์โหลดได้ในการตั้งค่า"
+          }
+        }
+      }
+    },
+    "Command mode never edits passwords" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โหมดคำสั่งไม่แก้รหัสผ่าน"
           }
         }
       }
@@ -848,6 +988,16 @@
         }
       }
     },
+    "Couldn’t confirm your selection — the edit is on the clipboard" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยืนยันข้อความที่เลือกไม่ได้ ข้อความที่แก้อยู่ในคลิปบอร์ด"
+          }
+        }
+      }
+    },
     "Couldn’t open the microphone — try again" : {
       "localizations" : {
         "th" : {
@@ -858,12 +1008,52 @@
         }
       }
     },
+    "Couldn’t reach the OLIV server. Wait for the download to finish, or try again." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ติดต่อเซิร์ฟเวอร์ OLIV ไม่ได้ รอให้ดาวน์โหลดเสร็จ หรือลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Couldn’t reach the on-device model — your text is unchanged" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เรียกโมเดลในเครื่องไม่ได้ ข้อความยังเหมือนเดิม"
+          }
+        }
+      }
+    },
     "Couldn’t transcribe — try again" : {
       "localizations" : {
         "th" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ถอดเสียงไม่สำเร็จ ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Couldn’t translate that — pasted what you said" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แปลประโยคนี้ไม่ได้ จึงวางตามที่คุณพูด"
+          }
+        }
+      }
+    },
+    "Couldn’t translate — pasted what you said" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แปลไม่ได้ จึงวางตามที่คุณพูด"
           }
         }
       }
@@ -929,6 +1119,16 @@
         }
       }
     },
+    "Dictate now, while the models download" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พิมพ์ด้วยเสียงได้เลย ระหว่างรอโมเดลดาวน์โหลด"
+          }
+        }
+      }
+    },
     "Dictation engine" : {
       "localizations" : {
         "th" : {
@@ -955,6 +1155,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "แนะนำคำใหม่: %@ · ดูในเมนู OLIV"
+          }
+        }
+      }
+    },
+    "Didn’t catch an instruction — your text is unchanged" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่ได้ยินคำสั่ง ข้อความยังเหมือนเดิม"
           }
         }
       }
@@ -1069,6 +1279,26 @@
         }
       }
     },
+    "Download stopped — the OLIV server trial is off" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดหยุดแล้ว จึงปิดการทดลองใช้ฟรี"
+          }
+        }
+      }
+    },
+    "Download the cleanup model in Models & storage to use Command mode or translation." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดโมเดลเกลาข้อความที่หน้า โมเดลและพื้นที่จัดเก็บ เพื่อใช้โหมดคำสั่งหรือการแปล"
+          }
+        }
+      }
+    },
     "Download this engine’s model before dictating. It isn’t on your Mac yet." : {
       "localizations" : {
         "th" : {
@@ -1150,12 +1380,62 @@
         }
       }
     },
+    "Edit selected text by voice" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แก้ข้อความที่เลือกด้วยเสียง"
+          }
+        }
+      }
+    },
+    "Edit text that’s already there with your voice." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แก้ข้อความที่มีอยู่แล้วด้วยเสียงของคุณ"
+          }
+        }
+      }
+    },
     "Edit word" : {
       "localizations" : {
         "th" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "แก้ไขคำ"
+          }
+        }
+      }
+    },
+    "Edited" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แก้แล้ว"
+          }
+        }
+      }
+    },
+    "Edited · %@ undoes it" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แก้แล้ว · กด %@ เพื่อเลิกทำ"
+          }
+        }
+      }
+    },
+    "Editing…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังแก้ไข…"
           }
         }
       }
@@ -1236,6 +1516,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เปิดบริการแล้วจะเลือกเอนจินของบริการนั้นได้ที่ เอนจินถอดเสียง ส่วน API key จะเก็บไว้ในพวงกุญแจของ macOS"
+          }
+        }
+      }
+    },
+    "Engine" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เอนจิน"
           }
         }
       }
@@ -1340,6 +1630,16 @@
         }
       }
     },
+    "Fix typos" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แก้คำสะกดผิด"
+          }
+        }
+      }
+    },
     "Fix “%@” too?" : {
       "localizations" : {
         "th" : {
@@ -1376,6 +1676,66 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "พบในข้อความล่าสุด หลังจากคุณเพิ่มคำนี้"
+          }
+        }
+      }
+    },
+    "Free trial ended — wait for the download to finish" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทดลองใช้ฟรีหมดแล้ว รอให้ดาวน์โหลดเสร็จก่อน"
+          }
+        }
+      }
+    },
+    "Free trial until %@." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทดลองใช้ฟรีถึง %@"
+          }
+        }
+      }
+    },
+    "Free trial: audio is sent to the OLIV server until the on-device models finish downloading." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทดลองใช้ฟรี: เสียงจะถูกส่งไปที่เซิร์ฟเวอร์ OLIV จนกว่าโมเดลในเครื่องจะดาวน์โหลดเสร็จ"
+          }
+        }
+      }
+    },
+    "Free trials from this network are used up for today. Wait for the download to finish, or try again tomorrow." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เครือข่ายนี้ใช้สิทธิ์ทดลองใช้ฟรีของวันนี้ครบแล้ว รอให้ดาวน์โหลดเสร็จ หรือลองใหม่พรุ่งนี้"
+          }
+        }
+      }
+    },
+    "Free-trial limit reached — wait, or let the download finish" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ครบโควตาทดลองใช้ รอสักพัก หรือรอให้ดาวน์โหลดเสร็จ"
+          }
+        }
+      }
+    },
+    "Free-trial limit — wait %lld s, or for the download" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ครบโควตาทดลองใช้ รออีก %lld วินาที หรือรอดาวน์โหลดเสร็จ"
           }
         }
       }
@@ -1462,6 +1822,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "กดปุ่มค้างไว้ พูด แล้วปล่อย ข้อความจะไปวางตรงเคอร์เซอร์ของคุณ ขอตั้งค่าสั้นๆ อีกสองอย่างก่อน"
+          }
+        }
+      }
+    },
+    "Hold your secondary push-to-talk shortcut and speak Thai, with English mixed in as usual. OLIV pastes natural English. Your primary shortcut keeps typing what you say." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กดปุ่มลัดสำรองค้างไว้แล้วพูดไทย ปนอังกฤษได้ตามปกติ OLIV จะวางเป็นภาษาอังกฤษที่เป็นธรรมชาติ ส่วนปุ่มลัดหลักยังพิมพ์ตามที่คุณพูดเหมือนเดิม"
           }
         }
       }
@@ -1672,6 +2042,16 @@
         }
       }
     },
+    "It opens as a GitHub issue in your browser, where anyone can read it. Remove names, numbers and anything else private first. OLIV sends nothing: the issue is posted only if you submit it on GitHub." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รายงานจะเปิดใน GitHub บนเบราว์เซอร์ของคุณ และใครก็อ่านได้ ลบชื่อ ตัวเลข และเรื่องส่วนตัวอื่น ๆ ออกก่อน OLIV ไม่ได้ส่งอะไรเอง รายงานจะขึ้นก็ต่อเมื่อคุณกดส่งใน GitHub"
+          }
+        }
+      }
+    },
     "Keep OLIV close, with as much feedback as you need." : {
       "localizations" : {
         "th" : {
@@ -1788,6 +2168,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ข้อจำกัดและรายละเอียดการเชื่อมต่อ"
+          }
+        }
+      }
+    },
+    "Long text is cut to fit a web link. The cut is marked “truncated by OLIV”." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อความที่ยาวจะถูกตัดให้พอดีกับลิงก์ ตรงที่ตัดจะมีคำว่า “truncated by OLIV”"
           }
         }
       }
@@ -1912,6 +2302,36 @@
         }
       }
     },
+    "Models ready — dictating on this Mac again" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โมเดลพร้อมแล้ว กลับมาใช้ Mac เครื่องนี้"
+          }
+        }
+      }
+    },
+    "More formal" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้ภาษาทางการ"
+          }
+        }
+      }
+    },
+    "More polite" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปรับน้ำเสียงให้สุภาพ"
+          }
+        }
+      }
+    },
     "Needs approval in System Settings › Login Items" : {
       "localizations" : {
         "th" : {
@@ -1948,6 +2368,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ยังไม่มีแอปที่ยกเว้น"
+          }
+        }
+      }
+    },
+    "No audio is included: OLIV doesn’t keep recordings on this Mac." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่ได้แนบเสียงไปด้วย เพราะ OLIV ไม่เก็บเสียงที่อัดไว้บน Mac เครื่องนี้"
           }
         }
       }
@@ -2030,6 +2460,16 @@
         }
       }
     },
+    "None. Add an app where you always write in English, such as your email or chat app." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มี เพิ่มแอปที่คุณเขียนเป็นภาษาอังกฤษเสมอ เช่น แอปอีเมลหรือแอปแชต"
+          }
+        }
+      }
+    },
     "Not downloaded" : {
       "localizations" : {
         "th" : {
@@ -2046,6 +2486,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ยังไม่ซิงก์ (ซ้ำหรือพจนานุกรมเต็ม): %@"
+          }
+        }
+      }
+    },
+    "Nothing to change" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่มีอะไรต้องแก้"
           }
         }
       }
@@ -2139,6 +2589,16 @@
         }
       }
     },
+    "OLIV wasn’t sure about that edit — your text is unchanged" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OLIV ไม่มั่นใจในการแก้นี้ ข้อความยังเหมือนเดิม"
+          }
+        }
+      }
+    },
     "OLIV — %@" : {
       "shouldTranslate" : false
     },
@@ -2215,6 +2675,16 @@
         }
       }
     },
+    "Open in Browser" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดในเบราว์เซอร์"
+          }
+        }
+      }
+    },
     "Optional" : {
       "localizations" : {
         "th" : {
@@ -2275,6 +2745,16 @@
         }
       }
     },
+    "Presets for Command mode" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปุ่มลัดสำเร็จรูปสำหรับโหมดคำสั่ง"
+          }
+        }
+      }
+    },
     "Press a shortcut…" : {
       "localizations" : {
         "th" : {
@@ -2325,6 +2805,16 @@
         }
       }
     },
+    "Raw transcript, before cleanup" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อความที่ถอดเสียงได้ ก่อนเกลา"
+          }
+        }
+      }
+    },
     "Re-download" : {
       "localizations" : {
         "th" : {
@@ -2341,6 +2831,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ดาวน์โหลดโมเดลหลักใหม่"
+          }
+        }
+      }
+    },
+    "Ready: dictating through the OLIV server until the download finishes" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พร้อมแล้ว: พิมพ์ด้วยเสียงผ่านเซิร์ฟเวอร์ OLIV จนกว่าดาวน์โหลดจะเสร็จ"
           }
         }
       }
@@ -2451,6 +2951,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "คำแทนที่จากก่อนมีพจนานุกรม ที่พจนานุกรมเก็บแบบเดิมไม่ได้ (ข้อความยาว สัญลักษณ์ หรือการเว้นวรรค) แต่ยังใช้ได้บน Mac เครื่องนี้"
+          }
+        }
+      }
+    },
+    "Report a Wrong Result" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แจ้งผลที่ผิด"
           }
         }
       }
@@ -2576,6 +3086,16 @@
         }
       }
     },
+    "Secondary shortcut types English" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปุ่มลัดสำรองพิมพ์เป็นภาษาอังกฤษ"
+          }
+        }
+      }
+    },
     "See a floating waveform while you dictate, plus recording and processing status." : {
       "localizations" : {
         "th" : {
@@ -2612,6 +3132,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เลือกทั้งหมด"
+          }
+        }
+      }
+    },
+    "Select some text first, then hold the Command mode shortcut" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกข้อความก่อน แล้วกดปุ่มลัดโหมดคำสั่งค้างไว้"
+          }
+        }
+      }
+    },
+    "Select text in any app, hold the Command mode shortcut and say what to change. OLIV replaces the selection, and your undo shortcut puts the original back." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกข้อความในแอปไหนก็ได้ กดปุ่มลัดโหมดคำสั่งค้างไว้ แล้วพูดว่าจะให้แก้อะไร OLIV จะแทนที่ข้อความที่เลือก และปุ่มลัดเลิกทำจะเอาข้อความเดิมกลับมา"
           }
         }
       }
@@ -2656,6 +3196,16 @@
         }
       }
     },
+    "Set a secondary shortcut in Keyboard shortcuts to use translation." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตั้งปุ่มลัดสำรองที่หน้า ปุ่มลัดแป้นพิมพ์ ก่อนใช้การแปล"
+          }
+        }
+      }
+    },
     "Settings" : {
       "localizations" : {
         "th" : {
@@ -2696,6 +3246,26 @@
         }
       }
     },
+    "Shortcut" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปุ่มลัด"
+          }
+        }
+      }
+    },
+    "Shorter" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตัดให้กระชับ"
+          }
+        }
+      }
+    },
     "Show in Finder" : {
       "localizations" : {
         "th" : {
@@ -2712,6 +3282,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "แสดงสถานะขณะอัดเสียง"
+          }
+        }
+      }
+    },
+    "Speak Thai, type English" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แปลไทยเป็นอังกฤษ"
           }
         }
       }
@@ -2776,12 +3356,32 @@
         }
       }
     },
+    "Starting the free trial…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังเริ่มทดลองใช้ฟรี…"
+          }
+        }
+      }
+    },
     "Step %lld" : {
       "localizations" : {
         "th" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ขั้นตอนที่ %lld"
+          }
+        }
+      }
+    },
+    "Stop using the OLIV server" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลิกใช้เซิร์ฟเวอร์ OLIV"
           }
         }
       }
@@ -2836,6 +3436,16 @@
         }
       }
     },
+    "System" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ระบบ"
+          }
+        }
+      }
+    },
     "System default — %@" : {
       "localizations" : {
         "th" : {
@@ -2886,6 +3496,17 @@
         }
       }
     },
+    "Thai → English" : {
+      "comment" : "Recording pill badge while translation is on",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไทย → อังกฤษ"
+          }
+        }
+      }
+    },
     "Thai–English speech recognition" : {
       "localizations" : {
         "th" : {
@@ -2912,6 +3533,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ไฟล์ใหญ่เกิน 3MB แบ่งไฟล์แล้วลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "That selection is too long — select up to %@ characters" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อความที่เลือกยาวเกินไป เลือกได้ไม่เกิน %@ ตัวอักษร"
           }
         }
       }
@@ -3016,6 +3647,26 @@
         }
       }
     },
+    "The Command mode shortcut overlaps push-to-talk or undo: one of them contains all the other’s keys, so pressing one would trigger both. Command mode is paused until you choose a shortcut that doesn’t overlap." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปุ่มลัดโหมดคำสั่งซ้อนกับปุ่มลัดสำหรับพูดหรือเลิกทำ: ปุ่มลัดหนึ่งมีทุกปุ่มของอีกอัน กดอันหนึ่งจึงเรียกทั้งสองอย่าง โหมดคำสั่งจะหยุดไว้ก่อนจนกว่าคุณจะเลือกปุ่มลัดที่ไม่ซ้อนกัน"
+          }
+        }
+      }
+    },
+    "The OLIV server refused the trial — wait for the download" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เซิร์ฟเวอร์ OLIV ไม่รับการทดลองใช้ รอให้ดาวน์โหลดเสร็จ"
+          }
+        }
+      }
+    },
     "The built-in mic leaves Bluetooth playback at full quality. You can still use AirPods to listen." : {
       "localizations" : {
         "th" : {
@@ -3036,12 +3687,92 @@
         }
       }
     },
+    "The download stopped, so OLIV stopped using the server. Start it again to continue the trial." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลดหยุดไป OLIV จึงเลิกใช้เซิร์ฟเวอร์ เริ่มดาวน์โหลดอีกครั้งเพื่อทดลองใช้ต่อ"
+          }
+        }
+      }
+    },
+    "The free trial couldn’t start. Wait for the download to finish." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เริ่มทดลองใช้ฟรีไม่สำเร็จ รอให้ดาวน์โหลดเสร็จ"
+          }
+        }
+      }
+    },
+    "The free trial is closed right now. Wait for the download to finish." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตอนนี้ปิดรับทดลองใช้ฟรีอยู่ รอให้ดาวน์โหลดเสร็จ"
+          }
+        }
+      }
+    },
+    "The free trial is full right now. Wait for the download to finish, or try again later." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตอนนี้ที่นั่งทดลองใช้ฟรีเต็มแล้ว รอให้ดาวน์โหลดเสร็จ หรือลองใหม่ภายหลัง"
+          }
+        }
+      }
+    },
+    "The free trial is off — nothing was sent" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิดการทดลองใช้ฟรีแล้ว ไม่ได้ส่งอะไรออกไป"
+          }
+        }
+      }
+    },
+    "The free trial isn’t available right now. Wait for the download to finish, or try again later." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตอนนี้ยังทดลองใช้ฟรีไม่ได้ รอให้ดาวน์โหลดเสร็จ หรือลองใหม่ภายหลัง"
+          }
+        }
+      }
+    },
     "The mic wasn’t ready — try again" : {
       "localizations" : {
         "th" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ไมโครโฟนยังไม่พร้อม ลองอีกครั้ง"
+          }
+        }
+      }
+    },
+    "The recording pill shows “Thai → English” whenever translation is on. Names, product names and code terms stay as they are, and your Dictionary still applies. If OLIV isn’t confident in a translation, it pastes what you said instead." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ระหว่างอัดเสียง ป้ายสถานะจะแสดง “ไทย → อังกฤษ” ทุกครั้งที่เปิดการแปล ถ้า OLIV ไม่มั่นใจในคำแปล จะวางตามที่คุณพูดแทน"
+          }
+        }
+      }
+    },
+    "The secondary shortcut overlaps the primary or undo shortcut: one of them contains all the other’s keys, so pressing it would start plain dictation first. Translation is paused, and the secondary shortcut types what you say, until you choose one that doesn’t overlap." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปุ่มลัดสำรองซ้อนกับปุ่มลัดหลักหรือปุ่มลัดเลิกทำ: ปุ่มลัดหนึ่งมีทุกปุ่มของอีกอัน กดแล้วจึงเริ่มพิมพ์ด้วยเสียงแบบปกติก่อน การแปลจะหยุดไว้ และปุ่มลัดสำรองจะพิมพ์ตามที่คุณพูด จนกว่าคุณจะเลือกปุ่มลัดที่ไม่ซ้อนกัน"
           }
         }
       }
@@ -3076,6 +3807,16 @@
         }
       }
     },
+    "This app has no bundle identifier. Choose another app or enter its identifier." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แอปนี้ไม่มี bundle identifier เลือกแอปอื่น หรือพิมพ์ identifier เอง"
+          }
+        }
+      }
+    },
     "This matches a push-to-talk shortcut. Choose a different shortcut for undo." : {
       "localizations" : {
         "th" : {
@@ -3096,6 +3837,16 @@
         }
       }
     },
+    "This report will be public." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รายงานนี้จะเป็นสาธารณะ"
+          }
+        }
+      }
+    },
     "This shortcut also types characters in the active app. A modifier or function key is recommended." : {
       "localizations" : {
         "th" : {
@@ -3106,12 +3857,32 @@
         }
       }
     },
+    "Timing" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เวลาที่ใช้"
+          }
+        }
+      }
+    },
     "To record a shortcut, click Record, hold any modifiers, then press a key. You can also press and release a single modifier. Escape cancels." : {
       "localizations" : {
         "th" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ตั้งปุ่มลัดโดยคลิก กำหนด กดปุ่มปรับค่าค้างไว้ แล้วกดปุ่มที่ต้องการ หรือกดแล้วปล่อยปุ่มปรับค่าปุ่มเดียวก็ได้ กด Escape เพื่อยกเลิก"
+          }
+        }
+      }
+    },
+    "Today’s free trials are all taken. Wait for the download to finish, or try again tomorrow." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สิทธิ์ทดลองใช้ฟรีของวันนี้หมดแล้ว รอให้ดาวน์โหลดเสร็จ หรือลองใหม่พรุ่งนี้"
           }
         }
       }
@@ -3146,12 +3917,62 @@
         }
       }
     },
+    "Translating…" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังแปล…"
+          }
+        }
+      }
+    },
+    "Translation is off in this app — pasted what you said" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แอปนี้ไม่แปล จึงวางตามที่คุณพูด"
+          }
+        }
+      }
+    },
+    "Translation needs the on-device cleanup model — pasted what you said" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การแปลต้องใช้โมเดลเกลาข้อความ จึงวางตามที่คุณพูด"
+          }
+        }
+      }
+    },
     "Try a different search." : {
       "localizations" : {
         "th" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ลองค้นหาด้วยคำอื่น"
+          }
+        }
+      }
+    },
+    "Try it now through the OLIV server" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลองใช้เลยผ่านเซิร์ฟเวอร์ OLIV"
+          }
+        }
+      }
+    },
+    "Turn into an email" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เรียบเรียงเป็นอีเมล"
           }
         }
       }
@@ -3236,6 +4057,26 @@
         }
       }
     },
+    "Until the download finishes, OLIV can send your recordings to the OLIV server for transcription. Nothing leaves this Mac unless you turn this on. When the models are ready, OLIV switches back to this Mac and tells you." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ระหว่างที่ดาวน์โหลดยังไม่เสร็จ OLIV ส่งเสียงที่คุณอัดไปถอดเสียงที่เซิร์ฟเวอร์ OLIV ได้ ถ้าคุณไม่เปิดใช้ ก็จะไม่มีอะไรออกจาก Mac เครื่องนี้ เมื่อโมเดลพร้อม OLIV จะกลับมาใช้ Mac เครื่องนี้และบอกให้คุณรู้"
+          }
+        }
+      }
+    },
+    "Up to %lld dictations a minute and %lld a day." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้ได้สูงสุดนาทีละ %lld ครั้ง และวันละ %lld ครั้ง"
+          }
+        }
+      }
+    },
     "Use HTTPS. HTTP is allowed only for explicit local/private development addresses." : {
       "localizations" : {
         "th" : {
@@ -3286,6 +4127,16 @@
         }
       }
     },
+    "Verbatim: not translated" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่เกลาข้อความ จึงไม่แปล"
+          }
+        }
+      }
+    },
     "Version %@" : {
       "localizations" : {
         "th" : {
@@ -3316,12 +4167,42 @@
         }
       }
     },
+    "Voice editing" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แก้ไขด้วยเสียง"
+          }
+        }
+      }
+    },
     "Welcome to OLIV" : {
       "localizations" : {
         "th" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ยินดีต้อนรับสู่ OLIV"
+          }
+        }
+      }
+    },
+    "What OLIV typed" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อความที่ OLIV พิมพ์"
+          }
+        }
+      }
+    },
+    "What you meant to say (optional)" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สิ่งที่คุณตั้งใจพูด (ไม่บังคับ)"
           }
         }
       }
@@ -3362,6 +4243,36 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Whisper large-v3 ที่รันบน Groq และสลับมาใช้เอนจินในเครื่องได้เมื่อจำเป็น"
+          }
+        }
+      }
+    },
+    "With nothing selected, Command mode edits the text OLIV just pasted, in apps that let OLIV read it. If OLIV isn’t confident in an edit, your text stays as it was. Verbatim apps and password managers are never edited." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ถ้าไม่ได้เลือกอะไร โหมดคำสั่งจะแก้ข้อความที่ OLIV เพิ่งวาง ในแอปที่ให้ OLIV อ่านข้อความได้ ถ้า OLIV ไม่มั่นใจในการแก้ ข้อความของคุณจะคงเดิม และจะไม่แก้อะไรเลยในแอปที่ไม่ต้องเกลาข้อความหรือแอปจัดการรหัสผ่าน"
+          }
+        }
+      }
+    },
+    "With the OLIV API engine, the server transcribes your Thai and the translation runs on this Mac. The OLIV server doesn’t translate yet." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เมื่อใช้เอนจิน OLIV API เซิร์ฟเวอร์จะถอดเสียงภาษาไทยของคุณ ส่วนการแปลทำบน Mac เครื่องนี้ เพราะเซิร์ฟเวอร์ OLIV ยังแปลไม่ได้"
+          }
+        }
+      }
+    },
+    "With the OLIV API engine, the server transcribes your instruction and the edit runs on this Mac. The OLIV server doesn’t offer Command mode yet." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เมื่อใช้เอนจิน OLIV API เซิร์ฟเวอร์จะถอดเสียงคำสั่งของคุณ ส่วนการแก้ข้อความทำบน Mac เครื่องนี้ เพราะเซิร์ฟเวอร์ OLIV ยังไม่มีโหมดคำสั่ง"
           }
         }
       }
@@ -3416,6 +4327,16 @@
         }
       }
     },
+    "You switched apps — the edit is on the clipboard" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณสลับแอปไปแล้ว ข้อความที่แก้อยู่ในคลิปบอร์ด"
+          }
+        }
+      }
+    },
     "You undid this and said it again" : {
       "localizations" : {
         "th" : {
@@ -3446,12 +4367,42 @@
         }
       }
     },
+    "Your free trial has ended. OLIV dictates on this Mac once the download finishes." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทดลองใช้ฟรีหมดแล้ว OLIV จะพิมพ์ด้วยเสียงบน Mac เครื่องนี้เมื่อดาวน์โหลดเสร็จ"
+          }
+        }
+      }
+    },
     "Your recent dictation had “%@”. OLIV can type “%@” whenever it hears that." : {
       "localizations" : {
         "th" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "ข้อความล่าสุดของคุณมี “%1$@” ให้ OLIV พิมพ์เป็น “%2$@” ทุกครั้งที่ได้ยินคำนี้ได้"
+          }
+        }
+      }
+    },
+    "Your recordings go to the OLIV server until the download finishes. Then OLIV switches back to this Mac on its own." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสียงที่คุณอัดจะไปที่เซิร์ฟเวอร์ OLIV จนกว่าดาวน์โหลดจะเสร็จ แล้ว OLIV จะกลับมาใช้ Mac เครื่องนี้เอง"
+          }
+        }
+      }
+    },
+    "Your selection changed — the edit is on the clipboard" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อความที่เลือกเปลี่ยนไป ข้อความที่แก้อยู่ในคลิปบอร์ด"
           }
         }
       }
@@ -3488,6 +4439,20 @@
     },
     "com.apple.dt.Xcode" : {
       "shouldTranslate" : false
+    },
+    "com.tinyspeck.slackmacgap" : {
+      "shouldTranslate" : false
+    },
+    "command mode edit selection rewrite polite shorter summary bullet email formal translate translation english thai" : {
+      "comment" : "Settings search keywords. Translate into words people search for, and keep the English words too.",
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แก้ไขด้วยเสียง แก้ข้อความ โหมดคำสั่ง แก้ไข ข้อความที่เลือก เขียนใหม่ สุภาพ สั้นลง สรุป อีเมล ทางการ แปล ภาษาอังกฤษ ภาษาไทย voice editing command mode edit selection rewrite polite shorter summary bullet email formal translate translation english thai"
+          }
+        }
+      }
     },
     "dictionary vocabulary replacements custom words terms names jargon acronyms spelling recognition snippets phrase corrections starred sync" : {
       "comment" : "Settings search keywords. Translate into words people search for, and keep the English words too.",
@@ -3616,6 +4581,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ข้อผิดพลาดที่ไม่ทราบสาเหตุ"
+          }
+        }
+      }
+    },
+    "พูดไทย แล้ว OLIV จะพิมพ์เป็นภาษาอังกฤษให้" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พูดไทย แล้ว OLIV จะพิมพ์เป็นภาษาอังกฤษให้"
+          }
+        }
+      }
+    },
+    "พูดไทยปนอังกฤษได้ตามปกติ OLIV จะแปลออกมาเป็นภาษาอังกฤษที่อ่านลื่นเป็นธรรมชาติ ส่วนชื่อคน ชื่อสินค้า และศัพท์โค้ดจะคงไว้ตามเดิม คำใน Dictionary ของคุณก็ยังใช้ได้เหมือนเดิม" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พูดไทยปนอังกฤษได้ตามปกติ OLIV จะแปลออกมาเป็นภาษาอังกฤษที่อ่านลื่นเป็นธรรมชาติ ส่วนชื่อคน ชื่อสินค้า และศัพท์โค้ดจะคงไว้ตามเดิม คำในพจนานุกรมของคุณก็ยังใช้ได้เหมือนเดิม"
           }
         }
       }

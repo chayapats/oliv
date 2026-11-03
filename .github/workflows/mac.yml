@@ -64,9 +64,14 @@ jobs:
       - name: Build tools
         run: brew install xcodegen ripgrep
       # A hung test fails with a spindump in the result bundle, instead of
-      # silently using up the job.
+      # silently using up the job. An interface string without Thai in
+      # macos/OLIV/Localizable.xcstrings fails LocalizationCatalogTests
+      # (xcodebuild hands TEST_RUNNER_* variables to the tests without the
+      # prefix); drop TEST_RUNNER_OLIV_REQUIRE_TRANSLATIONS to let English-only
+      # strings land.
       - name: Build and test
         env:
+          TEST_RUNNER_OLIV_REQUIRE_TRANSLATIONS: "1"
           OLIV_XCTEST_ARGS: >-
             -test-timeouts-enabled YES
             -default-test-execution-time-allowance 180

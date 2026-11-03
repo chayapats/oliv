@@ -132,9 +132,10 @@ struct VoiceEditingSettingsView: View {
         }
     }
 
-    private func example(_ phrase: String, _ meaning: String) -> some View {
+    /// A spoken instruction (always Thai, as said) and what it does.
+    private func example(_ phrase: String, _ meaning: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(phrase).font(.system(size: 12, weight: .medium))
+            Text(verbatim: phrase).font(.system(size: 12, weight: .medium))
             Text(meaning).font(.system(size: 11)).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading).padding(10)
@@ -154,10 +155,10 @@ struct VoiceEditingSettingsView: View {
         panel.allowedContentTypes = [.application]
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Add app"
+        panel.prompt = String(localized: "Add app")
         guard panel.runModal() == .OK, let url = panel.url else { return }
         guard let id = Bundle(url: url)?.bundleIdentifier else {
-            appError = "This app has no bundle identifier. Choose another app or enter its identifier."
+            appError = String(localized: "This app has no bundle identifier. Choose another app or enter its identifier.")
             return
         }
         voice.addTranslationApp(id)
@@ -175,7 +176,7 @@ private struct CommandShortcutField: View {
         HStack(spacing: 12) {
             Text("Shortcut").font(.system(size: 13, weight: .medium))
                 .frame(width: 85, alignment: .leading)
-            Text(isCapturing ? "Press a shortcut…" : (voice.commandChord?.displayName ?? "None"))
+            Text(isCapturing ? String(localized: "Press a shortcut…") : (voice.commandChord?.displayName ?? String(localized: "None")))
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(isCapturing ? SettingsStyle.accent : Color.primary)
                 .padding(.horizontal, 12).padding(.vertical, 9)

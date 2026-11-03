@@ -86,9 +86,11 @@ struct SettingsView: View {
     @EnvironmentObject private var appState: AppState
     @State private var selectedPage: SettingsPage = .general
     @State private var search = ""
+    private let voice: VoiceEditSettings
 
-    init(page: SettingsPage = .general) {
+    init(page: SettingsPage = .general, voice: VoiceEditSettings = .shared) {
         _selectedPage = State(initialValue: page)
+        self.voice = voice
     }
 
     var body: some View {
@@ -211,11 +213,11 @@ struct SettingsView: View {
     @ViewBuilder private var pageContent: some View {
         switch selectedPage {
         case .general: GeneralSettingsView()
-        case .shortcuts: ShortcutsSettingsView()
+        case .shortcuts: ShortcutsSettingsView(voice: voice)
         case .audio: AudioSettingsView()
         case .engines: EngineSettingsView(onOpenCloud: { selectedPage = .cloud })
         case .cleanup: CleanupSettingsView()
-        case .voiceEditing: VoiceEditingSettingsView()
+        case .voiceEditing: VoiceEditingSettingsView(voice: voice)
         case .dictionary: DictionarySettingsView()
         case .cloud: CloudSettingsView(onOpenEngines: { selectedPage = .engines })
         case .models: ModelsSettingsView()

@@ -322,7 +322,7 @@ struct RecordingHUDView: View {
     @ViewBuilder private var content: some View {
         switch model.phase {
         case .warming:
-            ProcessingView(reduceMotion: model.reduceMotion, label: "Getting the mic ready…")
+            ProcessingView(reduceMotion: model.reduceMotion, label: String(localized: "Getting the mic ready…"))
         case .recording:
             if model.reduceMotion {
                 LevelMeterView(level: CGFloat(model.level))
@@ -412,7 +412,8 @@ private struct LevelMeterView: View {
 /// `warming` ("Getting the mic ready…") — no progress is known in either.
 private struct ProcessingView: View {
     let reduceMotion: Bool
-    let label: LocalizedStringKey
+    /// Already in the user's language.
+    let label: String
 
     var body: some View {
         HStack(spacing: 10) {

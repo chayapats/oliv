@@ -318,20 +318,20 @@ final class CloudTrial: ObservableObject {
             forgetKey()
             phase = .off
             note = nil
-            return TrialAnnouncement(text: "Models ready — dictating on this Mac again",
+            return TrialAnnouncement(text: String(localized: "Models ready — dictating on this Mac again"),
                                      systemImage: "desktopcomputer")
         }
         if !hasUsableKey {
             forgetKey()
             phase = .off
             note = .ended
-            return TrialAnnouncement(text: "Free trial ended — wait for the download to finish",
+            return TrialAnnouncement(text: String(localized: "Free trial ended — wait for the download to finish"),
                                      systemImage: "exclamationmark.triangle.fill")
         }
         if !downloading {
             phase = .off
             note = .downloadStopped
-            return TrialAnnouncement(text: "Download stopped — the OLIV server trial is off",
+            return TrialAnnouncement(text: String(localized: "Download stopped — the OLIV server trial is off"),
                                      systemImage: "exclamationmark.triangle.fill")
         }
         return nil
@@ -358,13 +358,13 @@ final class CloudTrial: ObservableObject {
     nonisolated static func notice(for error: Error) -> String? {
         switch error {
         case OLIVAPIError.http(401):
-            return "Free trial ended — wait for the download to finish"
+            return String(localized: "Free trial ended — wait for the download to finish")
         case OLIVAPIError.http(403):
-            return "The OLIV server refused the trial — wait for the download"
+            return String(localized: "The OLIV server refused the trial — wait for the download")
         case OLIVAPIError.http(429):
-            return "Free-trial limit reached — wait, or let the download finish"
+            return String(localized: "Free-trial limit reached — wait, or let the download finish")
         case OLIVAPIError.cooldown(let seconds):
-            return "Free-trial limit — wait \(Int(ceil(seconds))) s, or for the download"
+            return String(localized: "Free-trial limit — wait \(OLIVAPIError.wholeSeconds(seconds)) s, or for the download")
         default:
             return (error as? OLIVAPIError)?.errorDescription
         }
