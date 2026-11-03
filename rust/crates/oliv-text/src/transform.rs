@@ -763,15 +763,7 @@ fn invented_numbers(source: &str, out: &str) -> Vec<String> {
     let small = small_numbers_allowed(source, out);
     let mut invented: Vec<String> = numbers(out)
         .into_iter()
-        .filter(|n| {
-            // A negative the source writes, restated without its sign
-            // ("3 million in the red" for −3 ล้าน), invents nothing; whether
-            // the sign survived is `lost_numbers`'s question.
-            !have.contains(n)
-                && !have.contains(&format!("-{n}"))
-                && !(is_small(n) && small.contains(n))
-                && !times.contains(n)
-        })
+        .filter(|n| !have.contains(n) && !(is_small(n) && small.contains(n)) && !times.contains(n))
         .collect();
     invented.sort();
     invented.dedup();
@@ -1605,10 +1597,19 @@ mod tests {
             lost_numbers("Temperature is -15 degrees.", "Temperature is 15 degrees."),
             vec!["-15".to_string()]
         );
+        // A negative restated without its sign is a changed number, in a
+        // summary as much as anywhere: nothing lets "15" stand for "-15".
         assert_eq!(
             invented_numbers("ยอดติดลบ −3 ล้าน", "The balance is 3 million in the red."),
-            Vec::<String>::new(),
-            "a small unsigned number may still be written"
+            vec!["3".to_string()]
+        );
+        assert_eq!(
+            check_command(
+                "สั้นลง",
+                "Temperature is -15 degrees today, colder than yesterday.",
+                "Temperature is 15 degrees."
+            ),
+            Err(Rejection("numberInvented"))
         );
         assert_eq!(
             lost_numbers("ขาดทุน -250,000 บาท", "a loss of -250000 baht"),
