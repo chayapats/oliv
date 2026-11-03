@@ -408,6 +408,12 @@ final class OutputDucker {
             guard let self = self else { completion?(); return }
             let handedOff = self.beginDuck(wish, completion: completion)
             self.syncRouteObservation()
+            // `beginDuck` read the default output before the listener existed,
+            // so a route change in between produced no report. Look once more
+            // now that it listens; the fade hasn't started (it's queued behind
+            // this block), so a device that already stopped being the default
+            // is handed back before it is lowered.
+            if self.snapshot() != nil { self.reconcileRoute() }
             if !handedOff { completion?() }
         }
     }

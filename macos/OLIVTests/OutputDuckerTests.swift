@@ -148,6 +148,9 @@ final class FakeTwoDeviceVolumeIO: VolumeIO {
     private var _quantum: Float?
 
     let routes = FakeRouteListeners()
+    /// Called when a listener is installed, before it is registered: the seam
+    /// for "the route moved before anyone was listening", which has no report.
+    var onObserve: (() -> Void)?
     /// Called on the ducker's queue around every write (outside the lock): the
     /// seams for "the route moves in the middle of the fade".
     var beforeWrite: ((AudioDeviceID, Float) -> Void)?
@@ -244,7 +247,8 @@ final class FakeTwoDeviceVolumeIO: VolumeIO {
     }
     func observeRoute(device: AudioDeviceID?, on queue: DispatchQueue,
                       _ handler: @escaping () -> Void) -> VolumeObservation? {
-        routes.observe(device: device, queue: queue, handler: handler)
+        onObserve?()
+        return routes.observe(device: device, queue: queue, handler: handler)
     }
 }
 
@@ -1011,9 +1015,29 @@ final class OutputDuckerTests: XCTestCase {
         XCTAssertEqual(io.routes.active.map { $0.device }, [47],
                        "the listener follows the device being ducked")
 
-        // Teardown while still ducking: nothing may be left registered.
+        // Teardown while still ducking: nothing may be left registered. The
+        // ramp's block can still hold the ducker for a moment after `settle`
+        // returns, so wait for it to actually go before looking.
+        weak var gone = ducker
         ducker = nil
+        waitUntil("the ducker is gone") { gone == nil }
         XCTAssertTrue(io.routes.active.isEmpty, "a ducker that goes away takes its listeners")
+    }
+
+    // The default output is read before the listener exists. Headphones that
+    // become the default in that gap produce no report, so the ducker looks
+    // again once it listens, and never lowers the device that stopped playing.
+    func testARouteChangeBeforeTheListenerIsInstalledIsNotMissed() {
+        let io = FakeTwoDeviceVolumeIO()
+        let ducker = OutputDucker(io: io, defaults: makeDefaults())
+        io.onObserve = { [unowned io] in
+            io.current = 47
+            io.onObserve = nil
+        }
+        settle { ducker.duck(completion: $0) }
+        waitUntil("the device that stopped being the default is let go") { !ducker.isDucking }
+        XCTAssertTrue(isClose(io.level(46), 0.8), "the old default is not left lowered")
+        XCTAssertTrue(isClose(io.level(47), 0.6), "the new default was never touched")
     }
 
     // A backend that cannot listen leaves the ducker exactly as it was before
