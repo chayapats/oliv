@@ -19,6 +19,10 @@ Sparkle appcast's release notes, so keep entries short and end-user readable.
   browser. Issues are public, so remove anything private; OLIV sends nothing
   itself and never attaches audio. On iPhone, a recording that failed to send
   can now be shared from its card.
+- **Volume no longer stays low when headphones connect or disconnect while you
+  dictate.** With "Lower other audio while dictating" on, AirPods or other
+  headphones that drop out mid-dictation get your volume back as soon as they
+  reconnect, and your speakers get theirs back as soon as headphones take over.
 - **Corrections that lead into each other apply once.** With rules like
   `foo → docker` and `docker → X`, a word OLIV already corrected is no longer
   corrected again after the cleanup model changes its capitals or spacing.

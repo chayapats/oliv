@@ -20,7 +20,7 @@
 // level is no longer the one WE last wrote, the user moved it themselves, and
 // this class SURRENDERS — it stops ramping, forgets the duck, and never writes
 // that device again for this capture. Everything below follows from that rule,
-// and it is what makes the five ways this could rob the user of their volume
+// and it is what makes the six ways this could rob the user of their volume
 // impossible:
 //
 //   1. Release lands mid-fade. The restore ramps back from whatever WE last
@@ -33,19 +33,19 @@
 //      by the ownership check, not just once at release. The honest limit: the
 //      check reads the level and then writes, so a change landing inside that
 //      one read→write window (microseconds, six times per fade) is overwritten
-//      and then reverted to the user's pre-dictation level at release. Closing
-//      it entirely needs a Core Audio property listener; the residue is a
-//      sub-millisecond window whose worst outcome is the user's own earlier
-//      level, never a stranded quiet one, so it is documented rather than
-//      chased.
+//      and then reverted to the user's pre-dictation level at release. No
+//      listener can close it (see WHAT A LISTENER CAN AND CANNOT TELL, below);
+//      the residue is a sub-millisecond window whose worst outcome is the
+//      user's own earlier level, never a stranded quiet one, so it is
+//      documented rather than chased.
 //   3. OLIV dies while ducked. The journal in UserDefaults carries the originals
 //      AND the last level we applied, so the next launch restores only the
 //      elements still sitting where we left them — a user who deliberately chose
 //      a quieter level before relaunching keeps it (`restoreOrphaned`).
 //   4. A write silently fails, or the device vanishes mid-restore. Restores are
 //      READ BACK and verified; the journal is cleared only once every original
-//      is confirmed, so an unverified restore is retried at the next release and
-//      again at the next launch instead of being forgotten.
+//      is confirmed, so an unverified restore is retried at the next release,
+//      the next route change (6) and the next launch instead of being forgotten.
 //   5. The device does not land where we wrote, because its volume grid is
 //      coarser than the write can explain — a 1/8-step scalar rounds a 0.43
 //      request to 0.375. Read as a user edit, that surrenders the element while
@@ -53,11 +53,59 @@
 //      stranded, silently and permanently. So the readback is judged by
 //      `quantisationCeiling`, sized for the coarsest grid a real device has and
 //      not for the common one — the two mistakes it sits between are not equally
-//      bad, and only one of them is recoverable.
+//      bad, and only one of them is recoverable. The bound applies only inside
+//      the microseconds between a write and its read-back, which is also why no
+//      listener can retire it (below).
+//   6. The OUTPUT ROUTE moves while ducked — Bluetooth headphones connecting or
+//      disconnecting during the fade or the hold. Nothing about a volume level
+//      says this has happened, and the earlier revision found out only when it
+//      next touched the device — a ramp step, or the next press — so headphones
+//      that dropped out while lowered came back still lowered and stayed that
+//      way until the next dictation, and the speakers left behind when
+//      headphones connected stayed down until the key came up. So the route is
+//      no longer discovered by accident. Core Audio property listeners
+//      report the default output changing, the device list changing and the
+//      ducked device dying (`observeRoute`), and EVERY report re-reads the route
+//      as it now is rather than interpreting the report — which is what makes a
+//      burst of them inside one 120 ms fade (unplugged, then back under a new
+//      id) converge without any ordering rules. The device being lowered is let
+//      go of the moment it stops being the default or stops existing, and its
+//      level goes back through the same UID-keyed record and sweep that crash
+//      recovery uses: at once if it is still attached, or the moment it
+//      reappears if it is not. The listener is installed only while there is
+//      something to protect — an owned duck, or a record for a device that is
+//      away — and removed when there is not. It starts with the first press,
+//      not at launch: a record that survives the launch sweep (its device was
+//      away) is next swept at that press, and followed from then on.
+//      The cost, declared: the rest of THAT hold is not ducked on whichever
+//      device the sound moved to. Ducking it there and then would mean taking
+//      its "original" at the one moment it is least trustworthy — a device that
+//      has just connected can still be having its own volume put back by macOS
+//      — and restoring that guess later would overwrite the level macOS chose.
+//      One utterance may be recorded over full-level playback; the next press
+//      ducks the new device normally.
 //
-// Quitting is a sixth path, and an async fade loses that race with process exit
-// — so termination calls `restoreNow()`, which cancels the ramps and writes the
-// originals synchronously.
+// WHAT A LISTENER CAN AND CANNOT TELL. The listeners in 6 watch the ROUTE.
+// There is deliberately no listener on the volume scalar itself, although it
+// looks like the obvious next step. Core Audio announces OUR writes exactly as
+// it announces anybody else's: asynchronously, after the fact, with no writer
+// attached. By the time a notification is
+// handled, the level it describes has to be read back like any other — so "the
+// device rounded our write" and "the user moved it" are still told apart by the
+// level and nothing else, listener or not. And the moments at which telling
+// them apart MATTERS are the moments OLIV is about to write: it writes nothing
+// during the hold, so reading the level just before each ramp step, and before
+// every hand-back (release, quit, route change, launch), already sees
+// everything a notification could have shown. Acting on a notification any
+// earlier would only add judgement points, each one a fresh chance to read a
+// device artefact — a headset reporting a bogus level on its way out — as a
+// user edit, and walk away from a level OLIV lowered. What a listener cannot
+// see at all are the microseconds between our own read, write and read-back:
+// that is where the residue in 2 and the grid bound in 5 live.
+//
+// Quitting is one more path, and an async fade loses that race with process
+// exit — so termination calls `restoreNow()`, which cancels the ramps and writes
+// the originals synchronously.
 //
 // A device with no settable volume (HDMI, many USB DACs) is a NO-OP, logged
 // once. It is deliberately not "mute it instead": "OLIV muted my speakers" is a
@@ -71,6 +119,15 @@
 // The Core Audio plumbing sits behind `VolumeIO` so this state machine — the
 // part that can actually strand a volume — is testable without a device (see
 // OutputDuckerTests).
+//
+// THREADS. Every device read and write, every journal write and every route
+// report is handled on ONE serial queue, in order — `duck()`, `restore()` and
+// `restoreNow()` only record the caller's wish under the lock and hand the work
+// to it. That is what lets a route report arriving mid-fade, a press arriving
+// mid-release and a quit arriving mid-anything be reasoned about one at a time.
+// Core Audio delivers listener reports on a second queue of their own, whose
+// blocks do nothing but schedule work on the first; nothing ever waits on them.
+// The lock guards the shared fields and is never held across a Core Audio call.
 
 import CoreAudio
 import Foundation
@@ -88,6 +145,91 @@ protocol VolumeIO {
     func read(_ device: AudioDeviceID, _ element: AudioObjectPropertyElement) -> Float?
     @discardableResult
     func write(_ device: AudioDeviceID, _ element: AudioObjectPropertyElement, _ volume: Float) -> Bool
+    /// Start listening for changes to the OUTPUT ROUTE: the default output
+    /// device, the set of attached devices and — when `device` is given — that
+    /// device dying. `handler` runs on `queue` once per report and is told
+    /// nothing on purpose: the route is re-read, never interpreted from the
+    /// report. nil = this backend cannot listen, and the ducker learns of a
+    /// route change only when it next touches the device (failure mode 6).
+    func observeRoute(device: AudioDeviceID?, on queue: DispatchQueue,
+                      _ handler: @escaping () -> Void) -> VolumeObservation?
+}
+
+/// A live listener registration. `cancel()` removes it and is idempotent.
+protocol VolumeObservation: AnyObject {
+    func cancel()
+}
+
+/// One listener block registered on several Core Audio properties, removed as a
+/// unit.
+///
+/// THE BLOCK IS STORED, NOT RE-CREATED. Core Audio removes a listener by block
+/// identity, so removing with a freshly bridged closure would quietly leave the
+/// original registered — still firing, for an owner that may be gone.
+///
+/// The HAL dispatches the block onto `queue` instead of calling it on its own
+/// notification thread, so nothing here can hold Core Audio up; and that queue
+/// is not the ducker's, so a removal made from the ducker's queue never waits on
+/// a block that is itself waiting on the ducker.
+final class CoreAudioListener: VolumeObservation {
+    typealias Target = (object: AudioObjectID, address: AudioObjectPropertyAddress)
+
+    private let queue: DispatchQueue
+    private let block: AudioObjectPropertyListenerBlock
+    private let lock = NSLock()
+    private var registered: [Target] = []   // guarded by lock
+    private var refusedRemovals = 0         // guarded by lock
+
+    /// nil when any `required` registration fails (whatever did register is
+    /// removed again); `optional` ones are best-effort.
+    init?(required: [Target], optional: [Target] = [], queue: DispatchQueue,
+          handler: @escaping () -> Void) {
+        self.queue = queue
+        self.block = { _, _ in handler() }
+        for target in required {
+            guard add(target) else {
+                cancel()
+                return nil
+            }
+        }
+        for target in optional { _ = add(target) }
+    }
+
+    deinit { cancel() }
+
+    func cancel() {
+        lock.lock()
+        let targets = registered
+        registered = []
+        lock.unlock()
+        var refused = 0
+        for target in targets {
+            var address = target.address
+            if AudioObjectRemovePropertyListenerBlock(target.object, &address, queue, block) != noErr {
+                refused += 1   // e.g. a device that has already gone: nothing left to remove
+            }
+        }
+        lock.lock()
+        refusedRemovals += refused
+        lock.unlock()
+    }
+
+    /// Removals Core Audio rejected. A block that did not match its own
+    /// registration would show up here. Test seam.
+    var removalsRefused: Int {
+        lock.lock(); defer { lock.unlock() }
+        return refusedRemovals
+    }
+
+    private func add(_ target: Target) -> Bool {
+        var address = target.address
+        guard AudioObjectAddPropertyListenerBlock(target.object, &address, queue, block) == noErr
+        else { return false }
+        lock.lock()
+        registered.append(target)
+        lock.unlock()
+        return true
+    }
 }
 
 /// The real thing: `kAudioDevicePropertyVolumeScalar` on the output scope.
@@ -127,6 +269,32 @@ struct CoreAudioVolumeIO: VolumeIO {
         var value = min(max(volume, 0), 1)
         return AudioObjectSetPropertyData(
             device, &address, 0, nil, UInt32(MemoryLayout<Float>.size), &value) == noErr
+    }
+
+    /// The system's default output and device list are REQUIRED — without them
+    /// there is no route to follow. The ducked device's IsAlive is a bonus: the
+    /// device list reports a disappearance too, IsAlive can just say so sooner,
+    /// and a device that refuses it must not cost us the other two.
+    func observeRoute(device: AudioDeviceID?, on queue: DispatchQueue,
+                      _ handler: @escaping () -> Void) -> VolumeObservation? {
+        let system = AudioObjectID(kAudioObjectSystemObject)
+        let required: [CoreAudioListener.Target] = [
+            (system, CoreAudioVolumeIO.global(kAudioHardwarePropertyDefaultOutputDevice)),
+            (system, CoreAudioVolumeIO.global(kAudioHardwarePropertyDevices)),
+        ]
+        var optional: [CoreAudioListener.Target] = []
+        if let device = device, device != 0 {
+            optional.append((device, CoreAudioVolumeIO.global(kAudioDevicePropertyDeviceIsAlive)))
+        }
+        return CoreAudioListener(required: required, optional: optional, queue: queue,
+                                 handler: handler)
+    }
+
+    private static func global(_ selector: AudioObjectPropertySelector) -> AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(
+            mSelector: selector,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
     }
 
     private func isSettable(_ device: AudioDeviceID, _ element: AudioObjectPropertyElement) -> Bool {
@@ -171,11 +339,19 @@ final class OutputDucker {
 
     private let io: VolumeIO
     private let defaults: UserDefaults
+    /// THE queue (see THREADS in the header): all device and journal I/O and
+    /// all state transitions happen here, one at a time.
     private let queue = DispatchQueue(label: "com.oliv.output-ducker", qos: .userInitiated)
+    private let onQueueKey = DispatchSpecificKey<Bool>()
+    /// Where Core Audio delivers route reports. Its blocks only schedule a
+    /// reconcile on `queue` (see RouteSignal).
+    private let listenerQueue = DispatchQueue(
+        label: "com.oliv.output-ducker.route-listener", qos: .userInitiated)
     private let lock = NSLock()
 
     /// The duck we currently OWN. Survives across the down and up ramps and is
-    /// cleared only by a verified restore or by surrendering to the user.
+    /// cleared only by a verified restore, by surrendering to the user, or —
+    /// keeping its journal record — when the route moves away from its device.
     private struct Ducking {
         let device: AudioDeviceID
         let uid: String
@@ -193,78 +369,103 @@ final class OutputDucker {
     /// Bumped by every duck/restore/restoreNow so an in-flight ramp retires
     /// instead of fighting the current level.
     private var generation: UInt64 = 0
+    /// The caller's LATEST wish, bumped by duck/restore/restoreNow and nothing
+    /// else. A press waiting on the queue goes ahead only while it is still the
+    /// latest — a release or a quit behind it means the press is already over.
+    /// Kept apart from `generation`, which ownership changes bump too: a stale
+    /// ramp surrendering its last element must not be able to cancel the press
+    /// that arrived while it ran.
+    private var intent: UInt64 = 0
     private var warnedUnsupported = false
+
+    // Route listening (failure mode 6). QUEUE-CONFINED: read and written only
+    // on `queue`, and in deinit, when nothing else can be running.
+    private var routeObservation: VolumeObservation?
+    private var observedDevice: AudioDeviceID?
+    private var warnedCannotListen = false
+    private let routeSignal = RouteSignal()
 
     init(io: VolumeIO = CoreAudioVolumeIO(), defaults: UserDefaults = .standard) {
         self.io = io
         self.defaults = defaults
+        queue.setSpecific(key: onQueueKey, value: true)
+        routeSignal.attach(to: self, queue: queue)
+    }
+
+    deinit {
+        routeObservation?.cancel()
     }
 
     // MARK: Duck / restore
 
     /// Fade the default output device down to `level` of the user's volume.
-    /// A no-op while a duck is already owned. Returns immediately; the fade runs
-    /// on a private queue and calls `completion` when it settles (tests wait on
-    /// it — the app doesn't care).
+    /// A no-op while a duck is already owned. Returns immediately; the work runs
+    /// on the ducker's queue and calls `completion` when it settles (tests wait
+    /// on it — the app doesn't care).
     func duck(completion: (() -> Void)? = nil) {
+        let wish = recordWish().intent
+        queue.async { [weak self] in
+            guard let self = self else { completion?(); return }
+            let handedOff = self.beginDuck(wish, completion: completion)
+            self.syncRouteObservation()
+            if !handedOff { completion?() }
+        }
+    }
+
+    /// The body of `duck()`, on the queue. True when `completion` was handed to a
+    /// ramp (which calls it); false when the caller still owes it.
+    private func beginDuck(_ wish: UInt64, completion: (() -> Void)?) -> Bool {
+        // A release (or a quit) already followed this press: the press is over,
+        // and ducking now would lower the volume for a hold nobody is making.
+        guard isLatest(wish) else { return false }
+
         // A press that lands while the PREVIOUS release is still fading back:
         // take the duck over rather than declining it. Declining left the old
         // restore running, which raises the music back to full volume during the
         // new hold — the opposite of what the press asked for. The originals stay
         // the ones from the first duck, so the user's real level is never
         // mistaken for the ducked one it is currently passing through.
-        // …but only if it is still the SAME device. Read before the lock: no Core
-        // Audio call belongs under it.
+        // …but only if it is still the SAME device.
         let currentDefault = io.defaultOutputDevice()
-        lock.lock()
-        if let existing = ducking {
+        if let existing = snapshot() {
             // Both halves matter: the same NUMBER is not the same DEVICE (see
             // `stillTheSameDevice`), and the same device is not the current
             // default.
             if currentDefault == existing.device && stillTheSameDevice(existing) {
-                generation &+= 1
-                let generation = self.generation
-                let originals = existing.originals
-                lock.unlock()
-                let targets = originals.mapValues {
-                    OutputDucker.duckedVolume(original: $0, level: self.level)
-                }
-                ramp(to: targets, generation: generation, isRestore: false, completion: completion)
-                return
+                guard let generation = claim(wish) else { return false }
+                ramp(isRestore: false, generation: generation, completion: completion)
+                return true
             }
             // THE ROUTE MOVED inside the 120 ms release fade — a headset that
-            // connects between one press and the next is exactly that. Taking the
-            // old ownership over here would duck a device nobody is listening to
-            // AND leave the real output at full volume, so this utterance gets the
-            // speaker bleed the duck exists to prevent while the old device keeps
-            // a level it will never be told to give back.
-            lock.unlock()
-            if !restoreNow() {
-                // A FAILED restore here does not mean the level is unrecoverable.
-                // The commonest cause is the very event that got us here: a device
-                // that disconnected and came back holds a NEW AudioDeviceID, and
-                // `restoreNow` writes to the numeric ID we stored, which is now
-                // nobody. The journal is keyed by UID and CAN still find it — so
-                // drop the in-memory ownership (whose ID is the stale part) while
-                // KEEPING the record, and fall through to the orphan sweep below,
-                // which resolves by UID and restores it properly. Declining the
-                // press here instead is what made that recovery unreachable.
-                NSLog("OLIV OutputDucker: the default output changed and the previous device would "
-                      + "not confirm its restore — handing it to the journal sweep")
-                abandonOwnershipKeepingJournal()
-            }
-        } else {
-            lock.unlock()
+            // connects between one press and the next is exactly that, and the
+            // route listener (failure mode 6) may simply not have been heard yet.
+            // Taking the old ownership over here would duck a device nobody is
+            // listening to AND leave the real output at full volume, so this
+            // utterance gets the speaker bleed the duck exists to prevent while
+            // the old device keeps a level it will never be told to give back.
+            //
+            // So let go of the old device and hand it to the sweep below, which
+            // finds it by UID and puts its level back if it is still ours. That
+            // is deliberately the ONLY way back, rather than a restore through
+            // the numeric id we hold: the commonest reason for being here is a
+            // device that disconnected and came back, which holds a NEW
+            // AudioDeviceID — the old one is now nobody, and a restore through it
+            // can only fail (an earlier revision then declined the press, which
+            // made the recovery unreachable).
+            NSLog("OLIV OutputDucker: the default output changed since the last press — "
+                  + "handing the previous device its volume back")
+            abandonOwnershipKeepingJournal()
         }
 
         // Sweep any record left by a run that died — including one for a device
-        // that was unplugged at launch and has since come back. Doing it here as
-        // well as at launch is what keeps "reconnect the DAC, then dictate" from
-        // leaving that DAC parked at a ducked level until the next relaunch.
+        // that was unplugged at launch and has since come back, and the one just
+        // handed over above. Doing it here as well as at launch is what keeps
+        // "reconnect the DAC, then dictate" from leaving that DAC parked at a
+        // ducked level until the next relaunch.
         OutputDucker.restoreOrphaned(defaults: defaults, io: io)
 
         let device = io.defaultOutputDevice()
-        guard device != 0 else { completion?(); return }
+        guard device != 0 else { return false }
         // No UID = nothing a future launch could match this device by, so a duck
         // here would be one we could not recover from a crash. Skip it.
         let uid = io.uid(of: device)
@@ -280,23 +481,24 @@ final class OutputDucker {
            store[uid] != nil {
             NSLog("OLIV OutputDucker: \"%@\" still has an unrestored volume from an earlier run "
                   + "— not ducking it again until that level is back", io.name(of: device))
-            completion?()
-            return
+            return false
         }
-        guard !uid.isEmpty else { completion?(); return }
+        guard !uid.isEmpty else { return false }
         let elements = io.settableElements(of: device)
         guard !elements.isEmpty else {
             warnUnsupportedOnce(device)
-            completion?()
-            return
+            return false
         }
         var originals: [Element: Float] = [:]
         for element in elements {
             if let value = io.read(device, element) { originals[element] = value }
         }
-        guard !originals.isEmpty else { completion?(); return }
+        guard !originals.isEmpty else { return false }
 
+        // Ownership and the press's claim on it are taken together, under the
+        // lock: a release that arrived while we were reading the device wins.
         lock.lock()
+        guard intent == wish else { lock.unlock(); return false }
         generation &+= 1
         let generation = self.generation
         ducking = Ducking(device: device, uid: uid, originals: originals, applied: originals)
@@ -305,32 +507,28 @@ final class OutputDucker {
         // Journal BEFORE the first write: everything after this line can die
         // without taking the user's volume with it.
         writeJournal()
-        let targets = originals.mapValues { OutputDucker.duckedVolume(original: $0, level: self.level) }
-        ramp(to: targets, generation: generation, isRestore: false, completion: completion)
+        ramp(isRestore: false, generation: generation, completion: completion)
+        return true
     }
 
     /// Fade back to the levels the user had before `duck()`, from wherever the
     /// fade actually got to. A no-op when nothing is owned. Elements the user has
     /// since moved themselves are left alone.
     func restore(completion: (() -> Void)? = nil) {
-        lock.lock()
-        guard let state = ducking else { lock.unlock(); completion?(); return }
-        generation &+= 1
-        let generation = self.generation
-        lock.unlock()
-        ramp(to: state.originals, generation: generation, isRestore: true, completion: completion)
+        let generation = recordWish().generation
+        ramp(isRestore: true, generation: generation, completion: completion)
     }
 
-    /// Put the originals back RIGHT NOW — no fade, no queue hop — and report
-    /// whether every one of them was verified. For application termination,
-    /// where an asynchronous fade simply loses the race with process exit.
+    /// Put the originals back RIGHT NOW — no fade — and report whether every one
+    /// of them was verified. For application termination, where an asynchronous
+    /// fade simply loses the race with process exit.
     @discardableResult
     func restoreNow() -> Bool {
-        lock.lock()
-        let owned = ducking != nil
-        if owned { generation &+= 1 }   // retire any ramp in flight
-        lock.unlock()
-        guard owned else { return true }
+        // Retire any ramp in flight AND any press still waiting on the queue —
+        // unconditionally, not only when something is owned yet: a press whose
+        // work has not reached the queue owns nothing at this instant, and would
+        // otherwise go on to duck after the quit-time restore had already run.
+        _ = recordWish()
 
         // ON THE RAMP QUEUE, synchronously. Bumping the generation retires a ramp
         // only at its next check — a step that has already passed that check is
@@ -338,66 +536,167 @@ final class OutputDucker {
         // queue means it cannot start until that write is finished, which is the
         // difference between "the volume is back" and "the volume is back, then a
         // stale fade puts it down again and the process exits".
+        if DispatchQueue.getSpecific(key: onQueueKey) != nil {
+            let verified = restoreImmediately()     // already on it: sync would deadlock
+            syncRouteObservation()
+            return verified
+        }
         return queue.sync {
-            guard let state = self.snapshot() else { return true }
-            // Writing our originals into whoever now holds that id would take a
-            // stranger's volume AND report our own device restored. Say the
-            // restore did not happen, which keeps the UID-keyed record for the
-            // sweep that can still find the real device.
-            guard self.stillTheSameDevice(state) else {
-                self.logUnverifiedRestore()
-                return false
-            }
-            var verified = true
-            for (element, original) in state.originals {
-                // An unreadable level is NOT permission to overwrite it. We
-                // cannot tell whose it is, and quitting is the one moment where
-                // guessing wrong is unrecoverable — the process is about to go
-                // away. Leave it and let the journal carry it to the next launch.
-                guard let live = self.io.read(state.device, element) else {
-                    verified = false
-                    continue
-                }
-                // Ours if the hardware still reads what we last CONFIRMED, or —
-                // when a confirmation was lost and `rollBack` could not hand the
-                // level back either — what we last WROTE. `pending` is judged by
-                // the quantisation bound, like the crash journal: it is a level we
-                // ASKED for, and a coarse device is holding its own rounding of
-                // it. Judged tightly, the quit path walks past its OWN ducked
-                // level, reports the restore verified and clears the journal,
-                // leaving the machine quiet at the one moment where there is no
-                // next chance.
-                let ours = state.applied[element].map({
-                        OutputDucker.stillOurs(current: live, applied: $0)
-                    }) == true
-                    || state.pending[element].map({
-                        OutputDucker.readbackIsOurs(after: live, requested: $0)
-                    }) == true
-                guard ours else {
-                    // A fingerprint that says "not ours" means the user owns this
-                    // level and it is theirs to keep. NO fingerprint at all means
-                    // something is still owed, and the journal has to survive.
-                    if state.applied[element] == nil && state.pending[element] == nil {
-                        verified = false
-                    }
-                    continue
-                }
-                if !self.writeVerified(state.device, element, original) { verified = false }
-            }
-            if verified { self.clearOwnership() } else { self.logUnverifiedRestore() }
+            let verified = self.restoreImmediately()
+            self.syncRouteObservation()
             return verified
         }
     }
 
+    /// The body of `restoreNow()`, on the queue.
+    private func restoreImmediately() -> Bool {
+        guard let state = snapshot() else { return true }
+        // Writing our originals into whoever now holds that id would take a
+        // stranger's volume AND report our own device restored. Say the restore
+        // did not happen, which keeps the UID-keyed record for the sweep that can
+        // still find the real device.
+        guard stillTheSameDevice(state) else {
+            logUnverifiedRestore()
+            return false
+        }
+        var verified = true
+        for (element, original) in state.originals {
+            // An unreadable level is NOT permission to overwrite it. We cannot
+            // tell whose it is, and quitting is the one moment where guessing
+            // wrong is unrecoverable — the process is about to go away. Leave it
+            // and let the journal carry it to the next launch.
+            guard let live = io.read(state.device, element) else {
+                verified = false
+                continue
+            }
+            // Ours if the hardware still reads what we last CONFIRMED, or — when
+            // a confirmation was lost and `rollBack` could not hand the level back
+            // either — what we last WROTE. `pending` is judged by the
+            // quantisation bound, like the crash journal: it is a level we ASKED
+            // for, and a coarse device is holding its own rounding of it. Judged
+            // tightly, the quit path walks past its OWN ducked level, reports the
+            // restore verified and clears the journal, leaving the machine quiet
+            // at the one moment where there is no next chance.
+            let ours = state.applied[element].map({
+                    OutputDucker.stillOurs(current: live, applied: $0)
+                }) == true
+                || state.pending[element].map({
+                    OutputDucker.readbackIsOurs(after: live, requested: $0)
+                }) == true
+            guard ours else {
+                // A fingerprint that says "not ours" means the user owns this
+                // level and it is theirs to keep. NO fingerprint at all means
+                // something is still owed, and the journal has to survive.
+                if state.applied[element] == nil && state.pending[element] == nil {
+                    verified = false
+                }
+                continue
+            }
+            if !writeVerified(state.device, element, original) { verified = false }
+        }
+        if verified { clearOwnership() } else { logUnverifiedRestore() }
+        return verified
+    }
+
+    // MARK: Following the route (failure mode 6)
+
+    /// Something about the output route changed: the default output, the set of
+    /// devices, or the ducked device's liveness. On the queue.
+    ///
+    /// The report itself is not trusted for WHAT changed — several may have been
+    /// coalesced, and they arrive in no promised order — so this reads the route
+    /// as it is now and makes the state agree with it. That is the whole reason a
+    /// burst of reports (a headset dropping out and coming back under a new id,
+    /// both inside one fade) needs no special case.
+    fileprivate func reconcileRoute() {
+        if let state = snapshot() {
+            // Gone (or its id handed to somebody else), or simply no longer where
+            // the sound goes. Either way there is no fade left to protect on it,
+            // and every moment it stays lowered is a moment in which a disconnect
+            // can strand it — so let go now, and let the sweep below put its
+            // level back: through the UID-keyed record, which is the one handle
+            // that still works when the numeric id has gone stale.
+            let gone = !stillTheSameDevice(state)
+            if gone || io.defaultOutputDevice() != state.device {
+                NSLog("OLIV OutputDucker: \"%@\" %@ while its volume was lowered — giving it back",
+                      io.name(of: state.device),
+                      gone ? "disappeared" : "stopped being the default output")
+                abandonOwnershipKeepingJournal()
+            }
+        }
+        // Every record whose device is attached right now gets its level back
+        // NOW — a headset that dropped out while lowered is put right the moment
+        // it reconnects, not at the next press or launch. The duck still in
+        // progress is not an orphan: its record is excluded, or the sweep would
+        // undo the very hold the user is in the middle of.
+        OutputDucker.restoreOrphaned(defaults: defaults, io: io, except: snapshot()?.uid)
+        syncRouteObservation()
+    }
+
+    /// Listen while there is something to protect — a duck we own, or a record
+    /// for a device that is away and owed its level when it comes back — and not
+    /// otherwise. Re-installed when the owned device changes, so its IsAlive
+    /// listener follows it. On the queue.
+    private func syncRouteObservation() {
+        let owned = snapshot()?.device
+        let owed = !(defaults.dictionary(forKey: OutputDucker.orphanKey)?.isEmpty ?? true)
+        guard owned != nil || owed else {
+            routeObservation?.cancel()
+            routeObservation = nil
+            observedDevice = nil
+            return
+        }
+        if routeObservation != nil && observedDevice == owned { return }
+        routeObservation?.cancel()
+        // The handler holds the SIGNAL, never the ducker (see RouteSignal).
+        let signal = routeSignal
+        routeObservation = io.observeRoute(device: owned, on: listenerQueue) { signal.fire() }
+        observedDevice = owned
+        if routeObservation == nil && !warnedCannotListen {
+            warnedCannotListen = true
+            NSLog("OLIV OutputDucker: could not listen for output-device changes — a device that "
+                  + "connects or disconnects while ducked is noticed at the next press instead")
+        }
+    }
+
+    /// Record a new wish from the caller and retire whatever ramp is in flight.
+    private func recordWish() -> (intent: UInt64, generation: UInt64) {
+        lock.lock(); defer { lock.unlock() }
+        intent &+= 1
+        generation &+= 1
+        return (intent, generation)
+    }
+
+    private func isLatest(_ wish: UInt64) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return intent == wish
+    }
+
+    /// A fresh ramp generation for `wish` — unless a newer wish has arrived.
+    private func claim(_ wish: UInt64) -> UInt64? {
+        lock.lock(); defer { lock.unlock() }
+        guard intent == wish else { return nil }
+        generation &+= 1
+        return generation
+    }
+
     /// Put back levels left ducked by a run that died mid-dictation (failure mode
-    /// 3). Called once at launch. Restores ONLY the elements still sitting at the
-    /// level we last wrote — anything the user has since changed is theirs. The
-    /// journal survives a restore that cannot be verified, so the next launch
-    /// tries again; it is dropped when the device is simply gone.
+    /// 3), or by a duck whose device dropped out or stopped being the default
+    /// (failure mode 6). Called at launch, at every press and on every route
+    /// change. Restores ONLY the elements still sitting at the level we last
+    /// wrote — anything the user has since changed is theirs. The journal
+    /// survives a restore that cannot be verified, so the next sweep tries again;
+    /// it is KEPT while the device is simply away.
+    ///
+    /// `except` names the device whose duck is in progress right now: its record
+    /// is the live journal of that duck, not an orphan, and sweeping it would put
+    /// the user's volume back in the middle of their hold.
     static func restoreOrphaned(defaults: UserDefaults = .standard,
-                                io: VolumeIO = CoreAudioVolumeIO()) {
+                                io: VolumeIO = CoreAudioVolumeIO(),
+                                except inProgress: String? = nil) {
         guard let store = defaults.dictionary(forKey: orphanKey) else { return }
         for (key, value) in store {
+            if let inProgress = inProgress, key == inProgress { continue }
             guard let record = value as? [String: Any], let journal = Journal(record: record) else {
                 dropRecord(key, from: defaults)   // malformed: not worth carrying forward
                 continue
@@ -428,12 +727,13 @@ final class OutputDucker {
             if verified {
                 dropRecord(journal.uid, from: defaults)
                 if restored {
-                    NSLog("OLIV OutputDucker: restored the output volume of \"%@\" — a previous "
-                          + "run was killed while ducking it", io.name(of: device))
+                    NSLog("OLIV OutputDucker: restored the output volume of \"%@\" — it was left "
+                          + "lowered by a run that ended or a route that moved while ducking it",
+                          io.name(of: device))
                 }
             } else {
                 NSLog("OLIV OutputDucker: could not verify the volume restore for \"%@\" — keeping "
-                      + "the record for the next launch", io.name(of: device))
+                      + "the record for the next attempt", io.name(of: device))
             }
         }
     }
@@ -545,32 +845,52 @@ final class OutputDucker {
 
     // MARK: The ramp
 
-    /// Walk every owned element from where we last left it to `targets`,
-    /// checking ownership before each write. Retires on generation change,
-    /// surrenders on a user edit, and (when restoring) verifies the landing
-    /// before it lets go of the journal.
-    private func ramp(
-        to targets: [Element: Float], generation: UInt64, isRestore: Bool,
-        completion: (() -> Void)?
-    ) {
+    /// Walk every owned element from where we last left it to the duck's
+    /// targets (or, restoring, to the originals), checking ownership before each
+    /// write. Retires on generation change, surrenders on a user edit, and (when
+    /// restoring) verifies the landing before it lets go of the journal.
+    /// `completion` runs once the ramp is over, however it ended.
+    private func ramp(isRestore: Bool, generation: UInt64, completion: (() -> Void)?) {
         let steps = max(OutputDucker.rampSteps, 1)
         let pause = OutputDucker.rampDuration / Double(steps)
         queue.async { [weak self] in
-            guard let self = self, let start = self.snapshot() else { completion?(); return }
+            guard let self = self else { completion?(); return }
+            // Every way out of the ramp goes through here, so the listeners
+            // match what is owned before anyone waiting on the ramp looks.
+            let finish = {
+                self.syncRouteObservation()
+                completion?()
+            }
+            // Superseded before it started (a release behind this press, a press
+            // behind this release), or nothing is owned any more: nothing to do.
+            guard self.isCurrent(generation), let start = self.snapshot() else {
+                finish()
+                return
+            }
+            // Targets come from the ownership as it stands NOW, not from when the
+            // ramp was asked for: an element surrendered in between is not ours to
+            // move, and a duck taken over from a fading restore keeps the FIRST
+            // duck's originals (see `beginDuck`).
+            let targets = isRestore
+                ? start.originals
+                : start.originals.mapValues {
+                    OutputDucker.duckedVolume(original: $0, level: self.level)
+                }
             for step in 1...steps {
                 guard self.isCurrent(generation), let state = self.snapshot() else {
-                    completion?()
+                    finish()
                     return
                 }
                 // The id can be reassigned MID-FADE — the device is unplugged
                 // between two steps and its number handed to another. Keep ramping
                 // and every remaining write, and the ownership check behind it,
-                // lands on a stranger. Let the state go without touching the
-                // journal: the record is keyed by UID and the sweep can still act
-                // on it, whereas surrendering here would delete it.
+                // lands on a stranger. Let the state go but KEEP the journal: the
+                // record is keyed by UID and the sweep can still act on it — the
+                // route listener runs that sweep the moment the device is back —
+                // whereas surrendering here would delete it.
                 guard self.stillTheSameDevice(state) else {
                     self.abandonOwnershipKeepingJournal()
-                    completion?()
+                    finish()
                     return
                 }
                 var wrote = false
@@ -684,22 +1004,22 @@ final class OutputDucker {
                     }
                 }
                 self.writeJournal()
-                guard wrote || self.snapshot() != nil else { completion?(); return }
+                guard wrote || self.snapshot() != nil else { finish(); return }
                 if step < steps { Thread.sleep(forTimeInterval: pause) }
             }
             // The generation check guards the FINALISATION too, not just the
             // steps: a restore that has been superseded by a new press must not
             // clear the ownership the new duck is now relying on — that would
             // leave the fresh hold with no state and the music at full volume.
-            guard self.isCurrent(generation) else { completion?(); return }
+            guard self.isCurrent(generation) else { finish(); return }
             if isRestore { self.finishRestore(generation: generation) }
-            completion?()
+            finish()
         }
     }
 
     /// Read back every restored element; let go of the journal only once they
     /// all confirm. An unverified restore keeps its record so the next release —
-    /// or, failing that, the next launch — tries again.
+    /// or, failing that, the next route change or launch — tries again.
     /// Judged against what we STILL owe (`state.originals`), not against the set
     /// the ramp started with: an element reclaimed or surrendered along the way is
     /// settled, and holding the journal open for it would mean retrying a level
@@ -897,13 +1217,18 @@ final class OutputDucker {
         io.uid(of: state.device) == state.uid
     }
 
-    /// Let go of the IN-MEMORY duck without touching the journal. The one case
-    /// that needs it: the state we hold is keyed by a numeric AudioDeviceID that
-    /// has gone stale (the device was unplugged and came back under a new one), so
-    /// nothing we do with it can reach the hardware — while the record, keyed by
-    /// UID, still can. Every other way of letting go drops the record too, which
-    /// here would throw away the only thing that could put the level back.
+    /// Let go of the IN-MEMORY duck without letting go of the journal. For the
+    /// cases where the state we hold can no longer reach the hardware the user
+    /// is listening to — the numeric AudioDeviceID has gone stale (the device
+    /// was unplugged, or came back under a new one), or the device is no longer
+    /// the default output — while the record, keyed by UID, still can. Every
+    /// other way of letting go drops the record too, which here would throw away
+    /// the only thing that could put the level back.
+    ///
+    /// The record is written ONE MORE TIME first: from here on it is all that
+    /// is left, so it has to be the newest truth, not the last step's.
     private func abandonOwnershipKeepingJournal() {
+        writeJournal()
         lock.lock()
         ducking = nil
         generation &+= 1
@@ -1057,5 +1382,45 @@ final class OutputDucker {
         // the caller's signal: an unpersisted journal must not be followed by a
         // hardware write.
         return defaults.synchronize()
+    }
+}
+
+/// What a route listener calls, and the only thing it holds.
+///
+/// It keeps the ducker WEAKLY and never even loads that reference on the
+/// listener queue — only inside the block it puts on the ducker's own queue.
+/// Loading it there would make the listener queue a place where the ducker can
+/// be released for the last time, and its deinit would then be removing the
+/// listener from inside that listener's own callback.
+///
+/// Reports are coalesced: however many arrive before the reconcile runs, one
+/// reconcile reads the route once. A report that arrives while a reconcile is
+/// running schedules another, so nothing is missed.
+private final class RouteSignal {
+    private let lock = NSLock()
+    private weak var ducker: OutputDucker?   // guarded by lock
+    private var queue: DispatchQueue?        // guarded by lock
+    private var scheduled = false            // guarded by lock
+
+    func attach(to ducker: OutputDucker, queue: DispatchQueue) {
+        lock.lock()
+        self.ducker = ducker
+        self.queue = queue
+        lock.unlock()
+    }
+
+    /// Any thread — in practice Core Audio's listener queue. Never blocks.
+    func fire() {
+        lock.lock()
+        guard !scheduled, let queue = queue else { lock.unlock(); return }
+        scheduled = true
+        lock.unlock()
+        queue.async { [self] in
+            self.lock.lock()
+            self.scheduled = false
+            let ducker = self.ducker
+            self.lock.unlock()
+            ducker?.reconcileRoute()
+        }
     }
 }

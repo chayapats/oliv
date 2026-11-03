@@ -6,10 +6,70 @@
 // rather than a formula. So the Core Audio plumbing sits behind `VolumeIO` and
 // these tests drive the real duck/restore code against a fake device, including
 // the failure paths a real device won't produce on demand.
+//
+// Route changes (headphones connecting and disconnecting) are driven the same
+// way: the fakes record the route listeners the ducker installs and can fire
+// them, so no test here ever changes this Mac's real volume or output device.
 
 import CoreAudio
 import XCTest
 @testable import OLIV
+
+/// The route listeners a fake backend has handed out — the seam for "Core Audio
+/// reported a route change" and for "were the listeners removed?".
+final class FakeRouteListeners {
+    final class Observation: VolumeObservation {
+        /// The device whose IsAlive this registration also watches (nil = only
+        /// the system's default output and device list).
+        let device: AudioDeviceID?
+        private let queue: DispatchQueue
+        private let handler: () -> Void
+        private weak var owner: FakeRouteListeners?
+
+        init(device: AudioDeviceID?, queue: DispatchQueue, handler: @escaping () -> Void,
+             owner: FakeRouteListeners) {
+            self.device = device
+            self.queue = queue
+            self.handler = handler
+            self.owner = owner
+        }
+
+        func cancel() { owner?.remove(self) }
+        /// Like the HAL: asynchronously, on the queue the listener asked for.
+        fileprivate func deliver() { queue.async(execute: handler) }
+    }
+
+    private let lock = NSLock()
+    private var live: [Observation] = []
+    /// A backend that cannot listen at all.
+    var refuse = false
+
+    func observe(device: AudioDeviceID?, queue: DispatchQueue,
+                 handler: @escaping () -> Void) -> VolumeObservation? {
+        lock.lock(); defer { lock.unlock() }
+        guard !refuse else { return nil }
+        let observation = Observation(device: device, queue: queue, handler: handler, owner: self)
+        live.append(observation)
+        return observation
+    }
+
+    fileprivate func remove(_ observation: Observation) {
+        lock.lock(); defer { lock.unlock() }
+        live.removeAll { $0 === observation }
+    }
+
+    /// Registrations that have not been cancelled.
+    var active: [Observation] {
+        lock.lock(); defer { lock.unlock() }
+        return live
+    }
+
+    /// Core Audio reporting "the default output / the device list / a device's
+    /// liveness changed" to everyone listening.
+    func fire() {
+        for observation in active { observation.deliver() }
+    }
+}
 
 /// A fake output device: settable elements, per-element levels, and switches for
 /// the two things hardware does that code usually forgets — writes that fail,
@@ -35,6 +95,7 @@ final class FakeVolumeIO: VolumeIO {
     /// see the ownership note in OutputDucker).
     var afterWrite: ((AudioObjectPropertyElement, Float) -> Void)?
     private(set) var writeCount = 0
+    let routes = FakeRouteListeners()
 
     init(elements: [AudioObjectPropertyElement] = [kAudioObjectPropertyElementMain],
          level: Float = 0.8) {
@@ -61,34 +122,98 @@ final class FakeVolumeIO: VolumeIO {
         afterWrite?(element, volume)
         return true
     }
+    func observeRoute(device: AudioDeviceID?, on queue: DispatchQueue,
+                      _ handler: @escaping () -> Void) -> VolumeObservation? {
+        routes.observe(device: device, queue: queue, handler: handler)
+    }
 }
 
 /// Two output devices with independent levels and a settable default — the one
 /// thing the single-device fake cannot express: the route moving between a
-/// release and the next press.
+/// release and the next press, or in the middle of a fade.
+///
+/// Locked throughout: route tests change the route from the test thread while
+/// the ducker's queue may be reading it.
 final class FakeTwoDeviceVolumeIO: VolumeIO {
-    var current: AudioDeviceID = 46
-    var levels: [AudioDeviceID: Float] = [46: 0.8, 47: 0.6]
+    private let lock = NSLock()
+    private var _current: AudioDeviceID = 46
+    private var _levels: [AudioDeviceID: Float] = [46: 0.8, 47: 0.6]
     /// UID per device, kept SEPARATE from the numeric ID so a test can do what
     /// Core Audio does: hand a reconnected device a brand-new AudioDeviceID while
     /// its UID stays the same.
-    var uids: [AudioDeviceID: String] = [46: "device-a", 47: "device-b"]
+    private var _uids: [AudioDeviceID: String] = [46: "device-a", 47: "device-b"]
+    /// Devices that are unplugged right now, by UID, with the level they will
+    /// come back at — macOS remembers a device's volume across a disconnect.
+    private var away: [String: Float] = [:]
+    private var _quantum: Float?
+
+    let routes = FakeRouteListeners()
+    /// Called on the ducker's queue around every write (outside the lock): the
+    /// seams for "the route moves in the middle of the fade".
+    var beforeWrite: ((AudioDeviceID, Float) -> Void)?
+    var afterWrite: ((AudioDeviceID, Float) -> Void)?
+
+    var current: AudioDeviceID {
+        get { lock.lock(); defer { lock.unlock() }; return _current }
+        set { lock.lock(); _current = newValue; lock.unlock() }
+    }
+    var levels: [AudioDeviceID: Float] {
+        get { lock.lock(); defer { lock.unlock() }; return _levels }
+        set { lock.lock(); _levels = newValue; lock.unlock() }
+    }
+    var uids: [AudioDeviceID: String] {
+        get { lock.lock(); defer { lock.unlock() }; return _uids }
+        set { lock.lock(); _uids = newValue; lock.unlock() }
+    }
+    /// The volume GRID of every device (see FakeVolumeIO.quantum).
+    var quantum: Float? {
+        get { lock.lock(); defer { lock.unlock() }; return _quantum }
+        set { lock.lock(); _quantum = newValue; lock.unlock() }
+    }
+
+    func level(_ device: AudioDeviceID) -> Float? { levels[device] }
 
     /// Unplug `device` and bring it back under `newID`, carrying its level — the
     /// event that makes a stored AudioDeviceID point at nobody.
     func reconnect(_ device: AudioDeviceID, as newID: AudioDeviceID) {
-        levels[newID] = levels.removeValue(forKey: device)
-        uids[newID] = uids.removeValue(forKey: device)
+        lock.lock(); defer { lock.unlock() }
+        _levels[newID] = _levels.removeValue(forKey: device)
+        _uids[newID] = _uids.removeValue(forKey: device)
     }
 
     /// Unplug `device` and hand its freed numeric id to a DIFFERENT one — the
     /// nastier half of the same Core Audio behaviour, where the stored id stays
     /// valid but stops meaning what it meant.
     func reassign(_ device: AudioDeviceID, toUID uid: String, level: Float) {
-        levels.removeValue(forKey: device)
-        uids.removeValue(forKey: device)
-        uids[device] = uid
-        levels[device] = level
+        lock.lock(); defer { lock.unlock() }
+        _levels.removeValue(forKey: device)
+        _uids.removeValue(forKey: device)
+        _uids[device] = uid
+        _levels[device] = level
+    }
+
+    /// Headphones out of range, or into their case: the device is gone (its id
+    /// answers nothing), and macOS keeps the level it last had for when it
+    /// comes back.
+    func unplug(_ device: AudioDeviceID) {
+        lock.lock(); defer { lock.unlock() }
+        guard let uid = _uids.removeValue(forKey: device) else { return }
+        away[uid] = _levels.removeValue(forKey: device)
+    }
+
+    /// …and back, under whatever id Core Audio hands out this time, at the
+    /// level it left with (or `level`, when macOS gives it something else).
+    func plugIn(_ uid: String, as device: AudioDeviceID, level: Float? = nil) {
+        lock.lock(); defer { lock.unlock() }
+        let remembered = away.removeValue(forKey: uid)
+        _uids[device] = uid
+        _levels[device] = level ?? remembered ?? 0.5
+    }
+
+    /// The level an unplugged device will come back at.
+    func awayLevel(_ uid: String) -> Float? {
+        lock.lock(); defer { lock.unlock() }
+        return away[uid]
     }
 
     func defaultOutputDevice() -> AudioDeviceID { current }
@@ -101,14 +226,25 @@ final class FakeTwoDeviceVolumeIO: VolumeIO {
         [kAudioObjectPropertyElementMain]
     }
     func read(_ device: AudioDeviceID, _ element: AudioObjectPropertyElement) -> Float? {
-        levels[device]
+        lock.lock(); defer { lock.unlock() }
+        return _uids[device] == nil ? nil : _levels[device]
     }
     @discardableResult
     func write(
         _ device: AudioDeviceID, _ element: AudioObjectPropertyElement, _ volume: Float
     ) -> Bool {
-        levels[device] = volume
+        beforeWrite?(device, volume)
+        lock.lock()
+        // A device that is not attached takes no writes — the id is nobody's.
+        guard _uids[device] != nil else { lock.unlock(); return false }
+        _levels[device] = _quantum.map { (volume / $0).rounded() * $0 } ?? volume
+        lock.unlock()
+        afterWrite?(device, volume)
         return true
+    }
+    func observeRoute(device: AudioDeviceID?, on queue: DispatchQueue,
+                      _ handler: @escaping () -> Void) -> VolumeObservation? {
+        routes.observe(device: device, queue: queue, handler: handler)
     }
 }
 
@@ -122,6 +258,33 @@ final class OutputDuckerTests: XCTestCase {
         let done = expectation(description: "ramp settled")
         operation { done.fulfill() }
         wait(for: [done], timeout: 5)
+    }
+
+    /// Wait for something the ducker does in response to a route report, which
+    /// arrives asynchronously the way Core Audio's do. Generous: the CI runners
+    /// and a busy Mac can both be slow, and only a real failure waits it out.
+    private func waitUntil(_ what: String, timeout: TimeInterval = 10,
+                           _ condition: () -> Bool) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
+        XCTAssertTrue(condition(), "timed out waiting until \(what)")
+    }
+
+    /// Give anything that SHOULD NOT happen the time to happen anyway.
+    private func pause(_ seconds: TimeInterval = 0.3) {
+        let done = expectation(description: "paused")
+        DispatchQueue.global().asyncAfter(deadline: .now() + seconds) { done.fulfill() }
+        wait(for: [done], timeout: seconds + 5)
+    }
+
+    private func isClose(_ value: Float?, _ expected: Float) -> Bool {
+        value.map { abs($0 - expected) <= 1e-5 } ?? false
+    }
+
+    private func record(_ uid: String, in defaults: UserDefaults) -> Any? {
+        defaults.dictionary(forKey: OutputDucker.orphanKey)?[uid]
     }
 
     // MARK: The happy path
@@ -368,6 +531,38 @@ final class OutputDuckerTests: XCTestCase {
         }
     }
 
+    // A tap so short that the release arrives before the press has even reached
+    // the ducker's queue. The press is over before it began: nothing may be left
+    // lowered, and nothing may lower it afterwards.
+    func testAnInstantTapNeverLeavesTheVolumeDown() {
+        let io = FakeVolumeIO(level: 0.8)
+        let defaults = makeDefaults()
+        let ducker = OutputDucker(io: io, defaults: defaults)
+        ducker.duck()
+        settle { ducker.restore(completion: $0) }
+        pause()
+        XCTAssertEqual(io.levels[kAudioObjectPropertyElementMain]!, 0.8, accuracy: 1e-5)
+        XCTAssertFalse(ducker.isDucking)
+        XCTAssertNil(defaults.dictionary(forKey: OutputDucker.orphanKey))
+    }
+
+    // Quitting straight after a press whose work is still waiting on the queue:
+    // owning nothing YET is not the same as having nothing to stop. The quit-time
+    // restore must retire that press, or it ducks after the restore has already
+    // reported the volume back — and the process exits with the machine quiet.
+    func testQuittingRightAfterAPressLeavesNothingDucked() {
+        let io = FakeVolumeIO(level: 0.8)
+        let defaults = makeDefaults()
+        let ducker = OutputDucker(io: io, defaults: defaults)
+        ducker.duck()
+        XCTAssertTrue(ducker.restoreNow())
+        pause()
+        XCTAssertEqual(io.levels[kAudioObjectPropertyElementMain]!, 0.8, accuracy: 1e-5,
+                       "the press that was still queued must not duck after the quit")
+        XCTAssertFalse(ducker.isDucking)
+        XCTAssertNil(defaults.dictionary(forKey: OutputDucker.orphanKey))
+    }
+
     // MARK: The user's choice wins
 
     // Volume keys pressed mid-dictation: the ducker notices between ramp steps,
@@ -559,6 +754,300 @@ final class OutputDuckerTests: XCTestCase {
         settle { ducker.restore(completion: $0) }
         XCTAssertEqual(io.levels[kAudioObjectPropertyElementMain]!, 0.8, accuracy: 1e-5,
                        "and the ORIGINAL level is what finally comes back")
+    }
+
+    // MARK: Following the route (failure mode 6)
+    //
+    // Device 46 ("device-a") plays the part of whatever is being ducked, 47
+    // ("device-b") the other output. `io.routes.fire()` is Core Audio reporting
+    // that the default output, the device list or a device's liveness changed.
+
+    // Headphones connect while the speakers are held down: the default output
+    // moves to them. The speakers get their level back THEN — not when the key
+    // comes up — and the headphones keep the level macOS gave them.
+    func testHeadphonesConnectingMidHoldHandTheSpeakersBackAtOnce() {
+        let io = FakeTwoDeviceVolumeIO()
+        let defaults = makeDefaults()
+        let ducker = OutputDucker(io: io, defaults: defaults)
+        settle { ducker.duck(completion: $0) }
+        XCTAssertLessThan(io.level(46)!, 0.8, "precondition: the speakers are ducked")
+
+        io.current = 47
+        io.routes.fire()
+
+        waitUntil("the speakers are given their level back") { isClose(io.level(46), 0.8) }
+        waitUntil("the duck is over") { !ducker.isDucking }
+        XCTAssertEqual(io.level(47)!, 0.6, accuracy: 1e-5,
+                       "the headphones that just connected are not touched this hold")
+        XCTAssertNil(record("device-a", in: defaults), "nothing is owed any more")
+
+        settle { ducker.restore(completion: $0) }          // the key comes up
+        XCTAssertEqual(io.level(46)!, 0.8, accuracy: 1e-5)
+        XCTAssertEqual(io.level(47)!, 0.6, accuracy: 1e-5)
+    }
+
+    // The same move landing IN THE MIDDLE of the fade. The fade may finish on
+    // the old device — what matters is that neither device is left lowered.
+    func testTheDefaultOutputMovingMidFadeLeavesNeitherDeviceLowered() {
+        let io = FakeTwoDeviceVolumeIO()
+        let defaults = makeDefaults()
+        let ducker = OutputDucker(io: io, defaults: defaults)
+        var writes = 0
+        io.afterWrite = { _, _ in
+            writes += 1
+            guard writes == 2 else { return }
+            io.current = 47
+            io.routes.fire()
+        }
+        settle { ducker.duck(completion: $0) }
+        io.afterWrite = nil
+
+        waitUntil("the device we were fading is given its level back") {
+            isClose(io.level(46), 0.8)
+        }
+        waitUntil("the duck is over") { !ducker.isDucking }
+        XCTAssertEqual(io.level(47)!, 0.6, accuracy: 1e-5)
+        XCTAssertNil(record("device-a", in: defaults))
+        waitUntil("nothing is left listening") { io.routes.active.isEmpty }
+    }
+
+    // THE case to watch: headphones that are being ducked drop out (out of
+    // range, into the case) halfway through the fade. macOS remembers the level
+    // they left with — ours — and gives it back when they reconnect. They must
+    // get the USER's level back the moment they reconnect: not at the next press,
+    // and not never.
+    func testHeadphonesDroppingOutMidFadeGetTheirLevelBackWhenTheyReconnect() {
+        let io = FakeTwoDeviceVolumeIO()
+        let defaults = makeDefaults()
+        let ducker = OutputDucker(io: io, defaults: defaults)
+        var writes = 0
+        io.beforeWrite = { _, _ in
+            writes += 1
+            guard writes == 3 else { return }
+            io.unplug(46)                     // gone before the third step lands
+            io.current = 47                   // the sound falls back to the speakers
+            io.routes.fire()
+        }
+        settle { ducker.duck(completion: $0) }
+        io.beforeWrite = nil
+        let leftWith = io.awayLevel("device-a")!
+        XCTAssertLessThan(leftWith, 0.8, "precondition: they dropped out while lowered")
+
+        waitUntil("the duck on the vanished device is let go") { !ducker.isDucking }
+        XCTAssertNotNil(record("device-a", in: defaults),
+                        "the record is the only way back for a device that is away")
+        XCTAssertEqual(io.level(47)!, 0.6, accuracy: 1e-5,
+                       "the speakers the sound fell back to are not touched")
+        XCTAssertFalse(io.routes.active.isEmpty,
+                       "still listening: a device that is away is owed its level")
+
+        io.plugIn("device-a", as: 48)         // back, under a new id, at `leftWith`
+        io.current = 48
+        io.routes.fire()
+
+        waitUntil("the headphones get the user's level back as they reconnect") {
+            isClose(io.level(48), 0.8)
+        }
+        XCTAssertNil(record("device-a", in: defaults))
+        waitUntil("nothing is left listening") { io.routes.active.isEmpty }
+    }
+
+    // Out and back in again INSIDE ONE FADE — two route reports, a new id, and
+    // the write that was in flight lost with the old one. Every report reads the
+    // route as it now is, so the order they arrive in does not matter.
+    func testDroppingOutAndBackInsideOneFadeEndsWithNothingLowered() {
+        let io = FakeTwoDeviceVolumeIO()
+        let defaults = makeDefaults()
+        let ducker = OutputDucker(io: io, defaults: defaults)
+        var writes = 0
+        io.afterWrite = { _, _ in
+            writes += 1
+            guard writes == 2 else { return }
+            io.unplug(46)                     // our write landed, then they went…
+            io.routes.fire()
+            io.plugIn("device-a", as: 48)     // …and came straight back
+            io.current = 48
+            io.routes.fire()
+        }
+        settle { ducker.duck(completion: $0) }
+        io.afterWrite = nil
+
+        waitUntil("the reconnected device is back at the user's level") {
+            isClose(io.level(48), 0.8)
+        }
+        waitUntil("nothing is owned") { !ducker.isDucking }
+        XCTAssertNil(record("device-a", in: defaults))
+        XCTAssertEqual(io.level(47)!, 0.6, accuracy: 1e-5)
+    }
+
+    // A device whose volume grid ROUNDS our writes (1/8 steps) drops out during
+    // the hold and comes back holding its own rounding of our duck. That is
+    // still our level, and it gets the user's exact original back.
+    func testARoundedDuckIsRecognisedWhenTheDeviceComesBack() {
+        let io = FakeTwoDeviceVolumeIO()
+        io.quantum = 0.125
+        io.levels[46] = 0.75
+        let defaults = makeDefaults()
+        let ducker = OutputDucker(io: io, defaults: defaults)
+        settle { ducker.duck(completion: $0) }
+        let ducked = io.level(46)!
+        XCTAssertLessThan(ducked, 0.4, "precondition: the duck applied on a coarse grid")
+        XCTAssertEqual((ducked / 0.125).rounded() * 0.125, ducked, accuracy: 1e-6,
+                       "precondition: the device is holding its own rounding")
+
+        io.unplug(46)
+        io.current = 47
+        io.routes.fire()
+        waitUntil("the duck on the vanished device is let go") { !ducker.isDucking }
+
+        io.plugIn("device-a", as: 48)
+        io.current = 48
+        io.routes.fire()
+        waitUntil("the rounded level is recognised and the original comes back") {
+            isClose(io.level(48), 0.75)
+        }
+        XCTAssertNil(record("device-a", in: defaults))
+    }
+
+    // The user turns the volume up mid-dictation, and THEN the route moves. The
+    // hand-back judges the level as it is at that moment, so a level the user
+    // just set is theirs — it is not "restored" over.
+    func testAVolumeTheUserSetMidHoldSurvivesTheRouteMoving() {
+        let io = FakeTwoDeviceVolumeIO()
+        let defaults = makeDefaults()
+        let ducker = OutputDucker(io: io, defaults: defaults)
+        settle { ducker.duck(completion: $0) }
+        io.levels[46] = 0.5                   // the user's own choice, mid-hold
+
+        io.current = 47
+        io.routes.fire()
+        waitUntil("the duck is let go") { !ducker.isDucking }
+        waitUntil("nothing is owed") { record("device-a", in: defaults) == nil }
+        XCTAssertEqual(io.level(46)!, 0.5, accuracy: 1e-5, "the level the user chose is theirs")
+
+        settle { ducker.restore(completion: $0) }
+        XCTAssertEqual(io.level(46)!, 0.5, accuracy: 1e-5)
+    }
+
+    // …and when the headphones the user adjusted then DROP OUT, the level they
+    // come back at is the user's, not ours: the reconnect must not undo it.
+    func testAVolumeTheUserSetIsNotUndoneWhenTheHeadphonesReconnect() {
+        let io = FakeTwoDeviceVolumeIO()
+        let defaults = makeDefaults()
+        let ducker = OutputDucker(io: io, defaults: defaults)
+        settle { ducker.duck(completion: $0) }
+        io.levels[46] = 0.5                   // the user's own choice, mid-hold
+
+        io.unplug(46)
+        io.current = 47
+        io.routes.fire()
+        waitUntil("the duck on the vanished device is let go") { !ducker.isDucking }
+
+        io.plugIn("device-a", as: 48)         // back at the level the user left
+        io.current = 48
+        io.routes.fire()
+        waitUntil("the record is settled") { record("device-a", in: defaults) == nil }
+        XCTAssertEqual(io.level(48)!, 0.5, accuracy: 1e-5,
+                       "a level the user set before the drop-out survives the reconnect")
+    }
+
+    // A report that changes nothing for the device being ducked — here, another
+    // device coming back — must leave the hold alone. In particular the sweep it
+    // runs must not treat the hold's own live record as an orphan, which would
+    // put the user's volume back in the middle of their dictation. The other
+    // device's record, on the other hand, IS swept: that is how this test knows
+    // the report was handled at all.
+    func testARouteReportThatChangesNothingForTheHoldLeavesItAlone() {
+        let io = FakeTwoDeviceVolumeIO()
+        let defaults = makeDefaults()
+        // device-b was left lowered by an earlier run, and is away right now.
+        io.levels[47] = 0.09
+        io.unplug(47)
+        defaults.set(["device-b": OutputDucker.Journal(
+            uid: "device-b", originals: [kAudioObjectPropertyElementMain: 0.6],
+            applied: [kAudioObjectPropertyElementMain: 0.09]).record],
+            forKey: OutputDucker.orphanKey)
+
+        let ducker = OutputDucker(io: io, defaults: defaults)
+        settle { ducker.duck(completion: $0) }
+        let ducked = io.level(46)!
+        XCTAssertLessThan(ducked, 0.8, "precondition: the hold is ducked")
+
+        io.plugIn("device-b", as: 47)         // device-b comes back; the default stays 46
+        io.routes.fire()
+        io.routes.fire()
+
+        waitUntil("the other device's record is swept") { isClose(io.level(47), 0.6) }
+        XCTAssertTrue(ducker.isDucking, "the hold is still ours")
+        XCTAssertEqual(io.level(46)!, ducked, accuracy: 1e-5, "and still lowered")
+        XCTAssertNotNil(record("device-a", in: defaults), "its live record was not swept")
+
+        settle { ducker.restore(completion: $0) }
+        XCTAssertEqual(io.level(46)!, 0.8, accuracy: 1e-5)
+        XCTAssertNil(defaults.dictionary(forKey: OutputDucker.orphanKey))
+    }
+
+    // The listeners exist only while there is something to protect, follow the
+    // device being ducked, and are removed when the duck ends or the ducker goes.
+    func testRouteListenersComeAndGoWithWhatTheyProtect() {
+        let io = FakeTwoDeviceVolumeIO()
+        let defaults = makeDefaults()
+        var ducker: OutputDucker? = OutputDucker(io: io, defaults: defaults)
+        XCTAssertTrue(io.routes.active.isEmpty, "nothing owned, nothing owed: no listener")
+
+        settle { ducker!.duck(completion: $0) }
+        XCTAssertEqual(io.routes.active.map { $0.device }, [46],
+                       "one listener while ducking, watching the ducked device too")
+
+        settle { ducker!.restore(completion: $0) }
+        XCTAssertTrue(io.routes.active.isEmpty, "a finished restore removes it")
+
+        // The route moves to 47 and the next press ducks it: the listener moves too.
+        settle { ducker!.duck(completion: $0) }
+        io.current = 47
+        io.routes.fire()
+        waitUntil("the old device is handed back") { !ducker!.isDucking }
+        settle { ducker!.duck(completion: $0) }
+        XCTAssertEqual(io.routes.active.map { $0.device }, [47],
+                       "the listener follows the device being ducked")
+
+        // Teardown while still ducking: nothing may be left registered.
+        ducker = nil
+        XCTAssertTrue(io.routes.active.isEmpty, "a ducker that goes away takes its listeners")
+    }
+
+    // A backend that cannot listen leaves the ducker exactly as it was before
+    // there were listeners: the route change is found at the next press, and
+    // nothing is stranded on the way.
+    func testWithoutListenersARouteChangeIsStillHandledAtTheNextPress() {
+        let io = FakeTwoDeviceVolumeIO()
+        io.routes.refuse = true
+        let ducker = OutputDucker(io: io, defaults: makeDefaults())
+        settle { ducker.duck(completion: $0) }
+        io.current = 47
+        settle { ducker.restore(completion: $0) }
+        XCTAssertEqual(io.level(46)!, 0.8, accuracy: 1e-5)
+        settle { ducker.duck(completion: $0) }
+        XCTAssertLessThan(io.level(47)!, 0.6, "the next press ducks where the sound is now")
+        settle { ducker.restore(completion: $0) }
+        XCTAssertEqual(io.level(47)!, 0.6, accuracy: 1e-5)
+    }
+
+    // The real Core Audio registration, on the SYSTEM object only: listening
+    // changes nothing on this Mac — no volume and no device is touched. What it
+    // proves is the one thing a fake cannot: that the block handed to Core Audio
+    // is the block that removes it.
+    func testTheRealRouteListenerRegistersAndRemovesCleanly() {
+        let queue = DispatchQueue(label: "com.oliv.tests.route-listener")
+        let observation = CoreAudioVolumeIO().observeRoute(device: nil, on: queue) {}
+        guard let listener = observation as? CoreAudioListener else {
+            return XCTFail("the default-output and device-list listeners must register")
+        }
+        listener.cancel()
+        XCTAssertEqual(listener.removalsRefused, 0,
+                       "every registration must be removed by the block that made it")
+        listener.cancel()
+        XCTAssertEqual(listener.removalsRefused, 0, "cancelling twice is a no-op")
     }
 
     // MARK: Devices that push back
