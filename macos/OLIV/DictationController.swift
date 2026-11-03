@@ -725,7 +725,9 @@ final class DictationController {
         recordingMode = .dictate
         // Command mode / translation, frozen here like everything else.
         let voiceBlock = VoiceEditPolicy.block(bundleID: frontmost, verbatimApps: verbatimApps)
-        let voiceJob: VoiceEditJob? = mode == .dictate ? nil : VoiceEditJob(
+        let commandReadable = mode == .command && voiceBlock == nil
+        let releaseSecure = commandReadable && selectionReader.isSecureNow()
+        var pendingJob: VoiceEditJob? = mode == .dictate ? nil : VoiceEditJob(
             mode: mode,
             block: voiceBlock,
             transformer: transformer ?? sidecar,
@@ -737,7 +739,9 @@ final class DictationController {
             // the microphone closes, and must still be this one. Never in a
             // verbatim app or password manager, which Command mode refuses
             // without reading anything.
-            releaseFocus: mode == .command && voiceBlock == nil ? selectionReader.focusNow() : nil)
+            releaseFocus: commandReadable && !releaseSecure ? selectionReader.focusNow() : nil)
+        pendingJob?.releaseSecure = releaseSecure
+        let voiceJob = pendingJob
         let options = Self.dictationOptions(
             engine: engine, cleanup: cleanup, removeFillers: removeFillers,
             entries: dictionaryEntries, legacySnippets: legacySnippets,

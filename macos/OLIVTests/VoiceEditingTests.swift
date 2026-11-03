@@ -203,6 +203,26 @@ final class VoiceEditingTests: XCTestCase {
         XCTAssertNil(VoiceEditRunner.prepareCommand(frozen).target)
     }
 
+    /// A password field at release refuses the command, even if another field
+    /// with a selection is focused by the time the microphone has closed.
+    func testAPasswordFieldAtReleaseRefusesTheCommand() {
+        let transformer = FakeTransformer { _, _, _ in XCTFail("must not transform"); throw ModelDown() }
+        let reader = reader(copying: "x")
+        var frozen = job(transformer: transformer, reader: reader)
+        ax.secure = true
+        frozen.releaseSecure = reader.isSecureNow()
+        frozen.releaseFocus = reader.focusNow()
+        XCTAssertTrue(frozen.releaseSecure)
+        XCTAssertNil(frozen.releaseFocus)
+        // The user moves to a normal field with text selected.
+        ax.secure = false
+        ax.selected = "another field's text"
+        let prepared = VoiceEditRunner.prepareCommand(frozen)
+        XCTAssertNil(prepared.target)
+        XCTAssertEqual(prepared.refusal?.notice?.text, "Command mode never edits passwords")
+        XCTAssertTrue(ax.reads.all.isEmpty, "nothing was read")
+    }
+
     /// The release-time snapshot never reads a password field or secure input.
     func testNothingIsReadOnReleaseInAPasswordField() {
         ax.selected = "secret"

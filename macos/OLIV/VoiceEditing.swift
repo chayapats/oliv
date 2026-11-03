@@ -204,6 +204,10 @@ struct VoiceEditJob {
     /// up. The selection is read only after the microphone has closed (up to
     /// a few seconds); if it moved meanwhile, nothing is edited.
     var releaseFocus: FocusSnapshot? = nil
+    /// Command mode: a password field or secure input was active when the key
+    /// came up. Refused outright, whatever is focused by the time the
+    /// microphone has closed.
+    var releaseSecure = false
 }
 
 /// A HUD notice: text + SF Symbol.
@@ -232,6 +236,9 @@ enum VoiceEditRunner {
     static func prepareCommand(_ job: VoiceEditJob) -> (target: SelectionCapture?, refusal: VoiceEditResult?) {
         if let block = job.block {
             return (nil, refused(block))
+        }
+        if job.releaseSecure {
+            return (nil, refused(.passwordManager))
         }
         if !job.modelReady {
             return (nil, VoiceEditResult(outcome: .nothingToDo, notice: VoiceEditNotice(
