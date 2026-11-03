@@ -23,6 +23,8 @@ pub struct Clip {
     /// The cleanup model failed (for example timed out); the text is the
     /// speech model's, lightly post-processed.
     pub cleanup_failed: bool,
+    /// Cleanup timed out at least once and was replayed on the same transcript.
+    pub cleanup_retried: bool,
 }
 impl Clip {
     pub fn from_json(v: &Value) -> Result<Self, String> {
@@ -44,6 +46,7 @@ impl Clip {
             raw_cer: num("raw_cer")?,
             latency_s: num("latency_s")?,
             cleanup_failed: !v["cleanup_error"].is_null(),
+            cleanup_retried: v["cleanup_attempts"].as_u64().is_some_and(|n| n > 1),
         })
     }
     pub fn pass(&self, raw: bool) -> bool {
@@ -93,6 +96,7 @@ pub struct Summary {
     pub latency_median: f64,
     pub latency_p90: f64,
     pub cleanup_failed: usize,
+    pub cleanup_retried: usize,
 }
 impl Summary {
     pub fn of(clips: &[&Clip]) -> Option<Self> {
@@ -112,6 +116,7 @@ impl Summary {
             latency_median: percentile(&latency, 0.5),
             latency_p90: percentile(&latency, 0.9),
             cleanup_failed: clips.iter().filter(|c| c.cleanup_failed).count(),
+            cleanup_retried: clips.iter().filter(|c| c.cleanup_retried).count(),
         })
     }
     pub fn to_json(&self) -> Value {
@@ -119,7 +124,7 @@ impl Summary {
             "mean_similarity":self.sim,"mean_wer":self.wer,"mean_cer":self.cer,
             "stt_only_mean_wer":self.raw_wer,"stt_only_mean_cer":self.raw_cer,
             "latency_median_s":self.latency_median,"latency_p90_s":self.latency_p90,
-            "cleanup_failed":self.cleanup_failed})
+            "cleanup_failed":self.cleanup_failed,"cleanup_retried":self.cleanup_retried})
     }
 }
 
@@ -422,13 +427,23 @@ final text, including audio conversion.\n\n",
         entry["missing"] = s.missing.into();
         per_speaker.insert(s.name.clone(), entry);
     }
-    let failed: Vec<String> = speakers
-        .iter()
-        .filter_map(|s| {
-            let n = of(&s.name).iter().filter(|c| c.cleanup_failed).count();
-            (n > 0).then(|| format!("{} {n}", s.label()))
-        })
-        .collect();
+    let counted = |pick: fn(&Clip) -> bool| -> Vec<String> {
+        speakers
+            .iter()
+            .filter_map(|s| {
+                let n = of(&s.name).iter().filter(|c| pick(c)).count();
+                (n > 0).then(|| format!("{} {n}", s.label()))
+            })
+            .collect()
+    };
+    let retried = counted(|c| c.cleanup_retried);
+    if !retried.is_empty() {
+        md.push_str(&format!(
+            "\nCleanup timed out and was replayed on the same transcript for: {}. A timeout reflects machine load, not the voice; latency keeps the first attempt.\n",
+            retried.join(", ")
+        ));
+    }
+    let failed = counted(|c| c.cleanup_failed);
     if !failed.is_empty() {
         md.push_str(&format!(
             "\nCleanup failed (the cleanup model errored or timed out) on: {}. Those clips keep the speech model's text.\n",
@@ -557,6 +572,12 @@ named speakers. Content is read Wikipedia-style Thai with little English, unlike
             sum.n, p(sum.raw_matched), sum.raw_wer, sum.raw_cer
         ));
         summary["overall"] = sum.to_json();
+        if sum.cleanup_retried > 0 {
+            md.push_str(&format!(
+                "\nCleanup timed out and was replayed on the same transcript for {} recordings. A timeout reflects machine load, not the voice; latency keeps the first attempt.\n",
+                sum.cleanup_retried
+            ));
+        }
         if sum.cleanup_failed > 0 {
             md.push_str(&format!(
                 "\nCleanup failed (the cleanup model errored or timed out) on {} recordings; they keep the speech model's text.\n",
@@ -652,6 +673,7 @@ mod tests {
             raw_cer: cer + 0.05,
             latency_s: 1.0,
             cleanup_failed: false,
+            cleanup_retried: false,
         }
     }
 
@@ -778,7 +800,10 @@ mod tests {
         ];
         let clips = vec![
             clip("developer", "th01", "everyday", 0.95, 0.0),
-            clip("developer", "nm01", "numbers", 0.9, 0.1),
+            Clip {
+                cleanup_retried: true,
+                ..clip("developer", "nm01", "numbers", 0.9, 0.1)
+            },
             clip("s1", "th01", "everyday", 0.7, 0.3),
             clip("tts-kanya", "th01", "everyday", 0.9, 0.0),
             Clip {
@@ -818,6 +843,8 @@ mod tests {
             "Cleanup failed (the cleanup model errored or timed out) on: tts-kanya (synthetic) 1."
         ));
         assert_eq!(summary["speakers"]["tts-kanya"]["cleanup_failed"], 1);
+        assert!(md.contains("replayed on the same transcript for: developer (baseline) 1."));
+        assert_eq!(summary["speakers"]["developer"]["cleanup_retried"], 1);
         assert!(
             !md.contains("people, pooled"),
             "one person and one synthetic voice are not pooled"

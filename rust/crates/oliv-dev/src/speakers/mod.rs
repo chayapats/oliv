@@ -607,6 +607,8 @@ fn run_clips(
                     pipeline.dictate(&mut runtime, row, audio, None)?
                 }
             };
+            let attempts = retry_cleanup(pipeline, &mut runtime, row, audio, &mut clip);
+            clip["cleanup_attempts"] = attempts.into();
             let raw = metrics::score(
                 row["reference"].as_str().unwrap_or(""),
                 clip["raw"].as_str().unwrap_or(""),
@@ -643,6 +645,61 @@ fn run_clips(
     }
     println!("Scored meaning for {} clips", clips.len());
     Ok(clips)
+}
+
+/// Cleanup attempts allowed per clip. A timeout says the machine was busy,
+/// not what the model writes, so a timed-out cleanup is replayed on the same
+/// transcript.
+const CLEANUP_ATTEMPTS: u32 = 3;
+/// Keys a cleanup replay replaces; the transcript, STT time and end-to-end
+/// latency stay those of the first decode.
+const CLEANUP_KEYS: &[&str] = &[
+    "final",
+    "llm_ran",
+    "guardrail_flag",
+    "guardrail",
+    "gate_reason",
+    "fillers_removed",
+    "format_commands_fired",
+    "replacements_fired",
+    "thai_format_fired",
+    "t_cleanup",
+    "cleanup_error",
+    "exact",
+    "wer",
+    "cer",
+    "kw_recall",
+];
+
+/// Replays a clip whose cleanup failed through cleanup alone (`stt_text`),
+/// up to `CLEANUP_ATTEMPTS` in all. Returns the attempts used.
+fn retry_cleanup(
+    pipeline: &Pipeline,
+    runtime: &mut Worker,
+    row: &Value,
+    audio: &Path,
+    clip: &mut Value,
+) -> u32 {
+    let mut attempts = 1;
+    while pipeline.cleanup
+        && !clip["cleanup_error"].is_null()
+        && clip["raw"].is_string()
+        && attempts < CLEANUP_ATTEMPTS
+    {
+        attempts += 1;
+        let raw = clip["raw"].clone();
+        match pipeline.dictate(runtime, row, audio, Some(&raw)) {
+            Ok(replay) => merge_cleanup(clip, &replay),
+            Err(e) => println!("Cleanup replay failed: {e}"),
+        }
+    }
+    attempts
+}
+
+pub(crate) fn merge_cleanup(clip: &mut Value, replay: &Value) {
+    for key in CLEANUP_KEYS {
+        clip[*key] = replay[*key].clone();
+    }
 }
 
 fn score(args: ScoreArgs) -> Result<()> {
@@ -1131,6 +1188,25 @@ mod tests {
         assert!(one.len() == 2 || one.len() == 3);
         assert!(one.iter().all(|r| r.sentence == one[0].sentence));
         assert!(parse_fleurs("1\t../x.wav\tก\tx\tc\t1\tF\n").is_err());
+    }
+
+    #[test]
+    fn a_cleanup_replay_keeps_the_first_transcript_and_timings() {
+        let mut clip = json!({"raw":"r1","final":"r1","t_stt":4.0,"latency_s":9.0,
+            "cleanup_error":"Inference request timed out","cer":0.4,"wer":0.5});
+        let replay = json!({"raw":"r1","final":"clean","t_stt":0.0,"latency_s":1.0,
+            "cleanup_error":null,"cer":0.1,"wer":0.2,"llm_ran":true});
+        merge_cleanup(&mut clip, &replay);
+        assert_eq!(clip["final"], "clean");
+        assert!(clip["cleanup_error"].is_null());
+        assert_eq!(
+            (clip["cer"].as_f64(), clip["llm_ran"].as_bool()),
+            (Some(0.1), Some(true))
+        );
+        assert_eq!(
+            (clip["t_stt"].as_f64(), clip["latency_s"].as_f64()),
+            (Some(4.0), Some(9.0))
+        );
     }
 
     #[test]
