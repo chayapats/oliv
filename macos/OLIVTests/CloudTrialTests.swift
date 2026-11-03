@@ -463,8 +463,10 @@ final class CloudTrialTests: XCTestCase {
         XCTAssertEqual(execution.label, "Cloud · OLIV free trial")
         XCTAssertEqual(execution.systemImage, "cloud")
         XCTAssertTrue(execution.detail.contains("sent to the OLIV server"))
+        // The decimal separator follows the Mac's region ("1.0" or "1,0").
+        let seconds = 1.0.formatted(.number.precision(.fractionLength(1)))
         XCTAssertEqual(LastDictationStats(chars: 3, sttSeconds: 1, cleanupSeconds: 0, engineID: CloudTrial.engineID)
-            .menuLine, "Last: Cloud · OLIV free trial · 1.0s · 3 chars")
+            .menuLine, "Last: Cloud · OLIV free trial · \(seconds)s · 3 chars")
     }
 
     private typealias Record = CloudTrial.Record
