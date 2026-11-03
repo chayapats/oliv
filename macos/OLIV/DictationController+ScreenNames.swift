@@ -8,16 +8,26 @@ extension DictationController {
     /// manager, Accessibility granted, no secure input). Returns at once.
     func startScreenCapture() {
         dropScreenCapture()
-        guard screenNames else { return }
-        let app = frontmostBundleID()
+        guard screenNames, let target = ScreenContext.frontmostApp() else { return }
         let cleanup = Self.resolveCleanup(globalEnabled: cleanupEnabled, verbatimApps: verbatimApps,
-                                          frontmostBundleID: app)
+                                          frontmostBundleID: target.bundleID)
+        let ownBundleID = Bundle.main.bundleIdentifier
         guard ScreenContext.shouldCapture(
             enabled: screenNames, engine: sttEngine, cleanup: cleanup,
-            frontmostBundleID: app, ownBundleID: Bundle.main.bundleIdentifier,
+            frontmostBundleID: target.bundleID, ownBundleID: ownBundleID,
             accessibilityTrusted: ScreenContext.accessibilityTrusted(),
             secureInput: ScreenContext.secureInputActive()) else { return }
-        screenCapture = ScreenContextCapture.start(root: ScreenContext.focusedWindow)
+        // The walk runs later, on its own queue: it reads only the approved
+        // app's window (by process id), and keeps nothing unless that app
+        // still has focus before and after it. Switching to a password
+        // manager in between is never read.
+        let verbatimApps = self.verbatimApps
+        screenCapture = ScreenContextCapture.start(
+            approved: {
+                ScreenContext.stillApproved(target, focused: ScreenContext.focusedApp(),
+                                            verbatimApps: verbatimApps, ownBundleID: ownBundleID)
+            },
+            root: { ScreenContext.focusedWindow(of: target) })
     }
 
     /// Stop and discard this press's capture (a cancelled or failed press).
