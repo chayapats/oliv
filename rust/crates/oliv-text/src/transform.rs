@@ -541,7 +541,7 @@ fn assistant_voice(source: &str, out: &str, cross_language: bool) -> bool {
 }
 
 static NUMBER: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"[0-9๐-๙]+(?:[.,:][0-9๐-๙]+)*").unwrap());
+    LazyLock::new(|| Regex::new(r"[-−]?[0-9๐-๙]+(?:[.,:][0-9๐-๙]+)*").unwrap());
 static URLISH: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r"(?i)(?:https?://[^\s<>()]+[^\s<>().,!?]|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})",
@@ -581,18 +581,35 @@ fn number_key(token: &str) -> String {
 fn numbers(text: &str) -> Vec<String> {
     let mut all = Vec::new();
     for m in NUMBER.find_iter(text) {
-        let token: String = m
-            .as_str()
+        let mut token = m.as_str();
+        // A minus is the number's sign only where it starts a word: -15, (−3).
+        // Between two words or numbers it's a hyphen or a range (2024-2025,
+        // 14:00-15:00, ค่า-5).
+        let mut sign = "";
+        if let Some(rest) = token.strip_prefix(['-', '−']) {
+            token = rest;
+            let before = text[..m.start()].chars().next_back();
+            if !before.is_some_and(char::is_alphanumeric) {
+                sign = "-";
+            }
+        }
+        let token: String = token
             .chars()
             .map(|c| match c {
                 '๐'..='๙' => char::from_digit(c as u32 - '๐' as u32, 10).unwrap(),
                 other => other,
             })
             .collect();
+        let signed = |key: String| format!("{sign}{key}");
         if THOUSANDS.is_match(&token) {
-            all.push(number_key(&token.replace(',', "")));
+            all.push(signed(number_key(&token.replace(',', ""))));
         } else {
-            all.extend(token.split(',').filter(|p| !p.is_empty()).map(number_key));
+            let mut parts = token.split(',').filter(|p| !p.is_empty());
+            // The sign belongs to the first number of a comma list only.
+            if let Some(first) = parts.next() {
+                all.push(signed(number_key(first)));
+            }
+            all.extend(parts.map(number_key));
         }
     }
     all
@@ -871,6 +888,11 @@ fn named_spans(text: &str) -> HashSet<String> {
 fn common_checks(source: &str, out: &str, cross_language: bool) -> Result<(), Rejection> {
     if is_blank(out) {
         return Err(Rejection("empty"));
+    }
+    // OLIV writes Thai and English: letters of any other script the source
+    // doesn't have (a Japanese "translation") are never a valid result.
+    if crate::script::adds_foreign(source, out) {
+        return Err(Rejection("otherScript"));
     }
     if assistant_voice(source, out, cross_language) {
         return Err(Rejection("assistant"));
@@ -1447,6 +1469,69 @@ mod tests {
         assert_eq!(
             invented_numbers("ห้าโมง", "at 2026"),
             vec!["2026".to_string()]
+        );
+    }
+
+    #[test]
+    fn number_signs_are_kept() {
+        assert_eq!(
+            lost_numbers("Temperature is -15 degrees.", "Temperature is 15 degrees."),
+            vec!["-15".to_string()]
+        );
+        assert_eq!(
+            invented_numbers("ยอดติดลบ −3 ล้าน", "The balance is 3 million in the red."),
+            Vec::<String>::new(),
+            "a small unsigned number may still be written"
+        );
+        assert_eq!(
+            lost_numbers("ขาดทุน -250,000 บาท", "a loss of -250000 baht"),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            lost_numbers("ขาดทุน -250,000 บาท", "a loss of 250,000 baht"),
+            vec!["-250000".to_string()]
+        );
+        // Hyphens and ranges are not signs.
+        assert_eq!(
+            lost_numbers("ปี 2024-2025", "for 2024–2025"),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            lost_numbers("ประชุม 14:00-15:00", "meeting 14:00 to 15:00"),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            check_command(
+                "แก้คำผิด",
+                "Temperature is -15 degrees.",
+                "Temperature is 15 degrees."
+            ),
+            Err(Rejection("numberLost"))
+        );
+    }
+
+    #[test]
+    fn other_scripts_are_never_a_result() {
+        assert_eq!(
+            check_translation("พรุ่งนี้ฉันจะไปหาหมอตอนเช้า", "明日の朝、医者に行きます。"),
+            Err(Rejection("otherScript"))
+        );
+        assert_eq!(
+            check_command(
+                "แปลเป็นภาษาอังกฤษ",
+                "พรุ่งนี้ฉันจะไปหาหมอตอนเช้า",
+                "明日の朝、医者に行きます。"
+            ),
+            Err(Rejection("otherScript"))
+        );
+        // Text of another script already in the selection may stay.
+        assert_ne!(
+            check_command(
+                "ทำให้สุภาพขึ้น",
+                "ช่วยส่งไฟล์ 東京 ให้หน่อย",
+                "รบกวนช่วยส่งไฟล์ 東京 ให้หน่อย"
+            ),
+            Err(Rejection("otherScript"))
         );
     }
 
