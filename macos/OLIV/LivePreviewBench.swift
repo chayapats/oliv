@@ -13,6 +13,7 @@
 // the two finals were byte-identical) — never transcripts. --keep-on stops the
 // governor from turning previews off, to measure their raw cost. --aa runs
 // both arms with previews off: the noise floor of the comparison itself.
+// Exits 1 when a clip failed or a clip's two finals differ.
 
 import Darwin
 import Foundation
@@ -52,7 +53,35 @@ enum LivePreviewBench {
         }
     }
 
-    static func run(args: [String]) -> Int32 {
+    /// What fails a run: a clip that couldn't be held and released (it is
+    /// missing from every total), or a clip whose two finals differ (they
+    /// must be byte-identical).
+    private struct Outcome {
+        var failedClips = 0
+        var differingFinals = 0
+
+        var exitCode: Int32 { failure == nil ? 0 : 1 }
+
+        /// Why the run failed; nil when it passed.
+        var failure: String? {
+            var reasons: [String] = []
+            if failedClips > 0 { reasons.append("\(failedClips) clip(s) failed and are left out of the totals") }
+            if differingFinals > 0 { reasons.append("\(differingFinals) clip(s) had finals that differ between the arms") }
+            return reasons.isEmpty ? nil : reasons.joined(separator: "; ")
+        }
+    }
+
+    /// The pacer for the measured holds, and one for the warm-up. Separate
+    /// governors, so the warm-up never paces what is measured, but one preview
+    /// numbering: the sidecar skips every preview numbered at or below the
+    /// highest it was told to cancel, so measured previews numbered from 1
+    /// again would be skipped after a warm-up release cancelled one.
+    static func pacers(policy: LivePreviewGovernor.Policy) -> (warmUp: LivePreviewPacer, measured: LivePreviewPacer) {
+        let sequence = LivePreviewSequence()
+        return (LivePreviewPacer(sequence: sequence), LivePreviewPacer(policy: policy, sequence: sequence))
+    }
+
+    static func run(args: [String], launch: SidecarClient.Launch = SidecarClient.resolveLaunch()) -> Int32 {
         func value(_ flag: String) -> String? {
             guard let i = args.firstIndex(of: flag), i + 1 < args.count else { return nil }
             return args[i + 1]
@@ -85,7 +114,6 @@ enum LivePreviewBench {
             + "\(clips.count) clips, engine \(engine) ===")
         print("  load averages at start: \(loadAverages())")
 
-        let launch = SidecarClient.resolveLaunch()
         let client = SidecarClient(command: launch.command, environment: launch.environment)
         defer { client.close() }
         do {
@@ -94,15 +122,16 @@ enum LivePreviewBench {
             FileHandle.standardError.write(Data("FAIL: warm: \(error)\n".utf8))
             return 1
         }
-        let pacer = LivePreviewPacer(policy: policy)
+        let (warmUp, pacer) = pacers(policy: policy)
         // Warm the GPU kernels for both paths once; not measured.
-        _ = try? hold(clips[0], previews: true, engine: engine, client: client, pacer: LivePreviewPacer())
+        _ = try? hold(clips[0], previews: true, engine: engine, client: client, pacer: warmUp)
 
         var rows: [[String: Any]] = []
         var off: [Double] = [], on: [Double] = [], deltas: [Double] = [], loads: [Double] = []
         var identical = 0, inFlight: [(wait: Double, delta: Double)] = []
         var started = 0, shown = 0, skippedBusy = 0, previewSeconds: [Double] = []
         var finalSTT: [Double] = [], skipped: [String: Int] = [:], realTimeFactors: [Double] = []
+        var outcome = Outcome()
         for (index, clip) in clips.enumerated() {
             do {
                 var runs: [Bool: Run] = [:]
@@ -111,11 +140,14 @@ enum LivePreviewBench {
                     runs[previews] = try hold(clip, previews: previews && !control, engine: engine,
                                               client: client, pacer: pacer)
                 }
-                guard let a = runs[false], let b = runs[true] else { continue }
+                guard let a = runs[false], let b = runs[true] else {
+                    outcome.failedClips += 1
+                    continue
+                }
                 off.append(a.latency); on.append(b.latency); deltas.append(b.latency - a.latency)
                 loads.append(contentsOf: [a.load, b.load])
                 let same = a.final == b.final
-                if same { identical += 1 }
+                if same { identical += 1 } else { outcome.differingFinals += 1 }
                 let stats = b.stats ?? LivePreviewSession.Stats()
                 started += stats.started; shown += stats.shown; skippedBusy += stats.skippedBusy
                 previewSeconds += stats.previewSeconds
@@ -133,6 +165,7 @@ enum LivePreviewBench {
                              stats.inFlightAtStop ? "  in flight at release" : "",
                              same ? "" : "  FINAL DIFFERS"))
             } catch {
+                outcome.failedClips += 1
                 FileHandle.standardError.write(Data("  clip \(index + 1) failed: \(error)\n".utf8))
             }
         }
@@ -154,6 +187,7 @@ enum LivePreviewBench {
             "in_flight_at_release": inFlight.count,
             "release_wait": stats(inFlight.map(\.wait)), "in_flight_delta": stats(inFlight.map(\.delta)),
             "load1": stats(loads), "previews_still_on": pacer.isEnabled, "final_interval": pacer.interval,
+            "failed_clips": outcome.failedClips, "differing_finals": outcome.differingFinals,
         ]
         print("\n  clips: \(off.count)")
         print("  release → text, previews off: \(ms(off))")
@@ -181,7 +215,8 @@ enum LivePreviewBench {
                 return 1
             }
         }
-        return 0
+        if let failure = outcome.failure { print("  FAIL: \(failure)") }
+        return outcome.exitCode
     }
 
     /// Hold the key for the clip's length (previews running or not), release,

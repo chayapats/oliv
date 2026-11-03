@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import XCTest
 @testable import OLIV
 
@@ -504,5 +505,123 @@ final class LivePreviewSidecarTests: XCTestCase {
         XCTAssertThrowsError(try client.preview(samples: [Float](repeating: 0.1, count: 16_000),
                                                 engine: SidecarClient.cloudEngine, seq: 1))
         XCTAssertTrue(client._isAliveForTests, "a refused preview must not cost the sidecar")
+    }
+}
+
+/// `OLIV --live-preview-bench` end to end: the real sidecar, with a stand-in
+/// model helper whose preview "decodes" until it is cancelled and that logs
+/// which previews reached it.
+final class LivePreviewBenchTests: XCTestCase {
+    private static let helper = #"""
+    #!/bin/bash
+    dir=$(dirname "$0")
+    mode=$(cat "$dir/mode")
+    while IFS= read -r line; do
+      id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+      case "$line" in
+        *'"cmd":"cancel_preview"'*)
+          printf 'cancel %s\n' "$(printf '%s' "$line" | sed -n 's/.*"through":\([0-9]*\).*/\1/p')" >> "$dir/events" ;;
+        *'"preview_seq"'*)
+          printf 'preview %s\n' "$(printf '%s' "$line" | sed -n 's/.*"preview_seq":\([0-9]*\).*/\1/p')" >> "$dir/events"
+          if IFS= read -r -t 20 next && [[ "$next" == *cancel_preview* ]]; then
+            printf 'cancel %s\n' "$(printf '%s' "$next" | sed -n 's/.*"through":\([0-9]*\).*/\1/p')" >> "$dir/events"
+            printf '{"id":%s,"ok":true,"text":"","skipped":"cancelled"}\n' "$id"
+          else
+            printf '{"id":%s,"ok":true,"text":"finished anyway"}\n' "$id"
+          fi ;;
+        *'"cmd":"stt"'*)
+          n=$(( $(cat "$dir/finals" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$dir/finals"
+          case "$mode" in
+            fail) printf '{"id":%s,"ok":false}\n' "$id" ;;
+            differ) printf '{"id":%s,"ok":true,"text":"final words %s","avg_logprob":-0.1}\n' "$id" "$n" ;;
+            *) printf '{"id":%s,"ok":true,"text":"final words","avg_logprob":-0.1}\n' "$id" ;;
+          esac ;;
+        *'"cmd":"generate"'*) printf '{"id":%s,"ok":false}\n' "$id" ;;
+        *) printf '{"id":%s,"ok":true}\n' "$id" ;;
+      esac
+    done
+    """#
+
+    /// One clip of `seconds`, and a helper in `mode`: "ok" (the same final
+    /// every time), "differ" (a new final every time) or "fail" (no final).
+    private struct Fixture {
+        let dir: URL
+        let launch: SidecarClient.Launch
+        var args: [String] {
+            ["--live-preview-bench", "--manifest", dir.appendingPathComponent("manifest.jsonl").path,
+             "--audio-root", dir.path, "--gap", "0", "--out", dir.appendingPathComponent("out.json").path]
+        }
+
+        init(mode: String, seconds: Double) throws {
+            dir = FileManager.default.temporaryDirectory.appendingPathComponent("oliv-bench-\(UUID().uuidString)")
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: false)
+            let helper = dir.appendingPathComponent("helper.sh")
+            try LivePreviewBenchTests.helper.write(to: helper, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: helper.path)
+            try mode.write(to: dir.appendingPathComponent("mode"), atomically: true, encoding: .utf8)
+            try #"{"id":"clip","path":"clip.wav"}"#.write(to: dir.appendingPathComponent("manifest.jsonl"),
+                                                          atomically: true, encoding: .utf8)
+            let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: LivePreview.sampleRate,
+                                       channels: 1, interleaved: false)!
+            let count = Int(seconds * LivePreview.sampleRate)
+            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(count))!
+            buffer.frameLength = AVAudioFrameCount(count)
+            for i in 0..<count { buffer.floatChannelData![0][i] = i % 2 == 0 ? 0.1 : -0.1 }
+            let file = try AVAudioFile(forWriting: dir.appendingPathComponent("clip.wav"), settings: format.settings,
+                                       commonFormat: .pcmFormatFloat32, interleaved: false)
+            try file.write(from: buffer)
+            launch = SidecarClient.Launch(command: [try NativeTestSupport.sidecar()],
+                                          environment: ["OLIV_INFERENCE_EXECUTABLE": helper.path],
+                                          root: dir.path, bundled: false)
+        }
+
+        func summary() throws -> [String: Any] {
+            let data = try Data(contentsOf: dir.appendingPathComponent("out.json"))
+            let report = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            return report?["summary"] as? [String: Any] ?? [:]
+        }
+
+        var events: [String] {
+            let text = (try? String(contentsOf: dir.appendingPathComponent("events"), encoding: .utf8)) ?? ""
+            return text.split(separator: "\n").map(String.init)
+        }
+    }
+
+    func testWarmUpAndMeasuredPacersNumberPreviewsInOneSequence() {
+        let (warmUp, measured) = LivePreviewBench.pacers(policy: .init())
+        let warm = (0..<3).map { _ in warmUp.nextSeq() }
+        XCTAssertGreaterThan(measured.nextSeq(), warm.max()!)
+        // Separate governors: the warm-up never paces what is measured.
+        warmUp.recordFailure(); warmUp.recordFailure()
+        XCTAssertFalse(warmUp.isEnabled)
+        XCTAssertTrue(measured.isEnabled)
+    }
+
+    func testMeasuredPreviewsStillRunAfterTheWarmUpReleaseCancelledOne() throws {
+        // 2 s: each hold starts one preview after 1 s of audio, and the
+        // helper holds it until the release cancels it.
+        let bench = try Fixture(mode: "ok", seconds: 2)
+        defer { try? FileManager.default.removeItem(at: bench.dir) }
+        XCTAssertEqual(LivePreviewBench.run(args: bench.args, launch: bench.launch), 0)
+        // The warm-up's preview 1 was cancelled at its release; the measured
+        // hold's preview must reach the model rather than be skipped as
+        // already cancelled.
+        XCTAssertEqual(bench.events, ["preview 1", "cancel 1", "preview 2", "cancel 2"])
+        let summary = try bench.summary()
+        XCTAssertNil((summary["skipped"] as? [String: Int])?["cancelled"], "\(summary)")
+        XCTAssertEqual(summary["previews_started"] as? Int, 1)
+        XCTAssertEqual(summary["in_flight_at_release"] as? Int, 1)
+        XCTAssertEqual(summary["identical_finals"] as? Int, 1)
+    }
+
+    func testFailedClipsAndDifferingFinalsFailTheRun() throws {
+        for mode in ["fail", "differ"] {
+            let bench = try Fixture(mode: mode, seconds: 0.5)
+            defer { try? FileManager.default.removeItem(at: bench.dir) }
+            XCTAssertEqual(LivePreviewBench.run(args: bench.args, launch: bench.launch), 1, mode)
+            let summary = try bench.summary()
+            XCTAssertEqual(summary["failed_clips"] as? Int, mode == "fail" ? 1 : 0, mode)
+            XCTAssertEqual(summary["differing_finals"] as? Int, mode == "differ" ? 1 : 0, mode)
+        }
     }
 }

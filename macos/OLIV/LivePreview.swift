@@ -181,23 +181,34 @@ struct LivePreviewGovernor: Equatable {
     }
 }
 
+/// Preview numbers for one sidecar. Strictly increasing, so a late cancel can
+/// only ever cancel older previews: the sidecar remembers the highest one it
+/// was told to cancel and skips every preview numbered at or below it.
+/// Thread-safe.
+final class LivePreviewSequence: @unchecked Sendable {
+    private let lock = NSLock()
+    private var last = 0
+
+    func next() -> Int { lock.lock(); defer { lock.unlock() }; last += 1; return last }
+}
+
 /// The governor and preview numbering for the whole app run, shared by every
 /// hold. Thread-safe.
 final class LivePreviewPacer: @unchecked Sendable {
     private let lock = NSLock()
     private var governor: LivePreviewGovernor
-    private var lastSeq = 0
+    private let sequence: LivePreviewSequence
 
-    init(policy: LivePreviewGovernor.Policy = .init()) {
+    /// Pacers that talk to the same sidecar must share `sequence`.
+    init(policy: LivePreviewGovernor.Policy = .init(), sequence: LivePreviewSequence = .init()) {
         governor = LivePreviewGovernor(policy: policy)
+        self.sequence = sequence
     }
 
     var isEnabled: Bool { lock.lock(); defer { lock.unlock() }; return !governor.isDisabled }
     var interval: TimeInterval { lock.lock(); defer { lock.unlock() }; return governor.interval }
 
-    /// Strictly increasing for the app run, so a late cancel can only ever
-    /// cancel older previews (the sidecar remembers the highest one).
-    func nextSeq() -> Int { lock.lock(); defer { lock.unlock() }; lastSeq += 1; return lastSeq }
+    func nextSeq() -> Int { sequence.next() }
 
     func decide(now: TimeInterval, lastStart: TimeInterval?, inFlight: Bool,
                 audioSeconds: Double, previewedAudioSeconds: Double) -> LivePreviewGovernor.Decision {
