@@ -636,7 +636,8 @@ fn is_small(key: &str) -> bool {
 static LIST_MARKER: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?m)^[ \t]*([0-9]{1,2})[.)][ \t]").unwrap());
 static ENGLISH_SMALL: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b").unwrap()
+    Regex::new(r"(?i)\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\b")
+        .unwrap()
 });
 
 /// Small numbers an output may add without the source writing them: ones
@@ -645,21 +646,32 @@ static ENGLISH_SMALL: LazyLock<Regex> = LazyLock::new(|| {
 /// Any other new number is invented, however small: a summary turning
 /// 1.2 ล้าน into 5 ล้าน changed the amount.
 fn small_numbers_allowed(source: &str, out: &str) -> HashSet<String> {
-    const THAI: [&str; 9] = ["หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า"];
-    const ENGLISH: [&str; 12] = [
-        "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
-        "twelve",
+    const THAI: [&str; 10] = [
+        "ศูนย์",
+        "หนึ่ง",
+        "สอง",
+        "สาม",
+        "สี่",
+        "ห้า",
+        "หก",
+        "เจ็ด",
+        "แปด",
+        "เก้า",
+    ];
+    const ENGLISH: [&str; 13] = [
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+        "eleven", "twelve",
     ];
     let mut allowed: HashSet<String> = HashSet::new();
     for (i, word) in THAI.iter().enumerate() {
         if source.contains(word) {
-            allowed.insert((i + 1).to_string());
+            allowed.insert(i.to_string());
         }
     }
     for m in ENGLISH_SMALL.find_iter(source) {
         let word = m.as_str().to_lowercase();
         if let Some(i) = ENGLISH.iter().position(|w| *w == word) {
-            allowed.insert((i + 1).to_string());
+            allowed.insert(i.to_string());
         }
     }
     for c in LIST_MARKER.captures_iter(out) {
@@ -745,32 +757,8 @@ fn spoken_times(source: &str) -> HashSet<String> {
 /// Numbers in `out` that the source never stated, small ones aside. By
 /// value: restating a figure the source gives (an email's subject and body)
 /// invents nothing.
-/// A decimal with the trailing zeros of its fraction dropped (1:50 → 1:5),
-/// so 1.50 and 1.5 meet. Only a number of two parts: a version (1.2.30) or
-/// anything longer keeps every digit. `number_key` keeps the exact form;
-/// this only adds a second way to match.
-fn decimal_form(key: &str) -> String {
-    match key.split_once(':') {
-        Some((head, last)) if !last.contains(':') && last.len() > 1 && last.ends_with('0') => {
-            let last = last.trim_end_matches('0');
-            if last.is_empty() {
-                head.to_owned()
-            } else {
-                format!("{head}:{last}")
-            }
-        }
-        _ => key.to_owned(),
-    }
-}
-
-/// Whether two number keys write the same value.
-fn same_number(a: &str, b: &str) -> bool {
-    a == b || decimal_form(a) == decimal_form(b)
-}
-
 fn invented_numbers(source: &str, out: &str) -> Vec<String> {
     let have = source_numbers(source);
-    let have_decimal: HashSet<String> = have.iter().map(|n| decimal_form(n)).collect();
     let times = spoken_times(source);
     let small = small_numbers_allowed(source, out);
     let mut invented: Vec<String> = numbers(out)
@@ -781,7 +769,6 @@ fn invented_numbers(source: &str, out: &str) -> Vec<String> {
             // the sign survived is `lost_numbers`'s question.
             !have.contains(n)
                 && !have.contains(&format!("-{n}"))
-                && !have_decimal.contains(&decimal_form(n))
                 && !(is_small(n) && small.contains(n))
                 && !times.contains(n)
         })
@@ -797,7 +784,7 @@ fn lost_numbers(source: &str, out: &str) -> Vec<String> {
     let mut have = numbers(out);
     let mut lost = Vec::new();
     for n in numbers(source) {
-        match have.iter().position(|h| same_number(h, &n)) {
+        match have.iter().position(|h| *h == n) {
             Some(i) => {
                 have.swap_remove(i);
             }
@@ -1572,33 +1559,29 @@ mod tests {
             none
         );
         assert_eq!(invented_numbers("ตีหนึ่งถึงตีสาม", "01:00–03:00"), none);
+        assert_eq!(
+            invented_numbers("ยอดคงเหลือเป็นศูนย์", "The balance is 0."),
+            none
+        );
+        assert_eq!(
+            invented_numbers("zero errors today", "วันนี้ error 0 ครั้ง"),
+            none
+        );
     }
 
     #[test]
-    fn equal_decimals_match() {
-        let none = Vec::<String>::new();
+    fn decimals_compare_digit_for_digit() {
+        // A dropped trailing zero is refused rather than guessed at: 10.50
+        // might be a time (10:50) and 1.2.30 a version, so only identical
+        // digits match. The refusal is safe: the original text is kept.
         assert_eq!(
             lost_numbers("ราคา 1.50 บาท", "The price is 1.5 baht."),
-            none
-        );
-        assert_eq!(
-            invented_numbers("ราคา 1.5 บาท", "The price is 1.50 baht."),
-            none
-        );
-        assert_eq!(
-            check_translation("ราคา 1.50 บาท", "The price is 1.5 baht."),
-            Ok(())
-        );
-        // A different value is still a different value.
-        assert_eq!(
-            lost_numbers("ราคา 1.50 บาท", "The price is 1.05 baht."),
             vec!["1:50".to_string()]
         );
         assert_eq!(
-            lost_numbers("ประชุม 14:30", "Meeting at 14:03."),
-            vec!["14:30".to_string()]
+            lost_numbers("นัด 10.50 น.", "Meet at 10.5."),
+            vec!["10:50".to_string()]
         );
-        // Versions keep every digit.
         assert_eq!(
             lost_numbers(
                 "Please install version 1.2.30.",
@@ -1607,12 +1590,12 @@ mod tests {
             vec!["1:2:30".to_string()]
         );
         assert_eq!(
-            check_command(
-                "สุภาพขึ้น",
-                "Please install version 1.2.30.",
-                "Kindly install version 1.2.3."
-            ),
-            Err(Rejection("numberLost"))
+            lost_numbers("ประชุม 14:30", "Meeting at 14:03."),
+            vec!["14:30".to_string()]
+        );
+        assert_eq!(
+            lost_numbers("ราคา 1.50 บาท", "The price is 1.50 baht."),
+            Vec::<String>::new()
         );
     }
 
