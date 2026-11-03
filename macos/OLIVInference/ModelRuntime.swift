@@ -69,10 +69,14 @@ actor ModelRuntime {
         catch { cleanup = nil; throw error }
     }
 
-    private func generate(_ content: String) async throws -> String {
+    /// Cleanup replies are one sentence; voice-editing transforms (Command mode,
+    /// translation) ask for more, up to this ceiling.
+    static let maxGenerationTokens = 1024
+
+    private func generate(_ content: String, maxTokens: Int = 200) async throws -> String {
         let model = try await cleanupModel()
         let input = try await model.prepare(input: UserInput(prompt: content, additionalContext: ["enable_thinking": false]))
-        let stream = try await model.generate(input: input, parameters: GenerateParameters(maxTokens: 200, temperature: 0))
+        let stream = try await model.generate(input: input, parameters: GenerateParameters(maxTokens: maxTokens, temperature: 0))
         var text = ""
         for await event in stream { if case .chunk(let chunk) = event { text += chunk } }
         Memory.clearCache()
@@ -95,7 +99,8 @@ actor ModelRuntime {
             return ["ok": true, "text": result.text, "avg_logprob": result.avgLogprob, "language": result.language]
         case "generate":
             guard let content = request["content"] as? String else { throw RuntimeError.invalidRequest }
-            return ["ok": true, "generation": try await generate(content)]
+            let maxTokens = min(max((request["max_tokens"] as? Int) ?? 200, 1), Self.maxGenerationTokens)
+            return ["ok": true, "generation": try await generate(content, maxTokens: maxTokens)]
         case "tokenize":
             guard let content = request["content"] as? String else { throw RuntimeError.invalidRequest }
             let model = try await cleanupModel()

@@ -2,6 +2,7 @@
 mod contextasr;
 mod metrics;
 mod speakers;
+mod voice_edit;
 mod worker;
 use base64::Engine;
 use clap::{Parser, Subcommand};
@@ -48,6 +49,8 @@ enum Task {
         #[command(subcommand)]
         task: speakers::Task,
     },
+    /// Command mode and translation (voice editing) on the on-device model.
+    VoiceEdit(voice_edit::Args),
     /// Write a private HTML report; never exports recordings or publishes pages.
     Report {
         #[arg(long)]
@@ -487,5 +490,6 @@ fn main() -> Result<()> {
         Task::Report { input, out } => html_report(&input, &out),
         Task::Contextasr { task } => contextasr::main(task),
         Task::Speakers { task } => speakers::main(task),
+        Task::VoiceEdit(args) => voice_edit::run(args),
     }
 }

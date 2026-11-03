@@ -26,9 +26,19 @@ pub struct Worker {
 }
 impl Worker {
     pub fn new(directory: &Path, name: &str, args: &[String]) -> Result<Self, String> {
+        Self::new_with_env(directory, name, args, &[])
+    }
+    /// [`Worker::new`] with extra environment for the child (evaluation knobs).
+    pub fn new_with_env(
+        directory: &Path,
+        name: &str,
+        args: &[String],
+        env: &[(String, String)],
+    ) -> Result<Self, String> {
         let mut command = Command::new(directory.join(name));
         command
             .args(args)
+            .envs(env.iter().map(|(k, v)| (k, v)))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null());

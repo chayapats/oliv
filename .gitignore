@@ -22,6 +22,10 @@ benchmark/*
 !benchmark/README.md
 !benchmark/contextasr.md
 !benchmark/speakers.md
+!benchmark/voice-edit.md
+!benchmark/voice-edit/
+benchmark/voice-edit/*
+!benchmark/voice-edit/cases.jsonl
 !benchmark/run_eval_full.sh
 !benchmark/data/
 benchmark/data/*

@@ -7,6 +7,7 @@ use oliv_pipeline::{
     llm::{Llm, LlmError, Prompt, Request},
     local,
     stt::{Stt, Transcript},
+    transform,
 };
 use serde_json::{Value, json};
 use std::cell::Cell;
@@ -73,6 +74,68 @@ impl Llm for ModelLlm<'_> {
             .ok_or_else(|| LlmError("Invalid generation reply".into()))
     }
 }
+impl transform::Generate for ModelLlm<'_> {
+    fn generate(&self, content: &str, max_tokens: u32) -> Result<String, LlmError> {
+        let start = Instant::now();
+        let reply = self.inference.request(
+            json!({"cmd":"generate","content":content,"max_tokens":max_tokens}),
+            TRANSFORM_TIMEOUT,
+            self.id,
+        );
+        self.seconds
+            .set(self.seconds.get() + start.elapsed().as_secs_f64());
+        reply
+            .map_err(LlmError)?
+            .get("generation")
+            .and_then(Value::as_str)
+            .map(str::to_string)
+            .ok_or_else(|| LlmError("Invalid generation reply".into()))
+    }
+}
+/// A transform may generate up to `transform::MAX_GENERATION_TOKENS`, and the
+/// first one may also load the cleanup model (not pre-warmed with the OLIV
+/// API engine).
+const TRANSFORM_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// Evaluation only: `OLIV_TRANSFORM_PROMPT_DIR/<mode>.txt` replaces the
+/// shipped prompt, so `oliv-dev voice-edit` can compare prompts unbuilt.
+fn transform_template(mode: transform::Mode) -> Option<String> {
+    let dir = std::env::var_os("OLIV_TRANSFORM_PROMPT_DIR")?;
+    let name = match mode {
+        transform::Mode::Command => "command.txt",
+        transform::Mode::Translate => "translate.txt",
+    };
+    let text = std::fs::read_to_string(std::path::Path::new(&dir).join(name)).ok()?;
+    Some(text.trim_end_matches('\n').to_string())
+}
+
+/// `{"cmd":"transform","mode","instruction","text"}`: Command mode or
+/// translation on the cleanup model. Always ok:true when the request is well
+/// formed; `applied:false` keeps the caller's text.
+fn transform_reply(request: &Value, model: &dyn transform::Generate) -> Result<Value, String> {
+    let start = Instant::now();
+    let mode: transform::Mode = request["mode"]
+        .as_str()
+        .ok_or("invalidMode")?
+        .parse()
+        .map_err(|_| "invalidMode")?;
+    let template = transform_template(mode);
+    let req = transform::Request {
+        mode,
+        instruction: request["instruction"].as_str().unwrap_or(""),
+        text: request["text"].as_str().ok_or("invalidText")?,
+        template: template.as_deref(),
+    };
+    let out = transform::transform(&req, model);
+    let mut reply = serde_json::to_value(&out).map_err(|_| "invalidReply")?;
+    if request["include_raw"] != true {
+        reply.as_object_mut().map(|o| o.remove("raw"));
+    }
+    reply["ok"] = json!(true);
+    reply["t_total"] = json!(start.elapsed().as_secs_f64());
+    Ok(reply)
+}
+
 struct ModelStt<'a> {
     inference: &'a Inference,
     request: &'a Value,
@@ -245,6 +308,11 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
             value["cleanup_error"] = json!(r.llm_error);
             Ok(value)
         }
+        "transform" => {
+            let mut reply = transform_reply(request, &llm)?;
+            reply["t_llm"] = json!(llm.seconds.get());
+            Ok(reply)
+        }
         "text" => {
             let opts = local_options(request)?;
             let out = local::clean(
@@ -390,6 +458,52 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct Answer(&'static str);
+    impl transform::Generate for Answer {
+        fn generate(&self, _: &str, _: u32) -> Result<String, LlmError> {
+            Ok(self.0.to_string())
+        }
+    }
+    struct Down;
+    impl transform::Generate for Down {
+        fn generate(&self, _: &str, _: u32) -> Result<String, LlmError> {
+            Err(LlmError("Inference runtime not configured".into()))
+        }
+    }
+
+    #[test]
+    fn transform_reply_applies_or_keeps_the_text() {
+        let text = "ส่งไฟล์ deck มาด่วนเลย";
+        let request =
+            json!({"cmd":"transform","mode":"command","instruction":"ทำให้สุภาพขึ้น","text":text});
+        let reply = transform_reply(&request, &Answer("รบกวนส่งไฟล์ deck มาให้หน่อยนะครับ")).unwrap();
+        assert_eq!(reply["ok"], true);
+        assert_eq!(reply["applied"], true);
+        assert_eq!(reply["text"], "รบกวนส่งไฟล์ deck มาให้หน่อยนะครับ");
+        assert!(reply.get("raw").is_none());
+        // A model failure is not a protocol failure: the original comes back.
+        let reply = transform_reply(&request, &Down).unwrap();
+        assert_eq!(
+            (reply["ok"].clone(), reply["applied"].clone()),
+            (json!(true), json!(false))
+        );
+        assert_eq!(reply["text"], text);
+        assert_eq!(reply["flag"], "llmError");
+        // Evaluation asks for the raw generation.
+        let mut eval = request.clone();
+        eval["include_raw"] = json!(true);
+        let reply = transform_reply(&eval, &Answer("As an AI I cannot")).unwrap();
+        assert_eq!(reply["applied"], false);
+        assert_eq!(reply["raw"], "As an AI I cannot");
+        assert_eq!(reply["text"], text);
+        for bad in [
+            json!({"cmd":"transform","mode":"poem","text":"x"}),
+            json!({"cmd":"transform","mode":"command"}),
+        ] {
+            assert!(transform_reply(&bad, &Down).is_err());
+        }
+    }
 
     #[test]
     fn initial_prompt_follows_the_shipped_engine_policy() {

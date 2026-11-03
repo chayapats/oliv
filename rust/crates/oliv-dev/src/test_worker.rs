@@ -64,6 +64,19 @@ fn sidecar() -> io::Result<()> {
                 json!({"id":id,"ok":true,"matched":true})
             }
             "sttfail" => json!({"id":id,"ok":false,"error":"STT backend exploded"}),
+            // Echoes the wire fields so Swift tests can see what was sent; a
+            // text containing KEEP is refused, as the real guardrail would.
+            "transform" => {
+                let text = req["text"].as_str().unwrap_or("");
+                if text.contains("KEEP") {
+                    json!({"id":id,"ok":true,"applied":false,"text":text,"flag":"answered","intent":"edit"})
+                } else {
+                    let mode = req["mode"].as_str().unwrap_or("");
+                    let instruction = req["instruction"].as_str().unwrap_or("");
+                    json!({"id":id,"ok":true,"applied":true,"flag":"ok","intent":"edit",
+                        "text":format!("[{mode}|{instruction}] {text}")})
+                }
+            }
             "prog" => {
                 for pct in [10, 90] {
                     emit(json!({"id":id,"event":"progress","repo":"r","pct":pct}))?;
