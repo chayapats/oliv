@@ -52,6 +52,10 @@ build/native-tools/oliv-dev contextasr compare --baseline $D/base_full --candida
 | `--conditions` | default `none,bias@0,bias@50,dis@50` (the upstream standard eval); any of the ten frozen conditions |
 | `--limit N --seed S` | deterministic subset: first N utterances in sha256(`S:utt_id`) order |
 | `--shard K/N` (compare) | restrict a comparison to an utterance shard, e.g. a held-out half |
+| `--context screen` | send the list as `screen_text` snippets (one per entry), as the Mac app sends a window's text for names on screen, instead of as `vocabulary` |
+| `--screen-noise FILE` | with `--context screen`: add these lines (a noisy window) to every pair, `none` included |
+| `--stt-replay FILE` | replay transcripts by utterance from an earlier decode (the STT cache, or a run's `details.jsonl`) without loading the STT model |
+| `--llm-cache FILE` | with `--stt-replay`: run the text pipeline in-process and reuse cleanup-model replies cached by prompt (greedy decoding), so unchanged text doesn't run Gemma again |
 
 `none` sends no vocabulary. Other conditions send the frozen list for that
 (utterance, condition) as `vocabulary`, in list order, and nothing else, so no
@@ -253,3 +257,80 @@ difference is attributable to it.
 - `app` (filler removal, Thai number formatting) and conditions beyond the
   standard four (`bias@500`, `flip@50`) were not run for this report.
 - Real speech may be in Whisper's pretraining data; TTS speech is 67% of the set.
+
+## Names on screen (2026-11)
+
+The Mac app can read the focused window's text at push-to-talk and use the
+names in it for that one dictation ([#25](https://github.com/chayapats/oliv/issues/25)).
+The benchmark simulates it with `--context screen`: each condition's list is
+sent as `screen_text`, one snippet per entry, as a window showing those names
+would be. The pipeline then keeps at most 50 likely names from it, drops
+everyday words, and matches them more strictly than Dictionary words
+(`oliv-text::screen`, `phonetic::Guard`). `--screen-noise` adds a synthetic
+noisy window to every pair: an invented team chat and email in Thai and
+English with 28 names and terms (`rust/crates/oliv-dev/fixtures/screen_noise.txt`).
+"Today" is the `none` condition: no list.
+
+All 2,062 utterances, replayed typhoon-turbo-mlx transcripts, Gemma replies
+cached by prompt (`--llm-cache`). "Worse / better" counts utterances whose CER
+went up / down against today's output for the same audio; that is the measure
+of wrong substitutions. Recall accepts any listed form of an entity.
+
+**Full pipeline** (what the app runs):
+
+| list | condition | entity recall | listed form | CER | worse / better than today |
+|---|---|---|---|---|---|
+| none (today) | none | 42.5 | — | 6.69 | — |
+| as Dictionary vocabulary (0.2.2) | bias@50 | 62.8 | 46.9 | 6.03 | 58 / 509 |
+| as Dictionary vocabulary (0.2.2) | dis@50 | 42.3 | — | 6.71 | 18 / 15 |
+| as screen text | bias@0 | 57.7 | 40.5 | 5.61 | 34 / 379 |
+| as screen text | bias@50 | 57.1 | 39.8 | 6.21 | 34 / 372 |
+| as screen text | dis@50 | 42.6 | — | 6.67 | 1 / 4 |
+| as screen text | bias@500 | 44.1 | 22.9 | 6.62 | 5 / 45 |
+| as screen text | dis@500 | 42.5 | — | 6.69 | 1 / 2 |
+| screen text + noisy window | none | 42.5 | — | 6.69 | 1 / 0 |
+| screen text + noisy window | bias@50 | 55.6 | 38.1 | 6.25 | 31 / 343 |
+| screen text + noisy window | dis@50 | 42.6 | — | 6.67 | 1 / 4 |
+
+**Without the LLM** (`--pipeline vocab`, the deterministic stage alone):
+
+| list | condition | entity recall | listed form | CER | worse / better than today |
+|---|---|---|---|---|---|
+| none (today) | none | 41.7 | — | 6.22 | — |
+| as Dictionary vocabulary (0.2.2) | bias@50 | 60.6 | 45.2 | 5.80 | 16 / 479 |
+| as Dictionary vocabulary (0.2.2) | dis@50 | 41.5 | — | 6.25 | 14 / 0 |
+| as Dictionary vocabulary (0.2.2) | dis@500 | 40.7 | — | 6.38 | 108 / 12 |
+| as screen text | bias@50 | 56.0 | 39.8 | 5.89 | 5 / 379 |
+| as screen text | dis@50 | 41.7 | — | 6.22 | 1 / 1 |
+| as screen text | bias@500 | 43.0 | 26.5 | 6.19 | 6 / 37 |
+| as screen text | dis@500 | 41.7 | — | 6.23 | 3 / 0 |
+| screen text + noisy window | none | 41.7 | — | 6.23 | 1 / 0 |
+
+Screen names recover about three quarters of what a hand-made Dictionary list
+gains (+14.6 recall against +20.3), with a fraction of its wrong
+substitutions. Listed-form accuracy is lower by design: a Thai name stays in
+the script it was spoken in, while the benchmark's listed form is sometimes
+the Latin romanization. `bias@500` shows the 50-name cap: with 500 names on
+screen, the spoken one is usually not among those kept.
+
+**How the rules were chosen.** Every stricter rule for screen terms removed a
+wrong substitution seen on `dis@50`/`dis@500`, on the noisy window or on the
+private recordings. Each was then ablated. A one-letter-edge rule that
+blocked as many right fixes as wrong ones was dropped, and dropping the
+LLM protection of Thai screen names cost 6 points of recall. Rules were tuned
+on the first 840 utterances in hash order; the table is over all 2,062. The
+remaining wrong substitutions are Thai names re-spelled toward a
+similar-sounding name on screen, and one Thai phrase taken for a Latin place
+name from the noisy window.
+
+**Private recordings** (264 clips, `oliv-dev eval --replay`, full pipeline,
+aggregates only): with the noisy window as screen text, all 264 outputs are
+identical to today's. With each clip's own keywords on screen, 7 clips get
+better and none worse: CER 9.17 → 8.86, WER 14.50 → 14.00, keyword recall
+81.6 → 83.3, LaBSE meaning match unchanged at 97.35%.
+
+**Cost.** Reading the window happens while the user speaks, off the main
+thread, under a 250 ms budget (a TextEdit window: 8–16 ms median; a synthetic
+crowded window of 400–670 Accessibility nodes: 77–157 ms median). On the
+Rust side, picking candidates from a full 500-snippet screen takes 2.5 ms
+and matching them 1 ms.

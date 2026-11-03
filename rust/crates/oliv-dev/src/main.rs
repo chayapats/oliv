@@ -88,6 +88,14 @@ struct Eval {
     /// of decoding again (cleanup-only re-runs; latency then excludes STT).
     #[arg(long)]
     replay: Option<PathBuf>,
+    /// Send these snippets (one per line) as every clip's `screen_text`, as
+    /// the Mac app sends a window's text for names on screen.
+    #[arg(long)]
+    screen_text: Option<PathBuf>,
+    /// Also put each clip's own `keywords` on that screen (the names the
+    /// speaker says are visible), before the `--screen-text` snippets.
+    #[arg(long)]
+    screen_keywords: bool,
 }
 fn read_json(path: &Path) -> Result<Value> {
     Ok(serde_json::from_slice(&std::fs::read(path)?)?)
@@ -170,6 +178,10 @@ pub(crate) struct Pipeline {
     pub cleanup: bool,
     pub no_vocab: bool,
     pub no_llm: bool,
+    /// Snippets sent as every clip's `screen_text` (names on screen).
+    pub screen: Vec<String>,
+    /// Also put each clip's own `keywords` on that screen, first.
+    pub screen_keywords: bool,
 }
 impl Pipeline {
     pub(crate) fn start(&self, runtime_dir: &Path) -> Result<Worker> {
@@ -213,6 +225,15 @@ impl Pipeline {
         }
         if let Some(dict) = row.get("dictionary") {
             request["dictionary"] = dict.clone();
+        }
+        let mut on_screen = if self.screen_keywords {
+            keywords(row)
+        } else {
+            Vec::new()
+        };
+        on_screen.extend(self.screen.iter().cloned());
+        if !on_screen.is_empty() {
+            request["screen_text"] = json!(on_screen);
         }
         let reply = runtime.request(request, Duration::from_secs(65))?;
         let final_text = reply["final"]
@@ -315,13 +336,29 @@ fn evaluate(args: Eval) -> Result<()> {
             .collect(),
         None => BTreeMap::new(),
     };
+    let screen: Vec<String> = match &args.screen_text {
+        Some(path) => std::fs::read_to_string(path)?
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .map(str::to_owned)
+            .collect(),
+        None => Vec::new(),
+    };
     let pipeline = Pipeline {
         engine: args.engine.clone(),
         cleanup: !args.no_cleanup,
         no_vocab: args.no_vocab,
         no_llm: args.no_llm,
+        screen,
+        screen_keywords: args.screen_keywords,
     };
-    let mut runtime = pipeline.start(&args.runtime_dir)?;
+    // A replay decodes nothing: skip loading STT (cleanup loads lazily).
+    let mut runtime = if args.replay.is_some() {
+        Worker::new(&args.runtime_dir, "oliv-sidecar", &[])?
+    } else {
+        pipeline.start(&args.runtime_dir)?
+    };
     let mut clips = Vec::new();
     for row in &rows {
         let stt_text = match &args.replay {
@@ -348,7 +385,7 @@ fn evaluate(args: Eval) -> Result<()> {
     let report = json!({"label":label,"runtime":"native","engine":args.engine,"cleanup_model":if args.no_cleanup {Value::Null}else{json!("mlx-community/gemma-4-e2b-it-4bit")},
         "manifest":manifest,"runtime_dir":args.runtime_dir,"no_vocab":args.no_vocab,"no_llm":args.no_llm,
         "latency_scope":if args.replay.is_some(){"cleanup replay; excludes ASR"}else{"end-to-end native pipeline; includes audio conversion"},
-        "stt":{"replay":args.replay},"metric_version":"newmm_nfc_v1","overall":summarize(&clips),"aggregate":aggregate(&clips),"clips":clips,"missing":[]});
+        "stt":{"replay":args.replay},"screen_text":args.screen_text,"screen_keywords":args.screen_keywords,"metric_version":"newmm_nfc_v1","overall":summarize(&clips),"aggregate":aggregate(&clips),"clips":clips,"missing":[]});
     write_json(&args.out, &report)?;
     println!(
         "{} clips; WER {:.4}, CER {:.4}; wrote {}",

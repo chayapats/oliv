@@ -2,6 +2,7 @@
 //! through the shipped sidecar. The dataset stays outside the checkout; outputs
 //! quote its transcripts and are written only to the requested local directory.
 mod mt;
+mod replay;
 mod report;
 pub mod score;
 
@@ -26,7 +27,7 @@ const CACHE_VERSION: &str = "oliv-contextasr-stt-v1";
 #[derive(Subcommand)]
 pub enum Task {
     /// Decode benchmark pairs through the production sidecar, then score them.
-    Run(RunArgs),
+    Run(Box<RunArgs>),
     /// Score a run directory, or any upstream-format hyps.jsonl, natively.
     Score(ScoreArgs),
     /// Compare two scored runs over identical (utterance, condition) pairs.
@@ -70,6 +71,25 @@ pub struct RunArgs {
     /// Accept bias lists that differ from the pinned upstream file (fixtures only).
     #[arg(long)]
     pub allow_unpinned: bool,
+    /// How the condition's list reaches the pipeline: `vocabulary` (the
+    /// user's list, as before) or `screen` (`screen_text` snippets, one per
+    /// entry, as the Mac app sends a window's text for names on screen).
+    #[arg(long, default_value = "vocabulary")]
+    pub context: String,
+    /// With `--context screen`: extra snippets, one per line, sent with every
+    /// pair (a noisy screen); `none` pairs then get the noise alone.
+    #[arg(long)]
+    pub screen_noise: Option<PathBuf>,
+    /// Replay transcripts from an earlier decode (`utt_id` + `raw` rows, e.g.
+    /// the STT cache or a run's details.jsonl) instead of decoding: no STT
+    /// model is loaded, so `--pipeline vocab` runs on the CPU alone.
+    #[arg(long)]
+    pub stt_replay: Option<PathBuf>,
+    /// With `--stt-replay`: run the text pipeline in this process and reuse
+    /// cleanup-model replies cached here by prompt, so conditions that leave
+    /// the text unchanged don't run Gemma again.
+    #[arg(long, requires = "stt_replay")]
+    pub llm_cache: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -107,7 +127,7 @@ pub struct CompareArgs {
 
 pub fn main(task: Task) -> Result<()> {
     match task {
-        Task::Run(args) => run(args),
+        Task::Run(args) => run(*args),
         Task::Score(args) => {
             let data = Dataset::load(&data_dir(args.data_dir)?, !args.allow_unpinned)?;
             match (args.run, args.hyps) {
@@ -446,10 +466,57 @@ pub fn read_jsonl(path: &Path) -> Result<Vec<Value>> {
         .collect()
 }
 
+/// `--stt-replay` rows: the first `raw` per utterance.
+fn replay_transcripts(path: &Path) -> Result<HashMap<String, Value>> {
+    let mut out = HashMap::new();
+    for row in read_jsonl(path)? {
+        if let (Some(id), Some(raw)) = (row["utt_id"].as_str(), row.get("raw"))
+            && raw.is_string()
+        {
+            out.entry(id.to_owned()).or_insert_with(|| raw.clone());
+        }
+    }
+    Ok(out)
+}
+
+/// The request field and value carrying one pair's list (and screen noise).
+pub fn context_field(
+    context: &str,
+    list: &[&String],
+    noise: &[String],
+) -> Result<Option<(&'static str, Value)>> {
+    match context {
+        "vocabulary" if list.is_empty() => Ok(None),
+        "vocabulary" => Ok(Some(("vocabulary", json!(list)))),
+        "screen" => {
+            let snippets: Vec<&String> = list.iter().copied().chain(noise).collect();
+            Ok((!snippets.is_empty()).then(|| ("screen_text", json!(snippets))))
+        }
+        other => Err(format!("Unknown context {other:?} (vocabulary, screen)").into()),
+    }
+}
+
 fn run(args: RunArgs) -> Result<()> {
     let data = Dataset::load(&data_dir(args.data_dir.clone())?, !args.allow_unpinned)?;
     let conditions = parse_conditions(&args.conditions)?;
     let fields = pipeline_fields(&args.pipeline)?;
+    context_field(&args.context, &[], &[])?;
+    if args.screen_noise.is_some() && args.context != "screen" {
+        return Err("--screen-noise needs --context screen".into());
+    }
+    let noise: Vec<String> = match &args.screen_noise {
+        Some(path) => std::fs::read_to_string(path)?
+            .lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty())
+            .map(str::to_owned)
+            .collect(),
+        None => Vec::new(),
+    };
+    let replay = match &args.stt_replay {
+        Some(path) => Some(replay_transcripts(path)?),
+        None => None,
+    };
     let uses_llm = args.pipeline == "full" || args.pipeline == "app";
     let selected = data.select(args.limit, &args.seed);
     let pairs = data.pairs(&selected, &conditions);
@@ -466,6 +533,23 @@ fn run(args: RunArgs) -> Result<()> {
         "limit": args.limit, "seed": args.seed, "request_fields": fields,
         "n_utterances": selected.len(), "n_pairs": pairs.len(), "id_prefix_counts": split_counts,
     });
+    let mut config = config;
+    if args.context != "vocabulary" || replay.is_some() {
+        config["context"] = args.context.clone().into();
+        config["screen_noise_sha256"] = json!(
+            args.screen_noise
+                .as_ref()
+                .map(|p| file_sha256(p))
+                .transpose()?
+        );
+        config["stt_replay_sha256"] = json!(
+            args.stt_replay
+                .as_ref()
+                .map(|p| file_sha256(p))
+                .transpose()?
+        );
+        config["in_process"] = json!(args.llm_cache.is_some());
+    }
     std::fs::create_dir_all(&args.out)?;
     let run_path = args.out.join("run.json");
     let label = if args.label.is_empty() {
@@ -518,22 +602,39 @@ fn run(args: RunArgs) -> Result<()> {
             Some(SttCache::open(&args.cache_dir, &args.engine)?)
         };
         let started = Instant::now();
-        let mut runtime = start_runtime(&args, uses_llm)?;
+        let replaying = replay.is_some();
+        let mut runtime = if replaying {
+            // Nothing to decode: models load lazily, only if cleanup calls the LLM.
+            Runtime {
+                worker: Worker::new(&args.runtime_dir, "oliv-sidecar", &[])?,
+                warm: json!({"skipped":"stt_replay"}),
+            }
+        } else {
+            start_runtime(&args, uses_llm)?
+        };
         env["warm"] = runtime.warm.clone();
         std::fs::write(
             &run_path,
             serde_json::to_vec_pretty(&json!({"label":label,"config":config,"environment":env}))?,
         )?;
-        let mut current: Option<(String, String, String)> = None; // (id, pcm_b64, audio sha)
+        let llm = match &args.llm_cache {
+            Some(path) => Some(replay::CachedLlm::new(
+                &args.runtime_dir,
+                replay::LlmCache::open(path)?,
+            )),
+            None => None,
+        };
+        let mut current: Option<(String, String, String, Vec<u8>)> = None; // (id, pcm_b64, audio sha, pcm)
         let mut failures = 0;
         for (n, (u, condition)) in todo.iter().enumerate() {
             if current.as_ref().is_none_or(|c| c.0 != u.id) {
                 let path = data.root.join("audio").join(format!("{}.wav", u.id));
                 let audio_sha = file_sha256(&path)?;
-                let encoded = base64::engine::general_purpose::STANDARD.encode(pcm(&path)?);
-                current = Some((u.id.clone(), encoded, audio_sha));
+                let bytes = pcm(&path)?;
+                let encoded = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                current = Some((u.id.clone(), encoded, audio_sha, bytes));
             }
-            let (_, encoded, audio_sha) = current.as_ref().unwrap();
+            let (_, encoded, audio_sha, bytes) = current.as_ref().unwrap();
             let list = data.list(&u.id, condition);
             let vocabulary: Vec<&String> =
                 list.map(|l| l.entries.iter().collect()).unwrap_or_default();
@@ -541,8 +642,8 @@ fn run(args: RunArgs) -> Result<()> {
             request["cmd"] = "dictate".into();
             request["engine"] = args.engine.clone().into();
             request["pcm_b64"] = encoded.clone().into();
-            if !vocabulary.is_empty() {
-                request["vocabulary"] = json!(vocabulary);
+            if let Some((field, value)) = context_field(&args.context, &vocabulary, &noise)? {
+                request[field] = value;
             }
             let prompt_input = if prompt_dependent {
                 json!(vocabulary)
@@ -560,19 +661,36 @@ fn run(args: RunArgs) -> Result<()> {
                 ]))?
                 .as_bytes(),
             );
-            let cached = cache.as_ref().and_then(|c| c.entries.get(&key)).cloned();
+            let mut cached = cache.as_ref().and_then(|c| c.entries.get(&key)).cloned();
+            if let Some(replay) = &replay {
+                // The STT cache skips no-speech decodes: replay those as empty.
+                let raw = replay.get(&u.id).cloned().unwrap_or_else(|| json!(""));
+                cached = Some(json!({"raw": raw, "t_stt": Value::Null, "redecoded": Value::Null}));
+            }
             if let Some(hit) = &cached {
                 request["stt_text"] = hit["raw"].clone();
             }
             let wall = Instant::now();
-            let reply = match runtime
-                .worker
-                .request(request.clone(), Duration::from_secs(120))
-            {
+            let in_process = llm
+                .as_ref()
+                .map(|llm| replay::dictate(&request, bytes, llm));
+            let reply = match in_process.unwrap_or_else(|| {
+                runtime
+                    .worker
+                    .request(request.clone(), Duration::from_secs(120))
+            }) {
                 Ok(r) => Ok(r),
+                Err(_) if llm.is_some() => Err("In-process replay failed".to_string()),
                 Err(_) => {
                     // The sidecar or model helper may have died: restart once, retry once.
-                    runtime = start_runtime(&args, uses_llm)?;
+                    runtime = if replaying {
+                        Runtime {
+                            worker: Worker::new(&args.runtime_dir, "oliv-sidecar", &[])?,
+                            warm: Value::Null,
+                        }
+                    } else {
+                        start_runtime(&args, uses_llm)?
+                    };
                     runtime.worker.request(request, Duration::from_secs(120))
                 }
             };
@@ -647,6 +765,13 @@ fn run(args: RunArgs) -> Result<()> {
                     rate * (todo.len() - n - 1) as f64 / 60.0
                 );
             }
+        }
+        if let Some(llm) = &llm {
+            println!(
+                "Cleanup model: {} cached replies, {} new",
+                llm.hits.get(),
+                llm.misses.get()
+            );
         }
     } else if !run_path.is_file() {
         std::fs::write(

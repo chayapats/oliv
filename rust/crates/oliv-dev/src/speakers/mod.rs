@@ -846,6 +846,8 @@ fn score(args: ScoreArgs) -> Result<()> {
         cleanup: true,
         no_vocab: false,
         no_llm: false,
+        screen: Vec::new(),
+        screen_keywords: false,
     };
     let clips = run_clips(
         &pipeline,
@@ -1133,6 +1135,8 @@ fn fleurs(args: FleursArgs) -> Result<()> {
         cleanup: true,
         no_vocab: false,
         no_llm: false,
+        screen: Vec::new(),
+        screen_keywords: false,
     };
     let clips = run_clips(
         &pipeline,

@@ -74,7 +74,11 @@ vocabulary flags. `--no-cleanup` is pure STT, with those features disabled.
 `--no-llm` evaluates dictionary and vocabulary cleanup without generation.
 `--no-vocab`, `--buckets` and per-bucket `--limit` support ablations.
 `--replay PATH` reuses raw transcripts from a previous result file for cleanup
-comparisons; its latency excludes ASR and is labelled accordingly. Selected
+comparisons; its latency excludes ASR and is labelled accordingly.
+`--screen-text FILE` sends the file's lines as every clip's `screen_text` (names
+on screen; e.g. the synthetic noisy window in
+`rust/crates/oliv-dev/fixtures/screen_noise.txt`), and `--screen-keywords` puts
+each clip's own keywords on that screen first. Selected
 missing audio, duplicate IDs and empty selections fail instead of silently
 changing the scored population. Console output contains counts and aggregate
 metrics; transcripts are written only to requested local JSON/HTML files.

@@ -1,0 +1,51 @@
+Acme Studio
+Channels
+# general
+# design-review
+# release-planning
+Direct messages
+Pimchanok Saelee
+Thanawat Kongsiri
+ณัฐวุฒิ แก้วมณี
+พิมพ์ชนก แซ่ลี้
+Marcus Holloway
+Search Acme Studio
+Today
+Pimchanok Saelee 9:41 AM
+Morning! The Figma file for the onboarding flow is updated, please check the new checkout screens.
+ณัฐวุฒิ แก้วมณี 9:43 AM
+รับทราบครับ เดี๋ยวบ่ายนี้ผมดูให้ ส่วนเรื่อง Jira ticket ของ Thanawat ผมปิดไปแล้วนะ
+Thanawat Kongsiri 9:47 AM
+Thanks ณัฐวุฒิ. I pushed the fix to the staging branch, Grafana dashboards look normal again.
+Marcus Holloway 10:02 AM
+Can we move the Q3 roadmap sync with Kittiphan to Thursday? I have a conflict with the Bangkok vendor call.
+พิมพ์ชนก แซ่ลี้ 10:05 AM
+ได้ค่ะ คุณมาร์คัส เดี๋ยวพิมพ์ย้ายนัดให้ พรุ่งนี้บ่ายสองโมงที่ห้องประชุมชั้นห้า
+Pimchanok Saelee 10:06 AM
+Also reminder: the Sukhumvit office is closed on Friday for the electrical inspection.
+Thanawat Kongsiri 10:11 AM
+คุณสุพัตรา from finance asked for the invoice from Lumina Analytics, does anyone have it?
+ณัฐวุฒิ แก้วมณี 10:15 AM
+อยู่ใน Google Drive โฟลเดอร์ Vendors ครับ ชื่อไฟล์ Lumina-INV-2026-114
+Marcus Holloway 10:20 AM
+Perfect, thanks. Let's keep the release notes in Notion this time.
+Message #general
+Bold
+Italic
+Attach
+Send
+Inbox
+From: Kittiphan Wongsawat
+To: Acme Studio Team
+Subject: Workshop at Chiang Mai next month
+Hi team,
+เรียนทุกท่าน ทางเราได้จองโรงแรมริมปิงไว้สำหรับเวิร์กช็อปวันที่สิบห้าถึงสิบเจ็ดแล้ว ขอให้ทุกคนยืนยันการเดินทางภายในวันศุกร์นี้
+Flights are booked with Thai AirAsia from Don Mueang, please send your passport name to Orawan before Monday.
+If you have dietary requirements, reply to this email or message คุณอรวรรณ directly.
+Best regards,
+Kittiphan Wongsawat
+Head of Operations, Acme Studio
+Reply
+Forward
+Archive
+Delete
