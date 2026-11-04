@@ -27,6 +27,10 @@ fn sidecar() -> io::Result<()> {
         let reply = match req["cmd"].as_str().unwrap_or("") {
             "shutdown" => break,
             "ping" => json!({"id":id,"ok":true,"pid":std::process::id()}),
+            "cleanup_warm" => json!({"id":id,"ok":true,"cleanup_warming":true}),
+            "memory_policy" => {
+                json!({"id":id,"ok":true,"cleanup_idle_seconds":req["cleanup_idle_seconds"]})
+            }
             "warm" => {
                 if req["background_cleanup"] == true {
                     json!({"id":id,"ok":true,"engine":req["engine"],"t_stt_load":2.0,"t_cleanup_load":0.0,"cleanup_warming":true})

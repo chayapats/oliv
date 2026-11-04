@@ -116,6 +116,15 @@ final class InterfaceScreenshotTests: XCTestCase {
         view.subviews.flatMap { ($0 as? NSScrollView).map { [$0] } ?? scrollViews(in: $0) }
     }
 
+    func testCleanupMemoryModes() throws {
+        let settings = sampleSettings()
+        for mode in CleanupMemoryMode.allCases {
+            settings.cleanupMemoryMode = mode
+            try render(GeneralSettingsView().environmentObject(settings),
+                       size: CGSize(width: 720, height: 850), name: "memory-\(mode.rawValue)")
+        }
+    }
+
     func testSettingsPages() throws {
         let settings = sampleSettings()
         let appState = AppState()

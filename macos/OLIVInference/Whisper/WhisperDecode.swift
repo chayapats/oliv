@@ -108,7 +108,15 @@ extension WhisperModel {
             if segmentSize < window { features = MLX.padded(features, widths: [.init((0, window - segmentSize)), .init((0, 0))]) }
             let input = features.asType(.float16).expandedDimensions(axis: 0)
             if preview != nil { _ = lap() }
-            let encoder = try shouldStop.map { try model.encoder(input, group: 4, shouldStop: $0) } ?? model.encoder(input)
+            let encoder: MLXArray
+            if let coreMLEncoder {
+                // The exported encoder is fixed at 30 seconds. This experiment
+                // does not provide the production short-window live preview.
+                guard preview == nil else { throw RuntimeError.invalidRequest }
+                encoder = try coreMLEncoder.encode(input)
+            } else if let mlxEncoder = model.encoder {
+                encoder = try shouldStop.map { try mlxEncoder(input, group: 4, shouldStop: $0) } ?? mlxEncoder(input)
+            } else { throw RuntimeError.invalidModel }
             eval(encoder)
             if let preview { preview.add(encode: lap()); preview.encoded(frames: window) }
             try stop()

@@ -61,3 +61,36 @@ footprint and process RSS. Report these allocations alongside physical
 footprint; otherwise an apparently tiny ANE process hides the model's RAM.
 Count cleanup child processes too. The OS model used by Foundation Models may
 live in a shared service and needs separate accounting.
+
+## Decoder experiments
+
+`--decoding-profile mlx-controls --generation-config PATH` applies the production
+generation config's complete token suppression list, first-step blank suppression,
+one-second initial timestamp limit and 224-token limit. It removes WhisperKit's
+first-token confidence retry. The default `whisperkit` profile is unchanged.
+This ablation still uses WhisperKit's timestamp and temperature sampling code.
+Worker equivalents are `OLIV_COREML_DECODING_PROFILE` and
+`OLIV_COREML_GENERATION_CONFIG`.
+
+For an exported model with Core ML KV states, build the optional adapter:
+
+```sh
+bash scripts/build_ane_stateful.sh
+build/ane-whisper-stateful/release/oliv-ane-whisper \
+  --model-dir /absolute/path/to/stateful-model \
+  --tokenizer-dir /absolute/path/to/local-tokenizer \
+  --manifest /absolute/path/to/manifest.jsonl \
+  --compute cpu --stateful yes --out benchmark/eval_results/stateful.json
+```
+
+The builder checks the exact WhisperKit revision and applies the small
+`stateful-decoder.patch` inside the build scratch directory. It opens only four
+extension points. A normal build needs no patch. The adapter resets state for
+each clip, audio window, language-detection pass and fallback, and rejects
+nonsequential imported prefill caches. Worker opt-in: `OLIV_COREML_STATEFUL=1`.
+
+The adapter accepts paired `key_cache` / `value_cache` states or numbered
+per-layer pairs. CPU numerical parity is a conversion check, separate from ASR
+quality and device placement. On the test Mac, all three exported stateful
+decoder graphs failed to load with CPU + ANE (Core ML planner error -14); this
+path is experimental and has not replaced the app's decoder.

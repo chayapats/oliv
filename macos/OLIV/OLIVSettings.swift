@@ -18,6 +18,11 @@
 import Foundation
 import CoreGraphics
 
+enum CleanupMemoryMode: String, CaseIterable {
+    case memorySaver, responsive
+    var idleSeconds: Int { self == .memorySaver ? 30 : 0 }
+}
+
 @MainActor
 final class OLIVSettings: ObservableObject {
     /// The app-wide store (UserDefaults.standard). Tests build their own with a
@@ -30,6 +35,7 @@ final class OLIVSettings: ObservableObject {
         static let undoHotkey = "oliv.undoHotkey"         // undo-last-paste binding; "" = off
         static let engine = "oliv.engine"                 // STT engine id
         static let cleanupEnabled = "oliv.cleanupEnabled" // global cleanup switch
+        static let cleanupMemoryMode = "oliv.cleanupMemoryMode"
         static let verbatimApps = "oliv.verbatimApps"     // [String] lowercased bundle ids
         static let groqEnabled = "oliv.groqCloudEnabled"  // opt-in cloud fallback toggle
         static let apiEnabled = "oliv.api.enabled"
@@ -135,6 +141,10 @@ final class OLIVSettings: ObservableObject {
     /// Global cleanup switch (Wave-2 `cleanup_enabled`).
     @Published var cleanupEnabled: Bool {
         didSet { defaults.set(cleanupEnabled, forKey: Key.cleanupEnabled); onChange?() }
+    }
+
+    @Published var cleanupMemoryMode: CleanupMemoryMode {
+        didSet { defaults.set(cleanupMemoryMode.rawValue, forKey: Key.cleanupMemoryMode); onChange?() }
     }
 
     /// W4-T1 Feature B: strip filler words (อืม/เอ่อ/um/uh/…) before cleanup.
@@ -371,6 +381,7 @@ final class OLIVSettings: ObservableObject {
         }
         engineID = defaults.string(forKey: Key.engine) ?? SidecarClient.defaultEngine
         cleanupEnabled = defaults.object(forKey: Key.cleanupEnabled) as? Bool ?? true
+        cleanupMemoryMode = defaults.string(forKey: Key.cleanupMemoryMode).flatMap(CleanupMemoryMode.init(rawValue:)) ?? .memorySaver
         removeFillers = defaults.object(forKey: Key.removeFillers) as? Bool ?? true
         showRecordingIndicator = defaults.object(forKey: Key.showRecordingIndicator) as? Bool ?? true
         livePreview = defaults.object(forKey: Key.livePreview) as? Bool ?? OLIVSettings.livePreviewDefault

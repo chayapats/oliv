@@ -10,11 +10,12 @@ public final class WhisperModel: Module {
     @ModuleInfo(key: "model") var model: WhisperSubmodels
 
     var tokenizer: WhisperTokenizer?
+    var coreMLEncoder: CoreMLWhisperEncoder?
 
-    public init(config: WhisperConfig, generationConfig: WhisperGenerationConfig? = nil) {
+    public init(config: WhisperConfig, generationConfig: WhisperGenerationConfig? = nil, useMLXEncoder: Bool = true) {
         self.config = config
         self.generationConfig = generationConfig
-        self._model.wrappedValue = WhisperSubmodels(config: config)
+        self._model.wrappedValue = WhisperSubmodels(config: config, useMLXEncoder: useMLXEncoder)
     }
 
     // MARK: - Loading
@@ -203,7 +204,11 @@ public final class WhisperModel: Module {
             generationConfig = try JSONDecoder().decode(WhisperGenerationConfig.self, from: data)
         }
 
-        let model = WhisperModel(config: config, generationConfig: generationConfig)
+        let encoderPath = ProcessInfo.processInfo.environment["OLIV_WHISPER_ANE_ENCODER"]
+        let model = WhisperModel(config: config, generationConfig: generationConfig, useMLXEncoder: encoderPath == nil)
+        if let encoderPath {
+            model.coreMLEncoder = try CoreMLWhisperEncoder(url: URL(fileURLWithPath: encoderPath), dimensions: config.dModel, melBins: config.numMelBins)
+        }
         if let quantization = try? JSONDecoder().decode(
             WhisperQuantizedModelConfig.self,
             from: configData
@@ -219,7 +224,10 @@ public final class WhisperModel: Module {
         }
 
         let weights = try WhisperWeights.load(directory: modelDirectory)
-        let sanitized = sanitize(weights: weights, config: config).mapValues { $0.dtype == .float32 ? $0.asType(.float16) : $0 }
+        let selectedWeights = encoderPath == nil ? weights : weights.filter {
+            !$0.key.hasPrefix("encoder.") && !$0.key.hasPrefix("model.encoder.")
+        }
+        let sanitized = sanitize(weights: selectedWeights, config: config).mapValues { $0.dtype == .float32 ? $0.asType(.float16) : $0 }
         try model.update(parameters: ModuleParameters.unflattened(sanitized), verify: .all)
 
         let tokenizerDir = tokenizerDirectory

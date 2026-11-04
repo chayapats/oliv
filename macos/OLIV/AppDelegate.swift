@@ -85,6 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         controller.sttEngine = settings.engineID
         controller.olivAPIConfiguration = settings.olivAPIConfiguration
         controller.cleanupEnabled = settings.cleanupEnabled
+        controller.sidecar?.setCleanupIdleSeconds(settings.cleanupMemoryMode.idleSeconds)
         controller.verbatimApps = settings.verbatimApps
         controller.removeFillers = settings.removeFillers
         controller.dictionaryEntries = settings.dictionaryEntries
@@ -155,6 +156,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         applyEngine()
         controller.olivAPIConfiguration = settings.olivAPIConfiguration
         controller.cleanupEnabled = settings.cleanupEnabled
+        controller.sidecar?.setCleanupIdleSeconds(settings.cleanupMemoryMode.idleSeconds)
         controller.verbatimApps = settings.verbatimApps
         controller.removeFillers = settings.removeFillers
         controller.dictionaryEntries = settings.dictionaryEntries
