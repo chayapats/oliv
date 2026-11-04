@@ -24,6 +24,7 @@ benchmark/*
 !benchmark/speakers.md
 !benchmark/dictation-transcriber.md
 !benchmark/run_dictation_transcriber.sh
+!benchmark/run_ane_foundation.sh
 !benchmark/voice-edit.md
 !benchmark/voice-edit/
 benchmark/voice-edit/*
@@ -52,6 +53,8 @@ docs/superpowers/
 tools/*
 !tools/dmg/
 !tools/apple-dictation/
+!tools/apple-cleanup/
+!tools/ane-whisper/
 
 # Native Swift package build products
 **/.build/
