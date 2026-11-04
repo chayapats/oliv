@@ -10,11 +10,18 @@
 **The numbers on the OLIV site come from this CLI, and you can run it on your own recordings.**<br>
 Rust + native MLX, the same pipeline the app ships. No Python, no Torch, no pip.
 
-[Interactive results](https://chayapats.github.io/oliv/) · [OLIV vs Wispr Flow](https://chayapats.github.io/oliv/oliv-vs-wispr.html) · [Thai ContextASR Bench](contextasr.md) · [Apple dictation vs OLIV](dictation-transcriber.md) · [Main README](../README.md)
+[Interactive results](https://chayapats.github.io/oliv/) · [OLIV vs Wispr Flow](https://chayapats.github.io/oliv/oliv-vs-wispr.html) · [Thai ContextASR Bench](contextasr.md) · [Apple dictation vs OLIV](dictation-transcriber.md) · [Typhoon on ANE / Apple cleanup](ane-foundation-models.md) · [Main README](../README.md)
 
 </div>
 
-## Latest results (OLIV 0.2.2, 28 October 2026)
+## Typhoon on ANE and Apple local cleanup (4 November 2026)
+
+[The measured comparison](ane-foundation-models.md) covers FP16, INT8 and
+4-bit Core ML Typhoon, Apple Foundation Models cleanup, accuracy, full-pipeline
+latency and memory including ANE allocations. INT8 reduces sampled owned memory
+but loses private-corpus meaning match; the installed app keeps MLX + Gemma.
+
+## Production baseline (OLIV 0.2.2, 28 October 2026)
 
 Every engine below was re-run one after another on the same Mac (M4 Pro), with
 OLIV 0.2.2's cleanup. "Meaning match" is the share of clips whose LaBSE
