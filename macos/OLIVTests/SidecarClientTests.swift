@@ -84,6 +84,24 @@ final class SidecarClientTests: XCTestCase {
         XCTAssertEqual(warm.tCleanupLoad, 0.25, accuracy: 1e-9)
     }
 
+    func testCleanupPrewarmRoundTrip() throws {
+        let client = makeClient()
+        defer { client.close() }
+        try client.prewarmCleanup()
+        XCTAssertGreaterThan(try client.ping(), 0)
+    }
+
+    func testCleanupMemoryPolicyChangesLiveAndSurvivesRespawn() throws {
+        let client = makeClient()
+        defer { client.close() }
+        client.setCleanupIdleSeconds(0)
+        XCTAssertEqual(try client.exchange(["cmd": "memory_policy"], timeout: 5)["cleanup_idle_seconds"] as? Int, 0)
+        client.setCleanupIdleSeconds(30)
+        XCTAssertEqual(try client.exchange(["cmd": "memory_policy"], timeout: 5)["cleanup_idle_seconds"] as? Int, 30)
+        client.close()
+        XCTAssertEqual(try client.exchange(["cmd": "memory_policy"], timeout: 5)["cleanup_idle_seconds"] as? Int, 30)
+    }
+
     // Option B: a default warm OMITS background_cleanup (omit-when-default idiom),
     // so the sidecar takes the sync path. The fake's sync-path sentinel (0.5/0.25)
     // — NOT the present-but-false sentinel (-1.0) — proves the key was omitted, not

@@ -25,6 +25,20 @@ struct GeneralSettingsView: View {
                                isOn: $settings.livePreview)
                     .disabled(!settings.showRecordingIndicator)
             }
+            SettingsCard(title: "Memory use", icon: "memorychip", subtitle: "Choose how OLIV keeps its on-device text model ready.") {
+                Picker("Cleanup model", selection: $settings.cleanupMemoryMode) {
+                    Text("Save memory").tag(CleanupMemoryMode.memorySaver)
+                    Text("Fast response").tag(CleanupMemoryMode.responsive)
+                }
+                .pickerStyle(.segmented)
+                if settings.cleanupMemoryMode == .memorySaver {
+                    Text("Release the text model after 30 seconds without use. OLIV reloads it while you speak; very short dictations may take longer after a pause.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                } else {
+                    Text("Keep the text model ready for short dictations. It is released when macOS needs memory.")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+            }
             SettingsCard(title: "Recent transcripts", icon: "clock.arrow.circlepath", subtitle: "A little history, only for this session.") {
                 SettingsToggle(title: "Keep recent transcripts", detail: "Find your last 10 dictations in the menu bar. Click a transcript to copy it, then paste with ⌘V.",
                                isOn: $settings.historyEnabled)

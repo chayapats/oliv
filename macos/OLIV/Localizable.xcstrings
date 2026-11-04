@@ -648,6 +648,16 @@
         }
       }
     },
+    "Choose how OLIV keeps its on-device text model ready." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกวิธีเตรียมโมเดลข้อความบนเครื่องให้พร้อมใช้งาน"
+          }
+        }
+      }
+    },
     "Choose the engine that turns your speech into text." : {
       "localizations" : {
         "th" : {
@@ -684,6 +694,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เกลาข้อความ (Gemma-E2B)"
+          }
+        }
+      }
+    },
+    "Cleanup model" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โมเดลปรับข้อความ"
           }
         }
       }
@@ -1600,6 +1620,16 @@
         }
       }
     },
+    "Fast response" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตอบสนองเร็ว"
+          }
+        }
+      }
+    },
     "Filter out audio your Mac is playing. Used when the selected mic is also the system input; skipped with Bluetooth audio." : {
       "localizations" : {
         "th" : {
@@ -2102,6 +2132,16 @@
         }
       }
     },
+    "Keep the text model ready for short dictations. It is released when macOS needs memory." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เก็บโมเดลข้อความให้พร้อมสำหรับการพูดสั้น ๆ และคืนหน่วยความจำเมื่อ macOS ต้องการ"
+          }
+        }
+      }
+    },
     "Keep these apps verbatim" : {
       "localizations" : {
         "th" : {
@@ -2258,6 +2298,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "จัดการโมเดลที่ทำให้พิมพ์ด้วยเสียงในเครื่องได้"
+          }
+        }
+      }
+    },
+    "Memory use" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การใช้หน่วยความจำ"
           }
         }
       }
@@ -2965,6 +3015,16 @@
         }
       }
     },
+    "Release the text model after 30 seconds without use. OLIV reloads it while you speak; very short dictations may take longer after a pause." : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คืนหน่วยความจำของโมเดลข้อความเมื่อไม่ได้ใช้งานนาน 30 วินาที OLIV จะโหลดกลับระหว่างที่คุณพูด หากพูดสั้นมากหลังหยุดใช้งาน อาจต้องรอนานขึ้น"
+          }
+        }
+      }
+    },
     "Remove" : {
       "localizations" : {
         "th" : {
@@ -3102,6 +3162,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "บันทึกการเปลี่ยนแปลง"
+          }
+        }
+      }
+    },
+    "Save memory" : {
+      "localizations" : {
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ประหยัดหน่วยความจำ"
           }
         }
       }

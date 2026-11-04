@@ -1,0 +1,16 @@
+diff --git a/Sources/WhisperKit/Core/TextDecoder.swift b/Sources/WhisperKit/Core/TextDecoder.swift
+index 4baae9f..1b973e3 100644
+--- a/Sources/WhisperKit/Core/TextDecoder.swift
++++ b/Sources/WhisperKit/Core/TextDecoder.swift
+@@ -324 +324 @@ open class TextDecoder: TextDecoding, WhisperMLModel {
+-    public var kvCacheEmbedDim: Int? {
++    open var kvCacheEmbedDim: Int? {
+@@ -328 +328 @@ open class TextDecoder: TextDecoding, WhisperMLModel {
+-    public var kvCacheMaxSequenceLength: Int? {
++    open var kvCacheMaxSequenceLength: Int? {
+@@ -340 +340 @@ open class TextDecoder: TextDecoding, WhisperMLModel {
+-    public func unloadModel() {
++    open func unloadModel() {
+@@ -389 +389 @@ open class TextDecoder: TextDecoding, WhisperMLModel {
+-    public func predictLogits(
++    open func predictLogits(

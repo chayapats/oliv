@@ -227,6 +227,13 @@ fn api_failure(error: oliv_transport::api::Failure) -> Value {
 fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
     let command = request["cmd"].as_str().ok_or("invalidCommand")?;
     let id = &request["id"];
+    if let Some(seconds) = request.get("cleanup_idle_seconds") {
+        let seconds = seconds
+            .as_u64()
+            .filter(|s| matches!(s, 0 | 30))
+            .ok_or("invalidMemoryPolicy")?;
+        inference.set_cleanup_idle_seconds(seconds);
+    }
     let engine = request["engine"].as_str().unwrap_or("typhoon-turbo-mlx");
     let llm = ModelLlm {
         inference,
@@ -260,6 +267,13 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
                 Ok(reply) => serde_json::to_value(reply).map_err(|_| "invalidReply")?,
                 Err(e) => api_failure(e),
             })
+        }
+        "memory_policy" => {
+            if request.get("cleanup_idle_seconds").is_none() {
+                return Err("invalidMemoryPolicy".into());
+            }
+            inference.apply_cleanup_policy(id)?;
+            Ok(json!({"ok":true}))
         }
         "warm" => {
             let start = Instant::now();
@@ -296,6 +310,11 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
                 json!({"ok":true,"engine":engine,"t_stt_load":stt,"t_cleanup_load":cleanup,"cleanup_warming":warming}),
             )
         }
+        "cleanup_warm" => inference.request(
+            json!({"cmd":"llm_warm","background":true,"load_only":true}),
+            Duration::from_secs(120),
+            id,
+        ),
         "download" => inference.request(
             json!({"cmd":"download","repos":request["repos"]}),
             Duration::from_secs(1800),

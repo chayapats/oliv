@@ -36,6 +36,7 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertTrue(s.undoHotkeyChord?.displayName.contains("Z") == true)
         XCTAssertEqual(s.engineID, SidecarClient.defaultEngine)
         XCTAssertTrue(s.cleanupEnabled)
+        XCTAssertEqual(s.cleanupMemoryMode, .memorySaver)
         XCTAssertTrue(s.verbatimApps.isEmpty)
         // W4-T1: filler removal defaults ON; an empty Dictionary out of the box.
         XCTAssertTrue(s.removeFillers)
@@ -53,6 +54,20 @@ final class SettingsStoreTests: XCTestCase {
         // it on.
         XCTAssertTrue(s.echoCancellation)
         XCTAssertTrue(s.duckOtherAudio)
+    }
+
+    func testCleanupMemoryModePersistsAndNotifiesLiveChanges() {
+        let settings = OLIVSettings(defaults: defaults, keychain: InMemoryKeychain())
+        var changes = 0
+        settings.onChange = { changes += 1 }
+        settings.cleanupMemoryMode = .responsive
+        XCTAssertEqual(changes, 1)
+        XCTAssertEqual(OLIVSettings(defaults: defaults, keychain: InMemoryKeychain()).cleanupMemoryMode, .responsive)
+        settings.cleanupMemoryMode = .memorySaver
+        XCTAssertEqual(changes, 2)
+        XCTAssertEqual(OLIVSettings(defaults: defaults, keychain: InMemoryKeychain()).cleanupMemoryMode, .memorySaver)
+        defaults.set("unknown", forKey: OLIVSettings.Key.cleanupMemoryMode)
+        XCTAssertEqual(OLIVSettings(defaults: defaults, keychain: InMemoryKeychain()).cleanupMemoryMode, .memorySaver)
     }
 
     // Clearing the undo binding must stick as "" (not snap back to the default).

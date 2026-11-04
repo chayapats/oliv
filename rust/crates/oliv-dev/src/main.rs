@@ -382,7 +382,10 @@ fn evaluate(args: Eval) -> Result<()> {
     } else {
         args.label
     };
-    let report = json!({"label":label,"runtime":"native","engine":args.engine,"cleanup_model":if args.no_cleanup {Value::Null}else{json!("mlx-community/gemma-4-e2b-it-4bit")},
+    let cleanup_model = std::env::var("OLIV_CLEANUP_MODEL_DIRECTORY")
+        .or_else(|_| std::env::var("OLIV_CLEANUP_REPOSITORY"))
+        .unwrap_or_else(|_| "mlx-community/gemma-4-e2b-it-4bit".into());
+    let report = json!({"label":label,"runtime":"native","engine":args.engine,"cleanup_model":if args.no_cleanup {Value::Null}else{json!(cleanup_model)},
         "manifest":manifest,"runtime_dir":args.runtime_dir,"no_vocab":args.no_vocab,"no_llm":args.no_llm,
         "latency_scope":if args.replay.is_some(){"cleanup replay; excludes ASR"}else{"end-to-end native pipeline; includes audio conversion"},
         "stt":{"replay":args.replay},"screen_text":args.screen_text,"screen_keywords":args.screen_keywords,"metric_version":"newmm_nfc_v1","overall":summarize(&clips),"aggregate":aggregate(&clips),"clips":clips,"missing":[]});

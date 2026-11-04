@@ -15,6 +15,7 @@ struct Session {
     input: Input,
     replies: mpsc::Receiver<Result<Value, String>>,
     next_id: u64,
+    cleanup_policy: Option<u64>,
 }
 impl Drop for Session {
     fn drop(&mut self) {
@@ -72,6 +73,7 @@ impl Session {
             input,
             replies,
             next_id: 0,
+            cleanup_policy: None,
         })
     }
     fn request(
@@ -104,15 +106,60 @@ impl Session {
     }
 }
 
-#[derive(Default)]
 pub struct Inference {
     session: Mutex<Option<Session>>,
     /// The live helper's stdin, reachable without the session lock.
     input: Mutex<Option<Input>>,
     /// Live previews up to this sequence number are cancelled. Monotonic.
     cancelled_through: AtomicU64,
+    cleanup_idle_seconds: AtomicU64,
+}
+impl Default for Inference {
+    fn default() -> Self {
+        Self {
+            session: Mutex::new(None),
+            input: Mutex::new(None),
+            cancelled_through: AtomicU64::new(0),
+            cleanup_idle_seconds: AtomicU64::new(u64::MAX),
+        }
+    }
 }
 impl Inference {
+    pub fn set_cleanup_idle_seconds(&self, seconds: u64) {
+        self.cleanup_idle_seconds.store(seconds, Ordering::SeqCst);
+    }
+
+    fn sync_cleanup_policy(&self, session: &mut Session, id: &Value) -> Result<(), String> {
+        let seconds = self.cleanup_idle_seconds.load(Ordering::SeqCst);
+        if seconds != u64::MAX && session.cleanup_policy != Some(seconds) {
+            session.request(
+                json!({"cmd":"memory_policy","cleanup_idle_seconds":seconds}),
+                Duration::from_secs(120),
+                id,
+            )?;
+            session.cleanup_policy = Some(seconds);
+        }
+        Ok(())
+    }
+
+    /// Update an existing helper, retaining a lazy spawn when no model is in use.
+    pub fn apply_cleanup_policy(&self, id: &Value) -> Result<(), String> {
+        let mut session = self
+            .session
+            .lock()
+            .map_err(|_| "Inference state unavailable")?;
+        let result = session
+            .as_mut()
+            .map(|s| self.sync_cleanup_policy(s, id))
+            .unwrap_or(Ok(()));
+        if result.is_err() {
+            if let Ok(mut input) = self.input.lock() {
+                *input = None;
+            }
+            *session = None;
+        }
+        result
+    }
     pub fn request(
         &self,
         body: Value,
@@ -130,7 +177,10 @@ impl Inference {
             }
             *session = Some(spawned);
         }
-        let result = session.as_mut().unwrap().request(body, timeout, outer_id);
+        let active = session.as_mut().unwrap();
+        let result = self
+            .sync_cleanup_policy(active, outer_id)
+            .and_then(|()| active.request(body, timeout, outer_id));
         // On an unknown process state, discard it. Next explicit call respawns;
         // never resend this inference request.
         if result.is_err() {
@@ -174,6 +224,22 @@ impl Inference {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn memory_policy_is_lazy_and_retained_without_spawning_a_helper() {
+        let inference = Inference::default();
+        assert_eq!(
+            inference.cleanup_idle_seconds.load(Ordering::SeqCst),
+            u64::MAX
+        );
+        inference.set_cleanup_idle_seconds(0);
+        inference.apply_cleanup_policy(&Value::Null).unwrap();
+        assert!(inference.session.lock().unwrap().is_none());
+        assert_eq!(inference.cleanup_idle_seconds.load(Ordering::SeqCst), 0);
+        inference.set_cleanup_idle_seconds(30);
+        inference.apply_cleanup_policy(&Value::Null).unwrap();
+        assert_eq!(inference.cleanup_idle_seconds.load(Ordering::SeqCst), 30);
+    }
 
     #[test]
     fn cancelling_previews_is_monotonic_and_needs_no_helper() {

@@ -349,11 +349,11 @@ final class WhisperDecoder: Module {
 /// Mirrors HuggingFace's `WhisperModel` so safetensors prefixed with
 /// `model.encoder.*` / `model.decoder.*` load directly via Module update.
 final class WhisperSubmodels: Module {
-    @ModuleInfo(key: "encoder") var encoder: WhisperEncoder
+    @ModuleInfo(key: "encoder") var encoder: WhisperEncoder?
     @ModuleInfo(key: "decoder") var decoder: WhisperDecoder
 
-    init(config: WhisperConfig) {
-        self._encoder.wrappedValue = WhisperEncoder(config: config)
+    init(config: WhisperConfig, useMLXEncoder: Bool = true) {
+        self._encoder.wrappedValue = useMLXEncoder ? WhisperEncoder(config: config) : nil
         self._decoder.wrappedValue = WhisperDecoder(config: config)
     }
 }

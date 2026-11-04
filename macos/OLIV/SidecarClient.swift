@@ -120,6 +120,8 @@ final class SidecarClient {
     // Matching QoS on the reader Thread keeps the request→reply chain free of
     // priority inversions.
     private let requestQueue = DispatchQueue(label: "com.oliv.sidecar.requests", qos: .userInitiated)
+    private let memoryPolicyLock = NSLock()
+    private var cleanupIdleSeconds: Int?
     private var proc: Process?
     /// Set and cleared on `requestQueue`; every write also holds `stdinLock`, so
     /// `sendOutOfBand` can write a short line while a request is in flight
@@ -250,6 +252,33 @@ final class SidecarClient {
     }
 
     // MARK: Public API
+
+    /// Persist the desired policy across worker respawns. Updating Settings
+    /// never waits on a model load or interrupts an in-flight dictation.
+    func setCleanupIdleSeconds(_ seconds: Int) {
+        precondition(seconds == 0 || seconds == 30)
+        memoryPolicyLock.lock()
+        let changed = cleanupIdleSeconds != seconds
+        cleanupIdleSeconds = seconds
+        memoryPolicyLock.unlock()
+        guard changed else { return }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self else { return }
+            do {
+                _ = try self.exchange(["cmd": "memory_policy"], timeout: Self.warmTimeout)
+                self.memoryPolicyLock.lock()
+                let keepReady = self.cleanupIdleSeconds == 0
+                self.memoryPolicyLock.unlock()
+                if keepReady { try self.prewarmCleanup() }
+            } catch { /* The next request reapplies the policy and loads lazily. */ }
+        }
+    }
+
+    /// Load cleanup weights while the microphone is recording. The helper
+    /// acknowledges immediately and shares any in-flight model load.
+    func prewarmCleanup() throws {
+        _ = try exchange(["cmd": "cleanup_warm"], timeout: SidecarClient.warmTimeout)
+    }
 
     /// Front-load both stages so the first real dictate is warm. LONG timeout.
     /// Throws on any comms failure (non-fatal to the caller — cleanup/STT just
@@ -445,6 +474,9 @@ final class SidecarClient {
             reqID += 1
             let rid = reqID
             var payload = body
+            memoryPolicyLock.lock()
+            if let cleanupIdleSeconds { payload["cleanup_idle_seconds"] = cleanupIdleSeconds }
+            memoryPolicyLock.unlock()
             payload["id"] = rid
             lineQueue.drain()            // discard stale lines before this request
             do {

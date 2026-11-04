@@ -638,6 +638,12 @@ final class DictationController {
         }
         // After the mic is on its way: reading the screen never delays it.
         startScreenCapture()
+        let needsCleanup = recordingMode != .dictate || (!Self.isRemote(sttEngine) && Self.resolveCleanup(
+            globalEnabled: cleanupEnabled, verbatimApps: verbatimApps,
+            frontmostBundleID: frontmostBundleID()))
+        if needsCleanup, let sidecar {
+            DispatchQueue.global(qos: .utility).async { try? sidecar.prewarmCleanup() }
+        }
     }
 
     private func captureDidStart(_ result: Result<Void, Error>, request: CaptureStartRequest,

@@ -181,6 +181,7 @@ targets:
       - path: OLIVTests
       # The live preview's decode guards (#46) have no MLX: tested directly.
       - path: OLIVInference/Whisper/PreviewDecodeGuard.swift
+      - path: OLIVInference/CleanupResidency.swift
     dependencies:
       - target: OLIV
     settings:

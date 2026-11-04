@@ -6,6 +6,16 @@ import WhisperKit
 struct ANEWhisper {
     enum Failure: Error { case usage(String) }
 
+    static func decoder(stateful: Bool) throws -> (any TextDecoding)? {
+        guard stateful else { return nil }
+        #if OLIV_STATEFUL
+        if #available(macOS 15.0, *) { return StatefulTextDecoder() }
+        throw Failure.usage("Stateful decoding requires macOS 15 or later")
+        #else
+        throw Failure.usage("Build the stateful adapter with scripts/build_ane_stateful.sh")
+        #endif
+    }
+
     final class CleanupProxy {
         let process = Process()
         let input = Pipe()
@@ -47,6 +57,8 @@ struct ANEWhisper {
         guard let folder = env["OLIV_COREML_MODEL_DIR"], let tokenizer = env["OLIV_COREML_TOKENIZER_DIR"] else {
             throw Failure.usage("Worker needs OLIV_COREML_MODEL_DIR and OLIV_COREML_TOKENIZER_DIR")
         }
+        let policy = try DecodingPolicy(name: env["OLIV_COREML_DECODING_PROFILE"] ?? "whisperkit",
+                                        generationConfig: env["OLIV_COREML_GENERATION_CONFIG"])
         var kit: WhisperKit?
         var cleanup: CleanupProxy?
         while let line = readLine() {
@@ -65,6 +77,8 @@ struct ANEWhisper {
                         kit = try await WhisperKit(WhisperKitConfig(modelFolder: folder,
                             tokenizerFolder: URL(fileURLWithPath: tokenizer),
                             computeOptions: ModelComputeOptions(melCompute: .cpuOnly, audioEncoderCompute: units, textDecoderCompute: units),
+                            textDecoder: try decoder(stateful: env["OLIV_COREML_STATEFUL"] == "1"),
+                            logitsFilters: policy.filters,
                             verbose: false, prewarm: false, load: true, download: false))
                     }
                     reply["ok"] = true
@@ -84,10 +98,7 @@ struct ANEWhisper {
                         }
                         guard samples.allSatisfy(\.isFinite) else { throw Failure.usage("Nonfinite PCM") }
                         let language = request["language"] as? String
-                        let options = DecodingOptions(verbose: false, language: language,
-                            temperature: 0, temperatureFallbackCount: 5,
-                            detectLanguage: language == nil, skipSpecialTokens: true,
-                            withoutTimestamps: false, wordTimestamps: false, concurrentWorkerCount: 1)
+                        let options = policy.options(language: language)
                         let results = try await kit!.transcribe(audioArray: samples, decodeOptions: options)
                         reply["text"] = results.map(\.text).joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
                         let segments = results.flatMap(\.segments)
@@ -134,7 +145,7 @@ struct ANEWhisper {
         }
         let argv = Array(CommandLine.arguments.dropFirst())
         var args: [String: String] = [:]
-        let accepted: Set<String> = ["model-dir", "tokenizer-dir", "manifest", "audio-root", "out", "compute", "limit", "label", "language", "preview", "prepare"]
+        let accepted: Set<String> = ["model-dir", "tokenizer-dir", "manifest", "audio-root", "out", "compute", "limit", "label", "language", "preview", "prepare", "stateful", "decoding-profile", "generation-config"]
         var i = 0
         while i < argv.count {
             guard argv[i].hasPrefix("--"), i + 1 < argv.count else {
@@ -145,12 +156,14 @@ struct ANEWhisper {
             args[key] = argv[i + 1]
             i += 2
         }
-        for key in ["preview", "prepare"] {
+        for key in ["preview", "prepare", "stateful"] {
             if let value = args[key], !["yes", "no"].contains(value) { throw Failure.usage("--\(key) must be yes or no") }
         }
         guard let model = args["model-dir"], let manifest = args["manifest"], let out = args["out"] else {
             throw Failure.usage("--model-dir, --manifest and --out are required")
         }
+        let policy = try DecodingPolicy(name: args["decoding-profile"] ?? "whisperkit",
+                                        generationConfig: args["generation-config"])
         let compute = args["compute"] ?? "ane"
         let units: MLComputeUnits
         switch compute {
@@ -187,6 +200,8 @@ struct ANEWhisper {
             modelFolder: model,
             tokenizerFolder: args["tokenizer-dir"].map { URL(fileURLWithPath: $0) },
             computeOptions: ModelComputeOptions(melCompute: .cpuOnly, audioEncoderCompute: units, textDecoderCompute: units),
+            textDecoder: try decoder(stateful: args["stateful"] == "yes"),
+            logitsFilters: policy.filters,
             verbose: false, prewarm: true, load: true, download: false))
         let loadSeconds = Date().timeIntervalSince(loadStart)
         if args["prepare"] == "yes" {
@@ -194,10 +209,7 @@ struct ANEWhisper {
             print("Prepared \(compute) model in \(loadSeconds) seconds")
             return
         }
-        let options = DecodingOptions(verbose: false, language: args["language"],
-            temperature: 0, temperatureFallbackCount: 5,
-            detectLanguage: args["language"] == nil, skipSpecialTokens: true,
-            withoutTimestamps: false, wordTimestamps: false, concurrentWorkerCount: 1)
+        let options = policy.options(language: args["language"])
         let warmStart = Date()
         _ = try? await kit.transcribe(audioPath: audioPath(rows[0]), decodeOptions: options)
         let warmSeconds = Date().timeIntervalSince(warmStart)
@@ -260,6 +272,7 @@ struct ANEWhisper {
             try write(["label": args["label"] ?? "Typhoon Core ML \(compute)",
                 "engine": "typhoon-coreml", "runtime": "WhisperKit", "cleanup_model": NSNull(),
                 "model_dir": model, "compute": compute, "manifest": manifestURL.path,
+                "decoder_stateful": args["stateful"] == "yes", "decoding_profile": policy.name,
                 "load_s": loadSeconds, "warmup_s": warmSeconds,
                 "wall_s": Date().timeIntervalSince(runStart), "clips": clips,
                 "complete": clips.count == rows.count], to: out)
