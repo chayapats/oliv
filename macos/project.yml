@@ -45,6 +45,21 @@ packages:
     exactVersion: 0.8.1
 
 targets:
+  OLIVEncoderPrepare:
+    type: tool
+    platform: macOS
+    sources:
+      - path: OLIVEncoderPrepare
+      - path: OLIVInference/Whisper/CoreMLEncoderBundle.swift
+      - path: OLIVInference/Whisper/CoreMLEncoderWindows.swift
+    settings:
+      base:
+        ARCHS: arm64
+        PRODUCT_NAME: oliv-encoder-prepare
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        SWIFT_OPTIMIZATION_LEVEL: "-O"
   OLIVSemantic:
     type: tool
     platform: macOS
@@ -95,7 +110,9 @@ targets:
   OLIV:
     type: application
     platform: macOS
-    sources: [OLIV]
+    sources:
+      - path: OLIV
+      - path: OLIVInference/Whisper/CoreMLEncoderBundle.swift
     dependencies:
       # Sparkle framework linked + embedded into Contents/Frameworks. Its nested
       # code (XPCServices, Autoupdate, Updater.app) is re-signed with hardened
@@ -181,6 +198,8 @@ targets:
       - path: OLIVTests
       # The live preview's decode guards (#46) have no MLX: tested directly.
       - path: OLIVInference/Whisper/PreviewDecodeGuard.swift
+      - path: OLIVInference/Whisper/CoreMLEncoderWindows.swift
+      - path: OLIVInference/Whisper/CoreMLEncoderBundle.swift
       - path: OLIVInference/CleanupResidency.swift
     dependencies:
       - target: OLIV
@@ -191,6 +210,10 @@ targets:
         GENERATE_INFOPLIST_FILE: true
 
 schemes:
+  OLIVEncoderPrepare:
+    build:
+      targets:
+        OLIVEncoderPrepare: all
   OLIVSemantic:
     build:
       targets:

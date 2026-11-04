@@ -1,10 +1,11 @@
 //! `benchmark/dictionary.py`: deterministic transliteration fixes and canonical casing.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 
 use crate::data::is_thai_word;
 use crate::pyu::{collapse_blanks, is_space, strip};
+use crate::thai::without_silent_letters;
 use crate::tokenize::word_tokenize;
 
 pub use crate::dictionary_tables::{CANONICAL_CASE, TRANSLIT};
@@ -33,7 +34,42 @@ fn sorted_keys<'a>(table: &[(&'a str, &'a str)]) -> Vec<(Vec<char>, &'a str)> {
 }
 
 static TRANSLIT_KEYS: LazyLock<Vec<(Vec<char>, &'static str)>> =
-    LazyLock::new(|| sorted_keys(TRANSLIT));
+    LazyLock::new(|| transliteration_keys(TRANSLIT));
+
+/// ASR may omit a silent consonant without changing the spoken loanword.
+/// Derive those exact variants only for the built-in transliterations. Never
+/// add a real Thai word, a short key, an ambiguous mapping, or override an
+/// existing explicit spelling. Literal user replacement tables stay literal.
+fn transliteration_keys<'a>(table: &[(&'a str, &'a str)]) -> Vec<(Vec<char>, &'a str)> {
+    let mut keys = sorted_keys(table);
+    let explicit: HashSet<_> = keys.iter().map(|(key, _)| key.clone()).collect();
+    let mut variants = Vec::new();
+    let mut meanings: HashMap<Vec<char>, Option<&str>> = HashMap::new();
+    for &(source, target) in table {
+        let variant = without_silent_letters(source);
+        if variant.len() < 4
+            || explicit.contains(&variant)
+            || is_thai_word(&variant.iter().collect::<String>())
+        {
+            continue;
+        }
+        meanings
+            .entry(variant.clone())
+            .and_modify(|meaning| {
+                if *meaning != Some(target) {
+                    *meaning = None;
+                }
+            })
+            .or_insert(Some(target));
+        variants.push((variant, target));
+    }
+    let mut seen = HashSet::new();
+    keys.extend(variants.into_iter().filter(|(key, target)| {
+        meanings.get(key) == Some(&Some(*target)) && seen.insert(key.clone())
+    }));
+    keys.sort_by_key(|(key, _)| std::cmp::Reverse(key.len()));
+    keys
+}
 
 /// `apply_dictionary(text)` with the built-in `TRANSLIT` table.
 pub fn apply_dictionary(text: &str) -> (String, usize) {
@@ -129,4 +165,40 @@ pub fn apply_canonical_casing(text: &str) -> String {
         i = j;
     }
     out
+}
+
+#[cfg(test)]
+mod silent_loanword_tests {
+    use super::{apply_dictionary, apply_keys, apply_table, transliteration_keys};
+
+    #[test]
+    fn recognizes_unambiguous_unsilenced_spellings_in_connected_speech() {
+        assert_eq!(
+            apply_dictionary("รีสตาทเซิฟเวอ"),
+            ("restart server".into(), 2)
+        );
+        assert_eq!(
+            apply_dictionary("ลองเมิดโค้ดอีกครั้ง"),
+            ("ลอง merge โค้ดอีกครั้ง".into(), 1)
+        );
+    }
+
+    #[test]
+    fn leaves_real_thai_words_and_literal_user_tables_alone() {
+        assert_eq!(apply_dictionary("อย่าละเมิดสิทธิ์"), ("อย่าละเมิดสิทธิ์".into(), 0));
+        assert_eq!(
+            apply_table("รีสตาท", &[("รีสตาร์ท", "restart")]),
+            ("รีสตาท".into(), 0)
+        );
+        let keys = transliteration_keys(&[("เมือร์ง", "invented")]);
+        assert_eq!(apply_keys("เมือง", &keys), ("เมือง".into(), 0));
+    }
+
+    #[test]
+    fn skips_ambiguous_variants_and_prefers_explicit_entries() {
+        let keys = transliteration_keys(&[("เซิร์ฟ", "surf"), ("เซิน์ฟ", "serve")]);
+        assert_eq!(apply_keys("เซิฟ", &keys), ("เซิฟ".into(), 0));
+        let keys = transliteration_keys(&[("เซิร์ฟ", "surf"), ("เซิฟ", "explicit")]);
+        assert_eq!(apply_keys("เซิฟ", &keys), ("explicit".into(), 1));
+    }
 }

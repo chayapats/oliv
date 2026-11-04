@@ -11,7 +11,7 @@ use oliv_pipeline::{
     transform,
 };
 use serde_json::{Value, json};
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::io::{self, BufRead, Read, Write};
 use std::sync::{Arc, mpsc};
 use std::time::{Duration, Instant};
@@ -150,6 +150,7 @@ struct ModelStt<'a> {
     inference: &'a Inference,
     request: &'a Value,
     engine: &'a str,
+    diagnostics: RefCell<Vec<Value>>,
 }
 impl Stt for ModelStt<'_> {
     fn transcribe(
@@ -175,6 +176,14 @@ impl Stt for ModelStt<'_> {
         let reply = self
             .inference
             .request(body, Duration::from_secs(30), &self.request["id"])?;
+        if self.request["include_stt_diagnostics"] == true {
+            // Research metadata only: never duplicate audio, text or prompts.
+            self.diagnostics.borrow_mut().push(json!({
+                "requested_language":language,"sampling_fallbacks":reply["sampling_fallbacks"],
+                "benchmark_seed":reply["benchmark_seed"],"encoder_backend":reply["encoder_backend"],
+                "encoder_fallback":reply["encoder_fallback"],"avg_logprob":reply["avg_logprob"]
+            }));
+        }
         Ok(Transcript {
             text: reply["text"]
                 .as_str()
@@ -375,7 +384,11 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
                 "no_speech":true,"t_stt":t_stt,"t_cleanup":0,"gate_reason":reason})
             };
             if samples.as_ref().is_some_and(|s| audio::is_silent(s)) {
-                return Ok(no_speech("silent", 0.0));
+                let mut reply = no_speech("silent", 0.0);
+                if request["include_stt_diagnostics"] == true {
+                    reply["stt_diagnostics"] = json!([]);
+                }
+                return Ok(reply);
             }
             let duration = samples.as_ref().map(|s| s.len() as f64 / 16000.0);
             let opts = local_options(request)?;
@@ -384,6 +397,7 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
                 inference,
                 request,
                 engine,
+                diagnostics: RefCell::new(Vec::new()),
             };
             let start = Instant::now();
             // Evaluation replay of an earlier decode of this same audio. The app
@@ -415,7 +429,11 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
                 cleanup_llm,
             );
             if out.outcome.no_speech {
-                return Ok(no_speech(&out.outcome.gate_reason, t_stt));
+                let mut reply = no_speech(&out.outcome.gate_reason, t_stt);
+                if request["include_stt_diagnostics"] == true {
+                    reply["stt_diagnostics"] = json!(*stt.diagnostics.borrow());
+                }
+                return Ok(reply);
             }
             let mut reply = serde_json::to_value(out).map_err(|_| "invalidReply")?;
             reply["ok"] = json!(true);
@@ -426,6 +444,9 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
             reply["t_stt"] = json!(t_stt);
             reply["t_cleanup"] = json!(start.elapsed().as_secs_f64());
             reply["t_llm"] = json!(llm.seconds.get());
+            if request["include_stt_diagnostics"] == true {
+                reply["stt_diagnostics"] = json!(*stt.diagnostics.borrow());
+            }
             Ok(reply)
         }
         _ => Err("invalidCommand".into()),

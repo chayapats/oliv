@@ -19,6 +19,7 @@
 // without STT; the native sidecar supplies STT and cleanup.
 
 import AppKit
+import Combine
 import Foundation
 
 @MainActor
@@ -206,6 +207,8 @@ final class DictationController {
     }
 
     private var didWarmSidecar = false
+    private let encoderPreparation = CoreMLEncoderPreparation()
+    private var encoderStatusObservation: AnyCancellable?
 
     /// Bumped on every press so a `awaitDeviceLive` poll from an earlier press
     /// can't drive a later recording's HUD. See awaitDeviceLive(generation:).
@@ -241,6 +244,29 @@ final class DictationController {
         installHotkey()
         installUndoHotkey()
         warmSidecarIfNeeded()
+        if encoderStatusObservation == nil {
+            encoderStatusObservation = appState.$status.dropFirst().sink { [weak self] status in
+                guard let self else { return }
+                if status != .idle { self.encoderPreparation.cancel() }
+                else {
+                    DispatchQueue.main.async { [weak self] in self?.prepareEncoderIfIdle() }
+                }
+            }
+        }
+        prepareEncoderIfIdle()
+    }
+
+    private func prepareEncoderIfIdle() {
+        guard appState.status == .idle, sttEngine == SidecarClient.defaultEngine, sidecar != nil else { return }
+        encoderPreparation.schedule { [weak self] in
+            guard let self, self.appState.status == .idle,
+                  self.sttEngine == SidecarClient.defaultEngine else { return }
+            // No utterance is in flight. Reap the old MLX model before warming
+            // a new helper so a ready component can activate without a relaunch.
+            self.sidecar?.reloadModelsWhenIdle()
+            self.didWarmSidecar = false
+            self.warmSidecarIfNeeded()
+        }
     }
 
     /// Build + start the tap on the current `hotkeyChords`. Idempotent (no-op if
@@ -556,6 +582,7 @@ final class DictationController {
     func warmAfterDownload() {
         didWarmSidecar = false
         warmSidecarIfNeeded()
+        prepareEncoderIfIdle()
     }
 
     /// Tear down the tap. The monitor's stop() fires a balancing release if a
@@ -566,6 +593,8 @@ final class DictationController {
     /// synchronously instead of faded, because a fade does not survive process
     /// exit and the user would get their music back only at the next launch.
     func stop(immediate: Bool = false) {
+        encoderStatusObservation = nil
+        encoderPreparation.cancel()
         warmingGeneration &+= 1
         cleanupPrewarm?.finish()
         cleanupPrewarm = nil

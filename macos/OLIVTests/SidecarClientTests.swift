@@ -76,6 +76,19 @@ final class SidecarClientTests: XCTestCase {
         XCTAssertGreaterThan(pid, 0)
     }
 
+    func testIdleReloadRespawnsAndPreservesCleanupPolicy() throws {
+        let client = makeClient()
+        defer { client.close() }
+        client.setCleanupIdleSeconds(0)
+        let before = try client.ping()
+        XCTAssertEqual(try client.exchange(["cmd": "memory_policy"], timeout: 5)["cleanup_idle_seconds"] as? Int, 0)
+        client.reloadModelsWhenIdle()
+        let after = try client.ping()
+        XCTAssertNotEqual(before, after)
+        XCTAssertEqual(try client.exchange(["cmd": "memory_policy"], timeout: 5)["cleanup_idle_seconds"] as? Int, 0)
+        XCTAssertEqual(try client.dictate(samples: [0.1, -0.1], cleanup: true).final, "Hello world.")
+    }
+
     func testWarmReportsLoadTimes() throws {
         let client = makeClient()
         defer { client.close() }

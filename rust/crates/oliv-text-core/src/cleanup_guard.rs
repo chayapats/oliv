@@ -8,6 +8,7 @@
 use crate::dictionary::token_spans;
 use crate::phonetic::{correct_with_thai_vocab, thai_fold};
 use crate::pyu::{has_thai, is_space, is_thai, strip};
+use crate::thai::without_silent_letters;
 
 /// Flag for a generation that passed the guardrail but rewrote a listed term.
 pub const RESTRICTED_FLAG: &str = "ok-termKept";
@@ -313,29 +314,8 @@ fn respells(a: &[char], spans: &[(usize, usize, String)], run: &Edit, new: &[cha
     }
     let sound = thai_fold(&words);
     (!sound.is_empty() && sound == thai_fold(&edited))
-        || unsilenced(&words) == unsilenced(&edited)
+        || without_silent_letters(&words) == without_silent_letters(&edited)
         || correct_with_thai_vocab(&words, &[edited]).1 > 0
-}
-
-/// Thai text without the letters thanthakhat (์) silences: the consonant it
-/// sits on and a vowel mark on that consonant, as in the vocabulary matcher's
-/// spelling key.
-fn unsilenced(text: &str) -> Vec<char> {
-    let mut out: Vec<char> = Vec::with_capacity(text.len());
-    for c in text.chars() {
-        if c == '\u{e4c}' {
-            while out
-                .last()
-                .is_some_and(|p| matches!(p, '\u{e34}'..='\u{e39}'))
-            {
-                out.pop();
-            }
-            out.pop();
-        } else {
-            out.push(c);
-        }
-    }
-    out
 }
 
 #[cfg(test)]

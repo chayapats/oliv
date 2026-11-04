@@ -270,6 +270,13 @@ final class SidecarClient {
 
     // MARK: Public API
 
+    /// Queue an idle model reload without losing the configured cloud key or
+    /// cleanup policy. Existing background warm requests finish before teardown;
+    /// subsequent requests respawn the helper with the same launch environment.
+    func reloadModelsWhenIdle() {
+        requestQueue.async { [self] in forceKill() }
+    }
+
     /// Persist the desired policy across worker respawns. Updating Settings
     /// never waits on a model load or interrupts an in-flight dictation.
     func setCleanupIdleSeconds(_ seconds: Int) {

@@ -14,6 +14,18 @@ cp -R "$DERIVED/Build/Products/Release/OLIV.app" "$APP"
 RT="$APP/Contents/Resources/oliv-runtime"
 mkdir -p "$RT/bin" "$RT/licenses"
 cp -R "$BUILD/native-runtime/." "$RT/bin/"
+# Encoder components are opt-in build inputs until quality, preview and resource
+# gates qualify a particular export. Source builds without one keep using MLX.
+if [ -n "${OLIV_COREML_ENCODER_DIR:-}" ]; then
+  for required in manifest.json AudioEncoder.mlmodelc LICENSE-typhoon LICENSE-whisperkittools; do
+    [ -e "$OLIV_COREML_ENCODER_DIR/$required" ] || {
+      echo "Encoder component is missing $required" >&2; exit 1;
+    }
+  done
+  mkdir -p "$RT/models/typhoon-encoder"
+  cp -R "$OLIV_COREML_ENCODER_DIR/." "$RT/models/typhoon-encoder/"
+  "$RT/bin/oliv-encoder-prepare" --verify-component "$RT/models/typhoon-encoder"
+fi
 cp "$ROOT/macos/OLIVInference/LICENSE-mlx-audio-swift" "$RT/licenses/"
 cp "$ROOT/macos/OLIVInference/LICENSE-mlx-whisper" "$RT/licenses/"
 cp "$ROOT/macos/OLIVInference/UPSTREAM.md" "$RT/licenses/native-inference.md"
@@ -43,7 +55,7 @@ while IFS= read -r -d '' library; do
   codesign --force --options runtime -s "$IDENTITY" "$library"
 done < <(find "$APP/Contents/Frameworks" -type f -name '*.dylib' -print0)
 # Native helpers need no JIT, executable-memory or library-validation exception.
-for helper in oliv-sidecar oliv-inference; do
+for helper in oliv-sidecar oliv-inference oliv-encoder-prepare; do
   codesign --force --options runtime -s "$IDENTITY" "$RT/bin/$helper"
 done
 FW="$APP/Contents/Frameworks/Sparkle.framework"

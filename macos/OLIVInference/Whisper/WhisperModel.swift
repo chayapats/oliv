@@ -11,6 +11,30 @@ public final class WhisperModel: Module {
 
     var tokenizer: WhisperTokenizer?
     var coreMLEncoder: CoreMLWhisperEncoder?
+    private var recoverMLXEncoder: (() throws -> WhisperEncoder)?
+    private(set) var encoderDidFallback = false
+    var encoderBackend: String { coreMLEncoder == nil ? "mlx" : "coreml" }
+
+    func encodeAudio(_ input: MLXArray, shouldStop: (() -> Bool)?) throws -> MLXArray {
+        if coreMLEncoder != nil {
+            do { return try coreMLEncoder!.encode(input) }
+            catch {
+                guard recoverMLXEncoder != nil else { throw error }
+                // Release the accelerator before allocating recovery weights.
+                // Decoder weights and this recording's tokens remain intact.
+                coreMLEncoder = nil
+                encoderDidFallback = true
+                Memory.clearCache()
+            }
+        }
+        if model.encoder == nil, let recoverMLXEncoder {
+            let recovered = try recoverMLXEncoder()
+            try model.update(modules: ModuleChildren.unflattened([("encoder", recovered)]), verify: .noUnusedKeys)
+            self.recoverMLXEncoder = nil
+        }
+        guard let encoder = model.encoder else { throw RuntimeError.invalidModel }
+        return try shouldStop.map { try encoder(input, group: 4, shouldStop: $0) } ?? encoder(input)
+    }
 
     public init(config: WhisperConfig, generationConfig: WhisperGenerationConfig? = nil, useMLXEncoder: Bool = true) {
         self.config = config
@@ -185,7 +209,9 @@ public final class WhisperModel: Module {
 
     public static func fromDirectory(
         _ modelDirectory: URL,
-        tokenizerDirectory: URL
+        tokenizerDirectory: URL,
+        coreMLEncoderURL: URL? = nil,
+        allowEncoderFallback: Bool = false
     ) async throws -> WhisperModel {
         let configURL = modelDirectory.appendingPathComponent("config.json")
         let configData = try Data(contentsOf: configURL)
@@ -204,10 +230,27 @@ public final class WhisperModel: Module {
             generationConfig = try JSONDecoder().decode(WhisperGenerationConfig.self, from: data)
         }
 
-        let encoderPath = ProcessInfo.processInfo.environment["OLIV_WHISPER_ANE_ENCODER"]
-        let model = WhisperModel(config: config, generationConfig: generationConfig, useMLXEncoder: encoderPath == nil)
-        if let encoderPath {
-            model.coreMLEncoder = try CoreMLWhisperEncoder(url: URL(fileURLWithPath: encoderPath), dimensions: config.dModel, melBins: config.numMelBins)
+        let environment = ProcessInfo.processInfo.environment
+        let explicitPath = environment["OLIV_WHISPER_ANE_ENCODER"]
+        let encoderURL = explicitPath.map { URL(fileURLWithPath: $0) } ?? coreMLEncoderURL
+        // Explicit experiments remain fail-fast unless recovery is requested;
+        // benchmark results must never silently switch their encoder to MLX.
+        let allowsFallback = explicitPath != nil
+            ? environment["OLIV_WHISPER_ANE_FALLBACK"] == "1" : allowEncoderFallback
+        var accelerated: CoreMLWhisperEncoder?
+        var failedToLoad = false
+        if let encoderURL {
+            do { accelerated = try CoreMLWhisperEncoder(url: encoderURL, dimensions: config.dModel, melBins: config.numMelBins) }
+            catch {
+                guard allowsFallback else { throw error }
+                failedToLoad = true
+            }
+        }
+        let model = WhisperModel(config: config, generationConfig: generationConfig, useMLXEncoder: accelerated == nil)
+        model.coreMLEncoder = accelerated
+        model.encoderDidFallback = failedToLoad
+        if accelerated != nil, allowsFallback {
+            model.recoverMLXEncoder = { try loadEncoder(from: modelDirectory, config: config, configData: configData) }
         }
         if let quantization = try? JSONDecoder().decode(
             WhisperQuantizedModelConfig.self,
@@ -224,7 +267,7 @@ public final class WhisperModel: Module {
         }
 
         let weights = try WhisperWeights.load(directory: modelDirectory)
-        let selectedWeights = encoderPath == nil ? weights : weights.filter {
+        let selectedWeights = accelerated == nil ? weights : weights.filter {
             !$0.key.hasPrefix("encoder.") && !$0.key.hasPrefix("model.encoder.")
         }
         let sanitized = sanitize(weights: selectedWeights, config: config).mapValues { $0.dtype == .float32 ? $0.asType(.float16) : $0 }
@@ -240,6 +283,26 @@ public final class WhisperModel: Module {
 
         eval(model)
         return model
+    }
+
+    private static func loadEncoder(from directory: URL, config: WhisperConfig, configData: Data) throws -> WhisperEncoder {
+        let encoder = WhisperEncoder(config: config)
+        if let quantization = try? JSONDecoder().decode(WhisperQuantizedModelConfig.self, from: configData).quantization {
+            quantize(model: encoder, groupSize: quantization.groupSize, bits: quantization.bits,
+                     filter: { _, module in module is Linear })
+        }
+        let selected = try WhisperWeights.load(directory: directory).filter {
+            $0.key.hasPrefix("encoder.") || $0.key.hasPrefix("model.encoder.")
+        }
+        let prefix = "model.encoder."
+        let sanitized = sanitize(weights: selected, config: config)
+        let parameters = Dictionary(uniqueKeysWithValues: sanitized.compactMap { key, value -> (String, MLXArray)? in
+            guard key.hasPrefix(prefix) else { return nil }
+            return (String(key.dropFirst(prefix.count)), value.dtype == .float32 ? value.asType(.float16) : value)
+        })
+        try encoder.update(parameters: ModuleParameters.unflattened(parameters), verify: .all)
+        eval(encoder)
+        return encoder
     }
 
 }

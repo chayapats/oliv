@@ -19,6 +19,7 @@ actor ModelRuntime {
         ?? "mlx-community/gemma-4-e2b-it-4bit"
     private var whisper: WhisperModel?
     private var engine: String?
+    private var managedEncoderRejected = false
     private var cleanup: Task<ModelContainer, Error>?
     private var cleanupLoadEpoch: UInt64 = 0
     private var residency = CleanupResidency()
@@ -121,13 +122,33 @@ actor ModelRuntime {
     }
 
     private func loadWhisper(_ selected: String) async throws -> WhisperModel {
+        // A failed accelerator stays retired for this helper's lifetime, even
+        // after an engine change. Never re-specialize it on each utterance.
+        if whisper?.encoderDidFallback == true { managedEncoderRejected = true }
         if engine == selected, let whisper { return whisper }
         guard let repo = Self.repositories[selected] else { throw RuntimeError.invalidModel }
         // Release the previous STT weights before loading another multi-GB model.
         whisper = nil; engine = nil; Memory.clearCache()
         let resources = ProcessInfo.processInfo.environment["OLIV_WHISPER_TOKENIZER"]
             ?? URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent().appendingPathComponent("whisper-tokenizer").path
-        let loaded = try await WhisperModel.fromDirectory(try snapshot(repo), tokenizerDirectory: URL(fileURLWithPath: resources))
+        let checkpoint = try snapshot(repo)
+        let environment = ProcessInfo.processInfo.environment
+        let helper = URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL
+        var managedURL: URL?
+        if #available(macOS 15, *), !managedEncoderRejected, environment["OLIV_WHISPER_ANE_ENCODER"] == nil,
+           environment["OLIV_WHISPER_ENCODER"] != "mlx",
+           let component = CoreMLEncoderBundle.bundled(beside: helper) {
+            let home = URL(fileURLWithPath: environment["HF_HOME"]
+                ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".cache/huggingface").path)
+            if component.isReady(modelsHome: home),
+               component.matchesCheckpoint(checkpoint, repository: repo),
+               (try? component.verifyModel()) != nil {
+                managedURL = component.modelURL
+            }
+        }
+        let loaded = try await WhisperModel.fromDirectory(checkpoint, tokenizerDirectory: URL(fileURLWithPath: resources),
+                                                        coreMLEncoderURL: managedURL, allowEncoderFallback: managedURL != nil)
+        if loaded.encoderDidFallback { managedEncoderRejected = true }
         whisper = loaded; engine = selected
         return loaded
     }
@@ -191,8 +212,8 @@ actor ModelRuntime {
         switch cmd {
         case "ping": return ["ok": true, "runtime": "native-mlx"]
         case "stt_load":
-            _ = try await loadWhisper(selected)
-            return ["ok": true]
+            let loaded = try await loadWhisper(selected)
+            return ["ok": true, "encoder_backend": loaded.encoderBackend, "encoder_fallback": loaded.encoderDidFallback]
         case "stt":
             let parsing = ContinuousClock.now
             let samples = try Self.audio(request)
@@ -203,7 +224,11 @@ actor ModelRuntime {
             let model = try await loadWhisper(selected)
             let result = try model.transcribe(samples, language: request["language"] as? String,
                 initialPrompt: request["initial_prompt"] as? String, fallback: selected != "mlx-large-v3")
-            return ["ok": true, "text": result.text, "avg_logprob": result.avgLogprob, "language": result.language]
+            var reply: [String: Any] = ["ok": true, "text": result.text, "avg_logprob": result.avgLogprob,
+                                      "language": result.language, "sampling_fallbacks": result.samplingFallbacks,
+                                      "encoder_backend": model.encoderBackend, "encoder_fallback": model.encoderDidFallback]
+            if let seed = result.benchmarkSeed { reply["benchmark_seed"] = seed }
+            return reply
         case "generate":
             guard let content = request["content"] as? String else { throw RuntimeError.invalidRequest }
             let maxTokens = min(max((request["max_tokens"] as? Int) ?? 200, 1), Self.maxGenerationTokens)
