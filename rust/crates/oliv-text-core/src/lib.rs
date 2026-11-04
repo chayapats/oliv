@@ -17,6 +17,7 @@ pub mod phonetic;
 pub mod pyu;
 pub mod royin;
 pub mod script;
+mod thai;
 pub mod tokenize;
 pub mod trie;
 pub mod user_dictionary;

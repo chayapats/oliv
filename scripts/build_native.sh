@@ -22,10 +22,13 @@ if [ -f "$ROOT/macos/Package.resolved" ]; then
 fi
 xcodebuild -project "$ROOT/macos/OLIV.xcodeproj" -scheme OLIVInference \
   -configuration Release -derivedDataPath "$DERIVED" build
+xcodebuild -project "$ROOT/macos/OLIV.xcodeproj" -scheme OLIVEncoderPrepare \
+  -configuration Release -derivedDataPath "$DERIVED" build
 RUNTIME="$BUILD/native-runtime"
 mkdir -p "$RUNTIME"
 cp "$CARGO_TARGET_DIR/release/oliv-sidecar" "$RUNTIME/oliv-sidecar"
 cp "$DERIVED/Build/Products/Release/oliv-inference" "$RUNTIME/oliv-inference"
+cp "$DERIVED/Build/Products/Release/oliv-encoder-prepare" "$RUNTIME/oliv-encoder-prepare"
 # Bundle.module resolves from the helper's directory after relocation.
 for bundle in "$DERIVED"/Build/Products/Release/*.bundle; do
   [ -d "$bundle" ] || continue

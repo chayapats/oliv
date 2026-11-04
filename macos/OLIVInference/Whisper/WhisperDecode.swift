@@ -9,6 +9,8 @@ extension WhisperModel {
         let text: String
         let avgLogprob: Double
         let language: String
+        let samplingFallbacks: Int
+        let benchmarkSeed: UInt64?
     }
     private struct Decoded {
         let tokens: [Int]
@@ -80,6 +82,14 @@ extension WhisperModel {
         let stop = { if let shouldStop, shouldStop() { throw Stopped() } }
         guard let tokenizer else { throw RuntimeError.invalidModel }
         if let requested, tokenizer.resolveLanguage(requested) == nil { throw RuntimeError.invalidLanguage }
+        // Research runs need paired, repeatable temperature fallback. Normal
+        // dictation retains its sampling policy when this override is absent.
+        var benchmarkSeed: UInt64?
+        if let raw = ProcessInfo.processInfo.environment["OLIV_WHISPER_BENCHMARK_SEED"] {
+            guard let seed = UInt64(raw) else { throw RuntimeError.invalidRequest }
+            benchmarkSeed = seed
+            MLXRandom.seed(seed)
+        }
         let clock = ContinuousClock()
         var started = clock.now
         func lap() -> Double {
@@ -100,23 +110,23 @@ extension WhisperModel {
         let initialCount = allTokens.count
         var promptReset = 0, seek = 0
         var scores = [Double]()
+        var samplingFallbacks = 0
         while seek < contentFrames {
             try stop()
             let segmentSize = min(3000, contentFrames - seek)
             var features = mel[seek..<(seek + segmentSize)]
-            let window = preview.map { $0.frames(content: segmentSize) } ?? 3000
+            let wanted = preview.map { $0.frames(content: segmentSize) } ?? 3000
+            let window: Int
+            if let coreMLEncoder {
+                guard let supported = coreMLEncoder.windows.covering(wanted) else { throw RuntimeError.invalidModel }
+                window = supported
+            } else { window = wanted }
             if segmentSize < window { features = MLX.padded(features, widths: [.init((0, window - segmentSize)), .init((0, 0))]) }
             let input = features.asType(.float16).expandedDimensions(axis: 0)
             if preview != nil { _ = lap() }
-            let encoder: MLXArray
-            if let coreMLEncoder {
-                // The exported encoder is fixed at 30 seconds. This experiment
-                // does not provide the production short-window live preview.
-                guard preview == nil else { throw RuntimeError.invalidRequest }
-                encoder = try coreMLEncoder.encode(input)
-            } else if let mlxEncoder = model.encoder {
-                encoder = try shouldStop.map { try mlxEncoder(input, group: 4, shouldStop: $0) } ?? mlxEncoder(input)
-            } else { throw RuntimeError.invalidModel }
+            // Core ML completes one bounded encoder prediction. Cancellation
+            // is checked before and immediately after it, then per token.
+            let encoder = try encodeAudio(input, shouldStop: shouldStop)
             eval(encoder)
             if let preview { preview.add(encode: lap()); preview.encoded(frames: window) }
             try stop()
@@ -136,6 +146,7 @@ extension WhisperModel {
             }
             var candidate: Decoded?
             for temperature: Float in fallback ? [0, 0.2, 0.4, 0.6, 0.8, 1] : [0] {
+                if temperature > 0 { samplingFallbacks += 1 }
                 let result = try decode(encoder: encoder, prefix: prefix, temperature: temperature, stop: stop,
                                         preview: preview.map { ($0, $0.tokenLimit(audioFrames: segmentSize)) })
                 candidate = result
@@ -179,7 +190,9 @@ extension WhisperModel {
             Memory.clearCache()
             if let preview { preview.add(decode: lap()) }
         }
-        return Transcript(text: tokenizer.decode(tokens: Array(allTokens.dropFirst(initialCount))), avgLogprob: scores.isEmpty ? -10 : scores.reduce(0, +) / Double(scores.count), language: language ?? "en")
+        return Transcript(text: tokenizer.decode(tokens: Array(allTokens.dropFirst(initialCount))),
+                          avgLogprob: scores.isEmpty ? -10 : scores.reduce(0, +) / Double(scores.count),
+                          language: language ?? "en", samplingFallbacks: samplingFallbacks, benchmarkSeed: benchmarkSeed)
     }
 
     /// `preview` (live previews only) bounds the decode: at most `limit`

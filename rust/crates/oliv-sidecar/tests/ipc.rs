@@ -36,6 +36,17 @@ fn ping_silence_and_text_work_without_inference() {
     assert_eq!(replies[1]["no_speech"], true);
     assert_eq!(replies[2]["final"], "hello\nworld");
 }
+
+#[test]
+fn opted_in_silence_reports_no_stt_attempts_without_loading_inference() {
+    let replies = run(&[
+        json!({"id":1,"cmd":"dictate","pcm_b64":"AAAAAA=="}),
+        json!({"id":2,"cmd":"dictate","pcm_b64":"AAAAAA==","include_stt_diagnostics":true}),
+    ]);
+    assert!(replies[0].get("stt_diagnostics").is_none());
+    assert_eq!(replies[1]["no_speech"], true);
+    assert_eq!(replies[1]["stt_diagnostics"], json!([]));
+}
 #[test]
 fn bad_request_does_not_poison_following_request() {
     let replies = run(&[
@@ -152,6 +163,61 @@ fn install_helper(dir: &Path, name: &str, script: &str) -> std::io::Result<PathB
     // On the open file, not the path: a later swap can't redirect it.
     file.set_permissions(std::fs::Permissions::from_mode(0o700))?;
     Ok(path)
+}
+
+#[test]
+fn stt_diagnostics_are_opt_in_and_preserve_sampler_and_backend_metadata() {
+    use base64::Engine;
+    let dir = PrivateDir::new("oliv-stt-metadata");
+    let helper = install_helper(
+        &dir.0,
+        "helper.sh",
+        r#"#!/bin/bash
+while IFS= read -r line; do
+  id=$(printf '%s' "$line" | sed -n 's/.*"id":\([0-9]*\).*/\1/p')
+  printf '{"id":%s,"ok":true,"text":"final words","avg_logprob":-0.1,"sampling_fallbacks":2,"benchmark_seed":2026,"encoder_backend":"coreml","encoder_fallback":false}\n' "$id"
+done
+"#,
+    )
+    .unwrap();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_oliv-sidecar"))
+        .env("OLIV_INFERENCE_EXECUTABLE", helper)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut input = child.stdin.take().unwrap();
+    let pcm: Vec<u8> = (0..16000)
+        .flat_map(|i| (if i % 2 == 0 { 0.1f32 } else { -0.1 }).to_le_bytes())
+        .collect();
+    let pcm = base64::engine::general_purpose::STANDARD.encode(pcm);
+    for (id, diagnostics) in [(1, false), (2, true)] {
+        writeln!(
+            input,
+            "{}",
+            json!({"id":id,"cmd":"dictate","cleanup":false,"pcm_b64":pcm,"include_stt_diagnostics":diagnostics})
+        )
+        .unwrap();
+    }
+    drop(input);
+    let output = child.wait_with_output().unwrap();
+    assert!(output.status.success());
+    let replies: Vec<Value> = String::from_utf8(output.stdout)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(replies[1]["ok"], true, "{}", replies[1]);
+    assert_eq!(replies[1]["no_speech"], false, "{}", replies[1]);
+    assert!(replies[0].get("stt_diagnostics").is_none());
+    assert_eq!(replies[1]["stt_diagnostics"].as_array().unwrap().len(), 1);
+    let metadata = &replies[1]["stt_diagnostics"][0];
+    assert_eq!(metadata["benchmark_seed"], 2026);
+    assert_eq!(metadata["sampling_fallbacks"], 2);
+    assert_eq!(metadata["encoder_backend"], "coreml");
+    assert_eq!(metadata["encoder_fallback"], false);
+    assert_eq!(replies[0]["final"], replies[1]["final"]);
+    assert!(metadata.get("text").is_none());
 }
 
 #[test]

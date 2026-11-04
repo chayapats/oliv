@@ -203,7 +203,7 @@ impl Pipeline {
     ) -> Result<Value> {
         let start = Instant::now();
         let pcm = captured_pcm(audio)?;
-        let mut request = json!({"cmd":"dictate","engine":self.engine,"cleanup":self.cleanup,
+        let mut request = json!({"cmd":"dictate","engine":self.engine,"cleanup":self.cleanup,"include_stt_diagnostics":true,
             "pcm_b64":base64::engine::general_purpose::STANDARD.encode(&pcm)});
         if self.no_llm {
             request["cleanup_llm"] = false.into();
@@ -259,6 +259,7 @@ impl Pipeline {
             "t_stt",
             "t_cleanup",
             "cleanup_error",
+            "stt_diagnostics",
         ] {
             clip[key] = reply[key].clone();
         }
@@ -388,7 +389,7 @@ fn evaluate(args: Eval) -> Result<()> {
     let report = json!({"label":label,"runtime":"native","engine":args.engine,"cleanup_model":if args.no_cleanup {Value::Null}else{json!(cleanup_model)},
         "manifest":manifest,"runtime_dir":args.runtime_dir,"no_vocab":args.no_vocab,"no_llm":args.no_llm,
         "latency_scope":if args.replay.is_some(){"cleanup replay; excludes ASR"}else{"end-to-end native pipeline; includes audio conversion"},
-        "stt":{"replay":args.replay},"screen_text":args.screen_text,"screen_keywords":args.screen_keywords,"metric_version":"newmm_nfc_v1","overall":summarize(&clips),"aggregate":aggregate(&clips),"clips":clips,"missing":[]});
+        "stt":{"replay":args.replay,"benchmark_seed":std::env::var("OLIV_WHISPER_BENCHMARK_SEED").ok()},"screen_text":args.screen_text,"screen_keywords":args.screen_keywords,"metric_version":"newmm_nfc_v1","overall":summarize(&clips),"aggregate":aggregate(&clips),"clips":clips,"missing":[]});
     write_json(&args.out, &report)?;
     println!(
         "{} clips; WER {:.4}, CER {:.4}; wrote {}",
