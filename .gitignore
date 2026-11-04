@@ -23,6 +23,7 @@ benchmark/*
 !benchmark/contextasr.md
 !benchmark/speakers.md
 !benchmark/dictation-transcriber.md
+!benchmark/ane-foundation-models.md
 !benchmark/run_dictation_transcriber.sh
 !benchmark/run_ane_foundation.sh
 !benchmark/voice-edit.md

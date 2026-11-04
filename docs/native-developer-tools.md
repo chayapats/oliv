@@ -19,6 +19,13 @@ from maintained source, tests, benchmarks and release packaging.
   feeds clips to Apple's on-device `DictationTranscriber` for the
   [comparison benchmark](../benchmark/dictation-transcriber.md). It is a
   developer tool only; the app does not use it.
+- Swift `oliv-ane-whisper` (`tools/ane-whisper`) runs converted Typhoon models
+  through Core ML/WhisperKit, either as a manifest CLI or a benchmark inference
+  helper behind the production Rust sidecar. Swift `oliv-apple-cleanup`
+  (`tools/apple-cleanup`) tests the on-device Foundation Models language model.
+  The [results and reproduction notes](../benchmark/ane-foundation-models.md)
+  cover accuracy, memory accounting and full-pipeline latency. These helpers
+  stay outside the app; Apple variant diagnostics require the macOS 27 SDK.
 - Frozen public golden fixtures remain independent reference outputs. They
   are not regenerated from the Rust code being tested.
 
