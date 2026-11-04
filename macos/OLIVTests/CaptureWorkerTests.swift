@@ -1,13 +1,65 @@
 import Combine
+import os
 import XCTest
 @testable import OLIV
 
 @MainActor
 final class CaptureWorkerTests: XCTestCase {
+    func testCleanupReservationEndsWhenMicrophoneOpeningFails() async {
+        let released = expectation(description: "failed capture releases cleanup reservation")
+        let worker = CaptureWorker(start: { _, _ in throw AudioCapture.CaptureError.noInputDevice },
+                                   stop: { CapturedAudio(samples: [], stats: nil) }, close: {})
+        let state = AppState()
+        let controller = DictationController(appState: state, captureWorker: worker)
+        controller.cleanupPrewarmer = { CleanupPrewarmSession { released.fulfill() } }
+        controller.handlePress()
+        await fulfillment(of: [released], timeout: 2)
+        XCTAssertEqual(state.status, .idle)
+        controller.stop()
+    }
+
+    func testCleanupReservationCoversProcessingAndEndsOnCompletionOrCancellation() async {
+        for cancel in [false, true] {
+            let started = expectation(description: "capture started")
+            let transcribing = expectation(description: "processing started")
+            let released = expectation(description: "cleanup reservation released")
+            let releases = OSAllocatedUnfairLock(initialState: 0)
+            let (stream, continuation) = AsyncStream<Void>.makeStream()
+            let worker = CaptureWorker(start: { _, request in
+                request.markStarted()
+                started.fulfill()
+            }, stop: { CapturedAudio(samples: [0.5], stats: nil) }, close: {})
+            let controller = DictationController(appState: AppState(), captureWorker: worker)
+            controller.cleanupPrewarmer = {
+                CleanupPrewarmSession {
+                    releases.withLock { $0 += 1 }
+                    released.fulfill()
+                }
+            }
+            controller.transcriber = { _ in
+                transcribing.fulfill()
+                var iterator = stream.makeAsyncIterator()
+                _ = await iterator.next()
+                return nil
+            }
+            controller.handlePress()
+            await fulfillment(of: [started], timeout: 2)
+            controller.handleRelease()
+            await fulfillment(of: [transcribing], timeout: 2)
+            XCTAssertEqual(releases.withLock { $0 }, 0, "Releasing the key must not end readiness before processing")
+            if cancel { controller.stop() } else { continuation.yield(()) }
+            await fulfillment(of: [released], timeout: 2)
+            XCTAssertEqual(releases.withLock { $0 }, 1)
+            continuation.finish()
+            controller.stop()
+        }
+    }
+
     func testReleaseWhileOpeningDoesNotBlockUIOrTranscribeLater() async {
         let entered = expectation(description: "opening on capture worker")
         let closed = expectation(description: "cancelled open is closed")
         let idle = expectation(description: "release completes")
+        let prewarmReleased = expectation(description: "quick tap releases cleanup reservation")
         let finishOpen = DispatchSemaphore(value: 0)
         let worker = CaptureWorker(start: { _, request in
             XCTAssertFalse(Thread.isMainThread)
@@ -21,6 +73,7 @@ final class CaptureWorkerTests: XCTestCase {
         }, close: { closed.fulfill() })
         let state = AppState()
         let controller = DictationController(appState: state, captureWorker: worker)
+        controller.cleanupPrewarmer = { CleanupPrewarmSession { prewarmReleased.fulfill() } }
         controller.transcriber = { _ in XCTFail("cancelled open must not transcribe"); return nil }
         let observation = state.$status.dropFirst().sink { if $0 == .idle { idle.fulfill() } }
 
@@ -32,7 +85,7 @@ final class CaptureWorkerTests: XCTestCase {
         controller.handleRelease()
         XCTAssertEqual(state.status, .idle)
         finishOpen.signal()
-        await fulfillment(of: [closed, idle], timeout: 2)
+        await fulfillment(of: [closed, idle, prewarmReleased], timeout: 2)
         XCTAssertEqual(state.status, .idle)
         XCTAssertNil(state.activeEngineID)
         withExtendedLifetime(observation) {}
@@ -70,6 +123,7 @@ final class CaptureWorkerTests: XCTestCase {
 
     func testStoppingControllerInvalidatesPendingOpenCompletion() async {
         let entered = expectation(description: "open entered")
+        let prewarmReleased = expectation(description: "stop releases cleanup reservation")
         let closed = expectation(description: "shutdown serialized after open")
         let finishOpen = DispatchSemaphore(value: 0)
         let worker = CaptureWorker(start: { _, request in
@@ -80,12 +134,13 @@ final class CaptureWorkerTests: XCTestCase {
         }, stop: { CapturedAudio(samples: [], stats: nil) }, close: { closed.fulfill() })
         let state = AppState()
         let controller = DictationController(appState: state, captureWorker: worker)
+        controller.cleanupPrewarmer = { CleanupPrewarmSession { prewarmReleased.fulfill() } }
         controller.handlePress()
         await fulfillment(of: [entered], timeout: 2)
         controller.stop()
         XCTAssertEqual(state.status, .idle)
         finishOpen.signal()
-        await fulfillment(of: [closed], timeout: 2)
+        await fulfillment(of: [closed, prewarmReleased], timeout: 2)
         // Let the already-enqueued main-queue completion run as well.
         await Task.yield()
         XCTAssertEqual(state.status, .idle)

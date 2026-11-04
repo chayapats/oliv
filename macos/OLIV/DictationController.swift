@@ -54,6 +54,9 @@ final class DictationController {
     /// W3-T3: the STT + cleanup sidecar. When set, `release` transcribes+cleans
     /// via it and pastes `final`. nil = the controller is STT-less (W3-T2 mode).
     var sidecar: SidecarClient?
+    private var cleanupPrewarm: CleanupPrewarmSession?
+    /// Model-free capture tests can observe reservation lifetime.
+    var cleanupPrewarmer: (() -> CleanupPrewarmSession)?
 
     /// STT engine id handed to the sidecar (its DEFAULT_ENGINE).
     var sttEngine: String = SidecarClient.defaultEngine
@@ -564,6 +567,8 @@ final class DictationController {
     /// exit and the user would get their music back only at the next launch.
     func stop(immediate: Bool = false) {
         warmingGeneration &+= 1
+        cleanupPrewarm?.finish()
+        cleanupPrewarm = nil
         stopPreview()
         processingTask?.cancel()
         processingTask = nil
@@ -641,8 +646,8 @@ final class DictationController {
         let needsCleanup = recordingMode != .dictate || (!Self.isRemote(sttEngine) && Self.resolveCleanup(
             globalEnabled: cleanupEnabled, verbatimApps: verbatimApps,
             frontmostBundleID: frontmostBundleID()))
-        if needsCleanup, let sidecar {
-            DispatchQueue.global(qos: .utility).async { try? sidecar.prewarmCleanup() }
+        if needsCleanup {
+            cleanupPrewarm = cleanupPrewarmer?() ?? sidecar?.beginCleanupPrewarm()
         }
     }
 
@@ -654,6 +659,8 @@ final class DictationController {
         case .success:
             awaitDeviceLive(generation: generation)
         case let .failure(error):
+            cleanupPrewarm?.finish()
+            cleanupPrewarm = nil
             // NEVER a silent no-op. This fires for real — an input device caught
             // mid-switch reports 0 Hz / 0 ch and the converter can't be built — and
             // a hotkey that does nothing, says nothing, and logs somewhere the user
@@ -706,7 +713,10 @@ final class DictationController {
         stopPreview()
         request.cancel()
         captureRequest = nil
+        let cleanupPrewarm = self.cleanupPrewarm
+        self.cleanupPrewarm = nil
         if !request.didStart && !request.failedToStart {
+            cleanupPrewarm?.finish()
             // A quick tap cancels setup immediately. Cleanup remains serialized
             // behind the system call, but the UI can accept the next press now.
             captureWorker.cancelOpening(request: request)
@@ -794,6 +804,7 @@ final class DictationController {
         // `self` is captured weakly ONLY to re-read historyEnabled at record
         // time (see below); everything else stays a release-time local.
         processingTask = Task.detached(priority: .userInitiated) { [weak self] in
+            defer { cleanupPrewarm?.finish() }
             let captured = await captureWorker.stop(request: request)
             guard !Task.isCancelled else { return }
             let samples = captured.samples

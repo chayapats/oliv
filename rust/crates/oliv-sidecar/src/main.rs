@@ -311,7 +311,13 @@ fn handle(request: &Value, inference: &Inference) -> Result<Value, String> {
             )
         }
         "cleanup_warm" => inference.request(
-            json!({"cmd":"llm_warm","background":true,"load_only":true}),
+            json!({"cmd":"llm_warm","background":true,"load_only":true,
+                "recording_token":request["recording_token"]}),
+            Duration::from_secs(120),
+            id,
+        ),
+        "cleanup_release" => inference.request(
+            json!({"cmd":"llm_release_warm","recording_token":request["recording_token"]}),
             Duration::from_secs(120),
             id,
         ),
