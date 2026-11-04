@@ -230,6 +230,15 @@ What this says:
   [ContextASR](contextasr.md) finding on ordinary Thai and is a follow-up for
   the cleanup guardrail.
 
+**Update, 0.2.3 cleanup guards ([#39](https://github.com/chayapats/oliv/pull/39)).**
+Cleanup now rejects letters from other scripts and puts back Thai speech the
+model rewrote. Replaying the same 237 transcripts and cleanup generations, the
+full pipeline keeps the meaning of **96.2%** of the recordings (2 gained, none
+lost; WER 0.208, CER 0.111). The Hangul syllable and the "รีวิว" surname are
+fixed. The car-brand rewrite is left unguarded on purpose, because the same
+rule would undo dozens of correct restorations (see the PR), and the borderline
+score is unchanged. The table above is the 0.2.2 run.
+
 ### One command per speaker: developer against a synthetic voice
 
 The 30-sentence kit, developer recordings against macOS's Thai voice Kanya
