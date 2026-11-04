@@ -12,6 +12,10 @@ let process = Process(), input = Pipe(), output = Pipe()
 process.executableURL = URL(fileURLWithPath: directory).appendingPathComponent("oliv-inference")
 process.standardInput = input; process.standardOutput = output
 process.standardError = FileHandle.standardError
+var environment = ProcessInfo.processInfo.environment
+environment["OLIV_WHISPER_BENCHMARK_SEED"] = "2026"
+environment["OLIV_WHISPER_ANE_FALLBACK"] = nil
+process.environment = environment
 let signal = DispatchSemaphore(value: 0), lock = NSLock()
 var buffer = Data(), frames = [Data](), nextID = 0
 output.fileHandleForReading.readabilityHandler = { handle in
@@ -56,8 +60,11 @@ func request(_ command: String, _ fields: [String: Any] = [:], cancelThrough: In
 do {
     let cold = try request("stt", ["wav_path": audio, "preview_seq": 1])
     precondition(cold["skipped"] as? String == "notLoaded", "A preview unexpectedly loaded STT")
-    _ = try request("stt_load")
-    let before = try request("stt", ["wav_path": audio])["text"] as! String
+    let loaded = try request("stt_load")
+    precondition(loaded["encoder_backend"] as? String == "coreml" && loaded["encoder_fallback"] as? Bool == false)
+    let first = try request("stt", ["wav_path": audio])
+    precondition(first["benchmark_seed"] as? Int == 2026)
+    let before = first["text"] as! String
     precondition(!before.isEmpty, "Use an audible public speech fixture")
     var measured = [[String: Any]]()
     for (index, floor) in [10, 15, 20, 25, 30].enumerated() {
@@ -72,7 +79,10 @@ do {
     }
     let cancelled = try request("stt", ["wav_path": audio, "preview_seq": 100], cancelThrough: 100)
     precondition(cancelled["skipped"] as? String == "cancelled")
-    let after = try request("stt", ["wav_path": audio])["text"] as! String
+    let last = try request("stt", ["wav_path": audio])
+    precondition(last["benchmark_seed"] as? Int == 2026)
+    precondition(last["encoder_backend"] as? String == "coreml" && last["encoder_fallback"] as? Bool == false)
+    let after = last["text"] as! String
     precondition(before.utf8.elementsEqual(after.utf8), "Previews or cancellation changed the final transcript")
     print(String(decoding: try JSONSerialization.data(withJSONObject: [
         "previews": measured, "cancelled": true, "final_bytes_unchanged": true

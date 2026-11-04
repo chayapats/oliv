@@ -18,9 +18,11 @@ final class Worker {
         process.standardInput = input; process.standardOutput = output
         process.standardError = FileHandle.standardError
         var environment = ProcessInfo.processInfo.environment
+        environment["OLIV_WHISPER_ENCODER"] = "mlx"
         environment["OLIV_WHISPER_ANE_ENCODER"] = encoder
         environment["OLIV_WHISPER_ANE_FALLBACK"] = fallback ? "1" : nil
         environment["OLIV_ENCODER_CAPTURE_DIR"] = nil
+        environment["OLIV_WHISPER_BENCHMARK_SEED"] = "2026"
         process.environment = environment
         output.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let bytes = handle.availableData
@@ -66,6 +68,7 @@ func check(_ reply: [String: Any], backend: String, fallback: Bool, text: String
     precondition(reply["encoder_backend"] as? String == backend)
     precondition(reply["encoder_fallback"] as? Bool == fallback)
     if let text { precondition((reply["text"] as? String)?.utf8.elementsEqual(text.utf8) == true, "Recovery changed the final transcript") }
+    if reply["text"] != nil { precondition(reply["benchmark_seed"] as? Int == 2026) }
 }
 
 let control = try Worker(encoder: nil, fallback: false)

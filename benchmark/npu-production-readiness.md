@@ -177,6 +177,11 @@ or energy savings.
   developer cache, and its stack sample identified filesystem access.
 - Public model integrations: finite windows, preview cancellation, unchanged
   final bytes, strict failures, opt-in recovery and paired sampling passed.
+- Review follow-up: 29 targeted Swift tests passed, including cancellation
+  before recovery reads weights and retrying the preserved loader. The public
+  integration scripts now force MLX controls and seed 2026. They passed against
+  a staged prepared component that otherwise selects CoreML, with conflicting
+  inherited backend/seed settings. Sampling exercised five attempts per request.
 - Actual managed-component integration: unprepared MLX, prepared CoreML,
   forced MLX, checkpoint mismatch, corrupt component, and restored CoreML all
   behaved as intended. The MLX paths retained identical final bytes. Tests used

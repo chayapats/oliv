@@ -13,6 +13,7 @@ process.standardError = FileHandle.standardError
 var environment = ProcessInfo.processInfo.environment
 environment["OLIV_WHISPER_ANE_ENCODER"] = nil
 environment["OLIV_WHISPER_ANE_FALLBACK"] = nil
+environment["OLIV_WHISPER_ENCODER"] = "mlx"
 environment["OLIV_WHISPER_BENCHMARK_SEED"] = "2026"
 process.environment = environment
 let signal = DispatchSemaphore(value: 0), lock = NSLock()
@@ -49,10 +50,12 @@ do {
         let body: [String: Any] = ["cmd": "stt", "wav_path": fixture["path"] as! String]
         let first = try request(body)
         precondition(first["benchmark_seed"] as? Int == 2026)
+        precondition(first["encoder_backend"] as? String == "mlx" && first["encoder_fallback"] as? Bool == false)
         guard let attempts = first["sampling_fallbacks"] as? Int, attempts > 0 else { continue }
         let text = first["text"] as! String
         for _ in 0..<2 {
             let again = try request(body)
+            precondition(again["encoder_backend"] as? String == "mlx" && again["encoder_fallback"] as? Bool == false)
             precondition((again["text"] as? String)?.utf8.elementsEqual(text.utf8) == true,
                          "Seeded fallback changed its text between requests")
             precondition(again["sampling_fallbacks"] as? Int == attempts)

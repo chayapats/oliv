@@ -11,7 +11,7 @@ public final class WhisperModel: Module {
 
     var tokenizer: WhisperTokenizer?
     var coreMLEncoder: CoreMLWhisperEncoder?
-    private var recoverMLXEncoder: (() throws -> WhisperEncoder)?
+    private var recoverMLXEncoder: DeferredEncoderRecovery<WhisperEncoder>?
     private(set) var encoderDidFallback = false
     var encoderBackend: String { coreMLEncoder == nil ? "mlx" : "coreml" }
 
@@ -28,8 +28,11 @@ public final class WhisperModel: Module {
             }
         }
         if model.encoder == nil, let recoverMLXEncoder {
-            let recovered = try recoverMLXEncoder()
-            try model.update(modules: ModuleChildren.unflattened([("encoder", recovered)]), verify: .noUnusedKeys)
+            try recoverMLXEncoder.restore(
+                checkCancellation: { if shouldStop?() == true { throw Stopped() } },
+                install: { recovered in
+                    try model.update(modules: ModuleChildren.unflattened([("encoder", recovered)]), verify: .noUnusedKeys)
+                })
             self.recoverMLXEncoder = nil
         }
         guard let encoder = model.encoder else { throw RuntimeError.invalidModel }
@@ -250,7 +253,9 @@ public final class WhisperModel: Module {
         model.coreMLEncoder = accelerated
         model.encoderDidFallback = failedToLoad
         if accelerated != nil, allowsFallback {
-            model.recoverMLXEncoder = { try loadEncoder(from: modelDirectory, config: config, configData: configData) }
+            model.recoverMLXEncoder = DeferredEncoderRecovery {
+                try loadEncoder(from: modelDirectory, config: config, configData: configData)
+            }
         }
         if let quantization = try? JSONDecoder().decode(
             WhisperQuantizedModelConfig.self,
