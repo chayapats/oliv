@@ -63,6 +63,12 @@ actor ModelRuntime {
     private func scheduleCleanupEviction() {
         guard residency.users == 0 else { return }
         cleanupIdleTask?.cancel()
+        cleanupIdleTask = nil
+        guard cleanup != nil else {
+            if residency.evictionRequested { residency.didEvict() }
+            return
+        }
+        guard residency.recordings.isEmpty || residency.evictionRequested else { return }
         guard residency.evictionRequested || cleanupIdleSeconds > 0 else { return }
         let epoch = residency.epoch
         let delay = residency.evictionRequested ? 0 : cleanupIdleSeconds
@@ -213,6 +219,12 @@ actor ModelRuntime {
             let input = try await model.prepare(input: UserInput(prompt: content, additionalContext: ["enable_thinking": false]))
             return ["ok": true, "tokens": input.text.tokens.asArray(Int.self)]
         case "llm_warm":
+            if let raw = request["recording_token"] as? String {
+                guard let token = UUID(uuidString: raw) else { throw RuntimeError.invalidRequest }
+                residency.reserveRecording(token)
+                cleanupIdleTask?.cancel()
+                cleanupIdleTask = nil
+            }
             let content = request["content"] as? String ?? "hello"
             if request["background"] as? Bool == true {
                 // Deduplicate repeated presses while a background load is active.
@@ -229,6 +241,12 @@ actor ModelRuntime {
             if request["load_only"] as? Bool == true { try await prewarmCleanup() }
             else { _ = try await generate(content) }
             return ["ok": true, "cleanup_warming": false]
+        case "llm_release_warm":
+            guard let raw = request["recording_token"] as? String,
+                  let token = UUID(uuidString: raw) else { throw RuntimeError.invalidRequest }
+            residency.releaseRecording(token)
+            scheduleCleanupEviction()
+            return ["ok": true]
         case "llm_trim":
             trimCleanup()
             return ["ok": true, "cleanup_busy": residency.users > 0]
@@ -243,6 +261,7 @@ actor ModelRuntime {
         case "memory_status":
             return ["ok": true, "cleanup_resident": cleanup != nil,
                     "cleanup_users": residency.users, "cleanup_idle_seconds": cleanupIdleSeconds,
+                    "cleanup_recordings": residency.recordings.count,
                     "mlx_active_bytes": Memory.activeMemory, "mlx_cache_bytes": Memory.cacheMemory]
         case "download":
             guard let repos = request["repos"] as? [String], repos.count <= 4,

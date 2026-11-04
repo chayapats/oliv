@@ -1,7 +1,7 @@
 //! Model-free native fixtures for Swift's production IPC and HTTP/TLS tests.
 use base64::Engine;
 use serde_json::{Value, json};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::sync::Arc;
@@ -14,6 +14,8 @@ fn emit(value: Value) -> io::Result<()> {
     out.flush()
 }
 fn sidecar() -> io::Result<()> {
+    let mut recordings = BTreeSet::new();
+    let mut warm_events = Vec::new();
     for line in io::stdin().lock().lines() {
         let line = line?;
         if line.trim().is_empty() {
@@ -26,8 +28,22 @@ fn sidecar() -> io::Result<()> {
         let id = &req["id"];
         let reply = match req["cmd"].as_str().unwrap_or("") {
             "shutdown" => break,
-            "ping" => json!({"id":id,"ok":true,"pid":std::process::id()}),
-            "cleanup_warm" => json!({"id":id,"ok":true,"cleanup_warming":true}),
+            "ping" => json!({"id":id,"ok":true,"pid":std::process::id(),
+                "cleanup_recordings":recordings.len(),"warm_events":warm_events}),
+            "cleanup_warm" => {
+                if let Some(token) = req["recording_token"].as_str() {
+                    recordings.insert(token.to_owned());
+                    warm_events.push("begin");
+                }
+                json!({"id":id,"ok":true,"cleanup_warming":true})
+            }
+            "cleanup_release" => {
+                if let Some(token) = req["recording_token"].as_str() {
+                    recordings.remove(token);
+                    warm_events.push("end");
+                }
+                json!({"id":id,"ok":true})
+            }
             "memory_policy" => {
                 json!({"id":id,"ok":true,"cleanup_idle_seconds":req["cleanup_idle_seconds"]})
             }

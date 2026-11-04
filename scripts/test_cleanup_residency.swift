@@ -86,6 +86,24 @@ do {
     precondition(responsiveResident, "Responsive mode still evicts on the idle timer")
     _ = try request("memory_policy", ["cleanup_idle_seconds": 1])
     try waitForEviction()
+    let recording = UUID().uuidString, nextRecording = UUID().uuidString
+    _ = try request("llm_warm", ["load_only": true, "recording_token": recording])
+    Thread.sleep(forTimeInterval: 2)
+    let recordingResident = try resident()
+    precondition(recordingResident, "A long recording lost its prewarm to the idle timer")
+    try generate() // The reservation covers STT/cleanup processing too.
+    _ = try request("llm_warm", ["load_only": true, "recording_token": nextRecording])
+    _ = try request("llm_release_warm", ["recording_token": recording])
+    _ = try request("llm_release_warm", ["recording_token": recording])
+    Thread.sleep(forTimeInterval: 2)
+    let nextRecordingResident = try resident()
+    precondition(nextRecordingResident, "An old release cleared a new recording reservation")
+    _ = try request("llm_trim")
+    try waitForEviction() // Pressure may evict even while recording.
+    _ = try request("llm_release_warm", ["recording_token": nextRecording])
+    _ = try request("llm_warm", ["load_only": true, "recording_token": recording])
+    _ = try request("llm_release_warm", ["recording_token": recording])
+    try waitForEviction() // Idle release resumes after the last recording ends.
     print("Cleanup idle reset, deferred trim, coalesced load and reload passed; MLX active bytes \(loaded) -> \(released)")
     try input.fileHandleForWriting.close()
     process.waitUntilExit()

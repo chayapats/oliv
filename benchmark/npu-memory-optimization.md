@@ -95,6 +95,13 @@ new request. Repeated background warms share a load. The app starts a load-only
 cleanup warm after microphone startup at each eligible press; voice editing
 warms its local cleanup model even with remote STT.
 
+A per-recording token prevents idle eviction from that warm until transcription
+and cleanup finish, including recordings longer than the idle timeout. Capture
+failure, a cancelled opening, controller stop and processing completion release
+the token. Releases are idempotent and ordered after their corresponding warm;
+an older recording cannot release a newer one. Memory pressure may still evict
+an idle reserved model, while actual loading/generation leases remain protected.
+
 The model, prompt, generation settings and text guardrails are retained. Idle
 eviction introduces a reload cost; recording-time prewarming must be evaluated
 alongside warm response time. Allocator cache clearing alone does not unload

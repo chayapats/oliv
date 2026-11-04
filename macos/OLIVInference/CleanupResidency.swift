@@ -6,6 +6,15 @@ struct CleanupResidency {
     private(set) var users = 0
     private(set) var epoch: UInt64 = 0
     private(set) var evictionRequested = false
+    private(set) var recordings = Set<UUID>()
+
+    mutating func reserveRecording(_ token: UUID) {
+        if recordings.insert(token).inserted { epoch &+= 1 }
+    }
+
+    mutating func releaseRecording(_ token: UUID) {
+        if recordings.remove(token) != nil { epoch &+= 1 }
+    }
 
     mutating func begin() {
         users += 1
@@ -24,7 +33,7 @@ struct CleanupResidency {
     }
 
     func canEvict(epoch expected: UInt64) -> Bool {
-        users == 0 && epoch == expected
+        users == 0 && epoch == expected && (recordings.isEmpty || evictionRequested)
     }
 
     mutating func didEvict() {

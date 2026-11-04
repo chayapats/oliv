@@ -86,6 +86,22 @@ enum SidecarError: Error, CustomStringConvertible {
     }
 }
 
+/// A recording's idle reservation. Finish is safe from cancellation, teardown
+/// and worker completion; only the first finish sends a release.
+final class CleanupPrewarmSession {
+    private let lock = NSLock()
+    private var release: (() -> Void)?
+    init(release: @escaping () -> Void) { self.release = release }
+    func finish() {
+        lock.lock()
+        let action = release
+        release = nil
+        lock.unlock()
+        action?()
+    }
+    deinit { finish() }
+}
+
 final class SidecarClient {
     static let defaultEngine = "typhoon-turbo-mlx"
     /// The opt-in CLOUD engine id (W3-T4). Named here so the controller's
@@ -121,6 +137,7 @@ final class SidecarClient {
     // priority inversions.
     private let requestQueue = DispatchQueue(label: "com.oliv.sidecar.requests", qos: .userInitiated)
     private let memoryPolicyLock = NSLock()
+    private let cleanupPrewarmQueue = DispatchQueue(label: "com.oliv.sidecar.cleanup-prewarm", qos: .utility)
     private var cleanupIdleSeconds: Int?
     private var proc: Process?
     /// Set and cleared on `requestQueue`; every write also holds `stdinLock`, so
@@ -276,8 +293,22 @@ final class SidecarClient {
 
     /// Load cleanup weights while the microphone is recording. The helper
     /// acknowledges immediately and shares any in-flight model load.
-    func prewarmCleanup() throws {
-        _ = try exchange(["cmd": "cleanup_warm"], timeout: SidecarClient.warmTimeout)
+    func prewarmCleanup(recordingToken: String? = nil) throws {
+        var body: [String: Any] = ["cmd": "cleanup_warm"]
+        if let recordingToken { body["recording_token"] = recordingToken }
+        _ = try exchange(body, timeout: SidecarClient.warmTimeout)
+    }
+
+    /// Begin and end share a serial queue, even for an immediately cancelled
+    /// press. An old recording's release cannot clear a later recording's token.
+    func beginCleanupPrewarm() -> CleanupPrewarmSession {
+        let token = UUID().uuidString
+        cleanupPrewarmQueue.async { [self] in try? prewarmCleanup(recordingToken: token) }
+        return CleanupPrewarmSession { [weak self] in
+            self?.cleanupPrewarmQueue.async { [weak self] in
+                _ = try? self?.exchange(["cmd": "cleanup_release", "recording_token": token], timeout: Self.warmTimeout)
+            }
+        }
     }
 
     /// Front-load both stages so the first real dictate is warm. LONG timeout.

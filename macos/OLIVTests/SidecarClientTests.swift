@@ -91,6 +91,23 @@ final class SidecarClientTests: XCTestCase {
         XCTAssertGreaterThan(try client.ping(), 0)
     }
 
+    func testImmediateRecordingCancellationOrdersWarmBeforeOneRelease() throws {
+        let client = makeClient()
+        defer { client.close() }
+        let session = client.beginCleanupPrewarm()
+        session.finish()
+        session.finish()
+        let deadline = Date().addingTimeInterval(5)
+        var status: [String: Any] = [:]
+        repeat {
+            status = try client.exchange(["cmd": "ping"], timeout: 5)
+            if (status["warm_events"] as? [String])?.count == 2 { break }
+            Thread.sleep(forTimeInterval: 0.01)
+        } while Date() < deadline
+        XCTAssertEqual(status["warm_events"] as? [String], ["begin", "end"])
+        XCTAssertEqual(status["cleanup_recordings"] as? Int, 0)
+    }
+
     func testCleanupMemoryPolicyChangesLiveAndSurvivesRespawn() throws {
         let client = makeClient()
         defer { client.close() }
