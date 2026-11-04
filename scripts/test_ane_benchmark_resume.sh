@@ -8,8 +8,14 @@ mkdir -p "$fixture/benchmark" "$fixture/build/ane-whisper-swift/release" \
   "$fixture/tools/apple-cleanup/.build/release" "$fixture/audio" "$fixture/tokenizer" "$fixture/runtime"
 cp "$ROOT/benchmark/run_ane_foundation.sh" "$fixture/benchmark/"
 cp "$ROOT/tools/apple-cleanup/preserve-language.txt" "$fixture/tools/apple-cleanup/"
-printf '{"path":"relative clip.wav"}\n' > "$fixture/manifest.jsonl"
-jq -nc --arg path "$fixture/audio/latency.wav" '{path:$path}' > "$fixture/latency.jsonl"
+# Match maintained manifests: headers, indented comments, empty/whitespace-only
+# lines, CRLF and a final comment without a newline. Inline # is JSON data.
+printf '# Main manifest\n \t# Indented comment\n\n \t\r\n{"id":"th01","path":"relative clip.wav","reference":"fixture # text"}\r\n# End' > "$fixture/manifest.jsonl"
+{
+  printf '# Latency manifest\n\n\t # Indented comment\r\n'
+  jq -nc --arg path "$fixture/audio/latency.wav" '{id:"th02",path:$path,reference:"fixture"}'
+  printf ' \t\r\n  # End'
+} > "$fixture/latency.jsonl"
 printf 'first audio' > "$fixture/audio/relative clip.wav"
 printf 'latency audio' > "$fixture/audio/latency.wav"
 printf '{}' > "$fixture/tokenizer/tokenizer.json"

@@ -50,7 +50,10 @@ pal4_hash="$(model_hash "$COREML_PAL4")"
 audio_hash() {
   # Match eval's absolute-path / audio-root-relative path resolution. Hash only
   # recordings selected by this manifest, including a separate latency subset.
-  jq -j 'if (.path | type) == "string" and (.path | length) > 0
+  # Like oliv-dev eval: ignore blank/whitespace-only lines and comments after
+  # trimming, then parse one JSON object per line. A # inside JSON stays data.
+  jq -Rj 'select(test("^\\s*(#|$)") | not) | fromjson |
+    if (.path | type) == "string" and (.path | length) > 0
     then .path + "\u0000" else error("Manifest row requires a nonempty path") end' "$1" |
     while IFS= read -r -d '' path; do
       case "$path" in /*) ;; *) path="$AUDIO_ROOT/$path";; esac
