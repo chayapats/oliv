@@ -8,6 +8,7 @@ on:
       - 'rust/**'
       - 'scripts/**'
       - 'tools/**'
+      - 'benchmark/run_ane_foundation.sh'
       - '.github/workflows/mac.yml'
   pull_request:
     paths:
@@ -15,6 +16,7 @@ on:
       - 'rust/**'
       - 'scripts/**'
       - 'tools/**'
+      - 'benchmark/run_ane_foundation.sh'
       - '.github/workflows/mac.yml'
   workflow_dispatch:
 
@@ -62,7 +64,9 @@ jobs:
           rustc --version
           echo "OLIV_CARGO=$(command -v cargo)" >> "$GITHUB_ENV"
       - name: Build tools
-        run: brew install xcodegen ripgrep
+        run: brew install xcodegen ripgrep jq
+      - name: Benchmark restart and input integrity
+        run: bash scripts/test_ane_benchmark_resume.sh
       # A hung test fails with a spindump in the result bundle, instead of
       # silently using up the job. An interface string without Thai in
       # macos/OLIV/Localizable.xcstrings fails LocalizationCatalogTests

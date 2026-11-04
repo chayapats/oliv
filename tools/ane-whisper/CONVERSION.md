@@ -138,9 +138,17 @@ and choose a **different `OUT`**. It does not make Thai a supported language.
 
 `LATENCY_MANIFEST=/absolute/path/to/same-subset.jsonl` additionally runs the
 models together in the live pipeline. Replay timings alone exclude STT.
-The script fingerprints its inputs and refuses changed configurations on
-resume. Use a fresh `OUT` or `FORCE=1`; also use those after changing the cached
-MLX/Gemma weights. It never deletes your data to force a run.
+The script fingerprints the selected recordings (including the latency subset),
+local tokenizer files, compiled Core ML models and tools, and refuses changed
+configurations on resume. Each result records its experiment generation;
+`FORCE=1` starts a new generation so an interrupted replacement run cannot reuse
+older results. Resume that interrupted run without `FORCE` to keep its completed
+files. Results live in `OUT/runs/<run_id>/`, with the current run ID recorded in
+`OUT/_configuration.json`; older generations stay available for inspection.
+Use a fresh `OUT` or `FORCE=1` after changing cached MLX/Gemma weights,
+which are not fingerprinted. It never deletes your data to force a run.
+The restart/input-integrity regression can run without models or private audio:
+`bash scripts/test_ane_benchmark_resume.sh`.
 
 For memory, read the [accounting notes](README.md#memory-accounting), not just
 RSS. First Core ML specialization can take minutes; prepare it outside the
