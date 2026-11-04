@@ -29,7 +29,7 @@ them.
   - Plain Thai read speech: on FLEURS, meaning match is the same as OLIV's (96.6%), with lower WER and CER.
   - Speed: 0.10 s to decode a clip after release vs Typhoon's 0.62 s.
   - Streaming: the final text arrives 18 ms after the end of audio, the first preview 0.65 s after speech starts.
-  - Footprint: under 0.1 GB of process memory and no GPU, against 5–6.6 GB of memory and a busy GPU for OLIV.
+  - Process footprint: under 0.1 GB and no GPU, against 5–6.6 GB of process footprint and a busy GPU for OLIV. Apple's uncharged Neural Engine allocations were not measured; this is not a total-RAM comparison.
   - Download: nothing of OLIV's own. The 1.06 GB model is a macOS-managed asset.
 - **Where it loses.**
   - Everything with English. 22 of 36 all-English clips came back mostly in Thai script.
@@ -218,6 +218,14 @@ files with the load, but compare latency with the matched run above.
 | CPU time, 194 clips (14.8 min of audio) | 27.5 s in the speech service + 3.5 s harness (whole clip); 50.5 s streamed in real time (≈6% of one core) | 36 s (Typhoon), 64 s (full pipeline) in the inference helper |
 | Neural Engine | used: the service logs ANE model initialization and holds ANE entitlements. Utilization and power were not measured; `powermetrics` needs root | not used |
 | macOS | 26+ (`SpeechAnalyzer`); Thai only through `DictationTranscriber`, since `SpeechTranscriber` has no Thai. `SFSpeechRecognizer` Thai was server-based when the probe ran; it reports on-device support now that the asset is installed, but was not used | 14+ |
+
+**Memory-accounting limitation:** the Apple memory row is the process's
+accounted physical footprint, not all RAM used by recognition. Follow-up
+Core ML experiments found that Neural Engine model allocations can appear
+under `footprint`'s auxiliary `neural` ledger as `nofootprint`, outside both
+the headline footprint and process RSS. This run did not capture that ledger
+for the speech service. Do not infer that Apple's entire speech model uses
+97 MB, or use this row to calculate total-RAM savings against OLIV.
 
 ## Failure examples (public text only)
 
